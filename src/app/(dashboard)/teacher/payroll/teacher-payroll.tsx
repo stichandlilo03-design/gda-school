@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { addBankAccount, removeBankAccount, setPrimaryAccount, logTeachingSession } from "@/lib/actions/payroll";
+import { addBankAccount, removeBankAccount, setPrimaryAccount } from "@/lib/actions/payroll";
 import { getCountryConfig, ALL_COUNTRIES } from "@/lib/country-payments";
 import { useRouter } from "next/navigation";
 import {
@@ -27,7 +27,6 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
     mobileProvider: "", mobileNumber: "", paypalEmail: "", cryptoAddress: "", cryptoNetwork: "USDT-TRC20",
     countryCode, currency: cc.currency, isPrimary: bankAccounts.length === 0,
   });
-  const [sessionForm, setSessionForm] = useState({ classId: classes[0]?.id || "", date: new Date().toISOString().split("T")[0], hoursWorked: "1", topic: "", notes: "" });
 
   const activeSchool = schools[0];
   const salary = activeSchool?.salary;
@@ -43,8 +42,9 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }), [sessions]);
 
-  const monthlyEarned = currentMonthSessions.reduce((s: number, sess: any) => s + sess.amountEarned, 0);
-  const daysWorked = currentMonthSessions.length;
+  const monthlyEarned = currentMonthSessions.filter((s: any) => s.status === "APPROVED").reduce((s: number, sess: any) => s + sess.amountEarned, 0);
+  const pendingEarned = currentMonthSessions.filter((s: any) => s.status === "PENDING_REVIEW").reduce((s: number, sess: any) => s + sess.amountEarned, 0);
+  const daysWorked = currentMonthSessions.filter((s: any) => ["APPROVED", "PENDING_REVIEW"].includes(s.status)).length;
   const dailyRate = salary ? (salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances) / salary.workingDaysPerMonth : 0;
   const grossMonthly = salary ? salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances : 0;
   const earnPercent = grossMonthly > 0 ? Math.round((monthlyEarned / grossMonthly) * 100) : 0;
@@ -62,20 +62,6 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
   const handleRemove = async (id: string) => { if (!confirm("Remove?")) return; setLoading(id); await removeBankAccount(id); router.refresh(); setLoading(""); };
   const handleSetPrimary = async (id: string) => { setLoading(id); await setPrimaryAccount(id); router.refresh(); setLoading(""); };
 
-  const handleLogSession = async () => {
-    if (!sessionForm.classId) { setMessage("Select a class"); return; }
-    setLoading("session");
-    const result = await logTeachingSession({
-      classId: sessionForm.classId, date: sessionForm.date,
-      hoursWorked: parseFloat(sessionForm.hoursWorked) || 1,
-      topic: sessionForm.topic, notes: sessionForm.notes,
-    });
-    if (result.error) setMessage("Error: " + result.error);
-    else setMessage(`Earned ${salary?.currency || ""} ${fmt(result.earned || 0)} for today's session!`);
-    router.refresh();
-    setLoading("");
-  };
-
   return (
     <div className="space-y-6">
       {message && (
@@ -89,7 +75,7 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
       <div className="flex gap-2 flex-wrap">
         {[
           { key: "earnings", label: "💰 Earnings" },
-          { key: "log", label: "📝 Log Session" },
+          { key: "log", label: "📝 My Sessions" },
           { key: "accounts", label: `🏦 Accounts (${bankAccounts.length})` },
           { key: "payslips", label: `📄 Payslips (${payrolls.length})` },
         ].map((t) => (
@@ -114,10 +100,13 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
               {/* Balance Card */}
               <div className="p-6 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white rounded-2xl">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-emerald-200 text-xs font-medium uppercase">Available Balance — {MONTHS[now.getMonth()]} {now.getFullYear()}</p>
+                  <p className="text-emerald-200 text-xs font-medium uppercase">Approved Earnings — {MONTHS[now.getMonth()]} {now.getFullYear()}</p>
                   <span className="text-emerald-200 text-xs bg-white/20 px-2 py-0.5 rounded-full">{daysWorked} / {salary.workingDaysPerMonth} days worked</span>
                 </div>
-                <div className="text-4xl font-bold mb-2">{salary.currency} {fmt(Math.round(monthlyEarned))}</div>
+                <div className="text-4xl font-bold mb-1">{salary.currency} {fmt(Math.round(monthlyEarned))}</div>
+                {pendingEarned > 0 && (
+                  <p className="text-xs text-emerald-200 mb-2">+ {salary.currency} {fmt(Math.round(pendingEarned))} pending review</p>
+                )}
                 {/* Progress bar */}
                 <div className="w-full bg-white/20 rounded-full h-3 mb-2">
                   <div className="bg-white rounded-full h-3 transition-all duration-500" style={{ width: `${Math.min(100, earnPercent)}%` }} />
@@ -130,12 +119,12 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
 
               {/* How it works */}
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                <h4 className="text-xs font-bold text-blue-800 mb-2">💡 How Earn-As-You-Teach Works</h4>
+                <h4 className="text-xs font-bold text-blue-800 mb-2">💡 How Session Tracking Works</h4>
                 <div className="text-xs text-blue-700 space-y-1">
-                  <p>Your monthly salary of <strong>{salary.currency} {fmt(grossMonthly)}</strong> is divided into <strong>{salary.workingDaysPerMonth} working days</strong>.</p>
-                  <p>Your daily rate is <strong>{salary.currency} {fmt(Math.round(dailyRate))}</strong> per full day.</p>
-                  <p>Each time you teach a class (log a session or mark attendance), your daily rate is credited to your available balance.</p>
-                  <p>At month end, your actual earned amount becomes your payroll — you only get paid for days you taught.</p>
+                  <p>1. <strong>Start Session</strong> — Press Start when you begin teaching. The system records your exact start time.</p>
+                  <p>2. <strong>End Session</strong> — Press End when class finishes. Duration is calculated automatically.</p>
+                  <p>3. <strong>Principal Reviews</strong> — Your session goes to the principal for approval. No self-reporting.</p>
+                  <p>4. <strong>Earn</strong> — Once approved, earnings are credited. 8 hours = full daily rate of {salary.currency} {fmt(Math.round(dailyRate))}.</p>
                 </div>
               </div>
 
@@ -199,55 +188,66 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
         </div>
       )}
 
-      {/* ===================== LOG SESSION TAB ===================== */}
+      {/* ===================== MY SESSIONS TAB ===================== */}
       {tab === "log" && (
         <div className="space-y-4">
-          <div className="card space-y-4">
-            <h3 className="section-title">Log Teaching Session</h3>
-            <p className="text-xs text-gray-500">Log your completed teaching sessions. Your daily rate of <strong>{salary?.currency} {fmt(Math.round(dailyRate))}</strong> will be credited to your balance.</p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Class *</label>
-                <select className="input-field" value={sessionForm.classId} onChange={(e) => setSessionForm((p) => ({ ...p, classId: e.target.value }))}>
-                  <option value="">Select class</option>
-                  {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.schoolGrade.gradeLevel})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Date *</label>
-                <input type="date" className="input-field" value={sessionForm.date} onChange={(e) => setSessionForm((p) => ({ ...p, date: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Hours Worked</label>
-                <select className="input-field" value={sessionForm.hoursWorked} onChange={(e) => setSessionForm((p) => ({ ...p, hoursWorked: e.target.value }))}>
-                  <option value="1">1 hour</option><option value="2">2 hours</option><option value="3">3 hours</option>
-                  <option value="4">4 hours (half day)</option><option value="5">5 hours</option><option value="6">6 hours</option>
-                  <option value="7">7 hours</option><option value="8">8 hours (full day)</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Topic Taught</label>
-                <input className="input-field" placeholder="e.g. Algebra - Quadratic Equations" value={sessionForm.topic} onChange={(e) => setSessionForm((p) => ({ ...p, topic: e.target.value }))} />
-              </div>
-            </div>
-            <textarea className="input-field" rows={2} placeholder="Notes (optional)" value={sessionForm.notes} onChange={(e) => setSessionForm((p) => ({ ...p, notes: e.target.value }))} />
-
-            {/* Earning preview */}
-            {salary && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
-                <span className="text-xs text-emerald-700">You'll earn:</span>
-                <span className="text-lg font-bold text-emerald-700">
-                  {salary.currency} {fmt(Math.round(parseFloat(sessionForm.hoursWorked) >= 8 ? dailyRate : dailyRate * (parseFloat(sessionForm.hoursWorked) / 8)))}
-                </span>
-              </div>
-            )}
-
-            <button onClick={handleLogSession} disabled={loading === "session" || !sessionForm.classId} className="btn-primary text-sm w-full py-3">
-              {loading === "session" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Log Session & Earn
-            </button>
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-xs text-blue-700">Sessions are tracked automatically when you <strong>Start</strong> and <strong>End</strong> classes. Your principal reviews and approves each session before it counts toward your earnings. Use the timer widget at the top to start sessions.</p>
           </div>
+
+          {sessions.length === 0 ? (
+            <div className="card text-center py-12">
+              <Clock className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No sessions recorded yet.</p>
+              <p className="text-xs text-gray-400 mt-1">Start a class from your dashboard or the timer above to begin tracking.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map((s: any) => {
+                const statusMap: Record<string, { bg: string; text: string; label: string }> = {
+                  SCHEDULED: { bg: "bg-gray-100", text: "text-gray-600", label: "Scheduled" },
+                  LIVE: { bg: "bg-red-100", text: "text-red-700", label: "LIVE" },
+                  PENDING_REVIEW: { bg: "bg-amber-100", text: "text-amber-700", label: "Under Review" },
+                  APPROVED: { bg: "bg-emerald-100", text: "text-emerald-700", label: "Approved ✓" },
+                  REJECTED: { bg: "bg-red-100", text: "text-red-700", label: "Rejected ✗" },
+                };
+                const st = statusMap[s.status] || statusMap.SCHEDULED;
+                const cls = classes.find((c: any) => c.id === s.classId);
+                return (
+                  <div key={s.id} className={`card ${s.status === "LIVE" ? "border-red-300 bg-red-50/30" : s.status === "REJECTED" ? "border-red-200 bg-red-50/20" : ""}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${st.bg}`}>
+                        {s.status === "LIVE" ? <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" /> : s.status === "APPROVED" ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Clock className="w-4 h-4 text-gray-500" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-800">{cls?.name || "Session"}</p>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${st.bg} ${st.text}`}>{st.label}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">{new Date(s.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</p>
+                        {s.topic && <p className="text-xs text-gray-600 mt-0.5">Topic: {s.topic}</p>}
+
+                        {/* Timestamps */}
+                        <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500 flex-wrap">
+                          {s.startedAt && <span className="bg-green-50 px-1.5 py-0.5 rounded">▶ {new Date(s.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+                          {s.endedAt && <span className="bg-red-50 px-1.5 py-0.5 rounded">■ {new Date(s.endedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+                          {s.hoursWorked > 0 && <span className="bg-blue-50 px-1.5 py-0.5 rounded font-bold">{s.hoursWorked}h</span>}
+                        </div>
+
+                        {s.reviewNote && <p className="text-[10px] mt-1 px-2 py-1 bg-gray-50 rounded italic text-gray-500">{s.reviewNote}</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-sm font-bold ${s.status === "APPROVED" ? "text-emerald-700" : s.status === "REJECTED" ? "text-red-500 line-through" : "text-gray-600"}`}>
+                          {s.currency} {fmt(Math.round(s.amountEarned))}
+                        </p>
+                        {s.verifiedBy && <p className="text-[9px] text-gray-400 mt-0.5">by {s.verifiedBy}</p>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

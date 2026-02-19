@@ -969,12 +969,17 @@ model TeachingSession {
   schoolTeacherId String
   classId         String?
   date            DateTime @db.Date
-  hoursWorked     Float    @default(1)
+  startedAt       DateTime?
+  endedAt         DateTime?
+  hoursWorked     Float    @default(0)
   dailyRate       Float
-  amountEarned    Float
+  amountEarned    Float    @default(0)
   currency        String   @default("USD")
+  status          String   @default("SCHEDULED")
   verified        Boolean  @default(false)
   verifiedBy      String?
+  verifiedAt      DateTime?
+  reviewNote      String?
   topic           String?
   notes           String?
   createdAt       DateTime @default(now())
@@ -983,4 +988,5 @@ model TeachingSession {
 
   @@unique([schoolTeacherId, classId, date])
   @@index([schoolTeacherId, date])
+  @@index([status])
 }

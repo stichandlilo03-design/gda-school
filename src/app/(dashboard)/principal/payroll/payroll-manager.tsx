@@ -1,21 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { setTeacherSalary, generatePayroll, processPayroll, batchProcessPayroll, cancelPayroll, adjustPayroll, verifySession, bulkVerifySessions, rejectSession } from "@/lib/actions/payroll";
+import { setTeacherSalary, generatePayroll, processPayroll, batchProcessPayroll, cancelPayroll, adjustPayroll } from "@/lib/actions/payroll";
 import { useRouter } from "next/navigation";
 import { Loader2, DollarSign, Users, ChevronDown, ChevronUp, Plus, Check, X, TrendingUp, TrendingDown, CreditCard, Clock, Banknote, AlertCircle, CheckCircle, Calendar, Eye } from "lucide-react";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const STATUS_COLORS: Record<string, string> = { DRAFT: "bg-amber-100 text-amber-700", PENDING: "bg-blue-100 text-blue-700", PAID: "bg-emerald-100 text-emerald-700", FAILED: "bg-red-100 text-red-700", CANCELLED: "bg-gray-100 text-gray-500" };
 
-export default function PayrollManager({ teachers, currency, currentMonth, currentYear }: { teachers: any[]; currency: string; currentMonth: number; currentYear: number }) {
+export default function PayrollManager({ teachers, currency, currentMonth, currentYear, sessionReview }: { teachers: any[]; currency: string; currentMonth: number; currentYear: number; sessionReview?: React.ReactNode }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
   const [tab, setTab] = useState<"overview" | "salaries" | "payroll" | "sessions">("overview");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [salaryForm, setSalaryForm] = useState<Record<string, any>>({});
   const [adjustForm, setAdjustForm] = useState<{ id: string; amount: number; notes: string } | null>(null);
-  const [rejectForm, setRejectForm] = useState<{ id: string; reason: string } | null>(null);
   const [message, setMessage] = useState("");
 
   const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -24,12 +23,12 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
   const teachersWithoutSalary = teachers.filter((t) => !t.salary);
 
   // Calculate totals
-  const totalEarnedThisMonth = teachers.reduce((s, t) => s + t.sessions.reduce((ss: number, sess: any) => ss + sess.amountEarned, 0), 0);
+  const totalEarnedThisMonth = teachers.reduce((s, t) => s + t.sessions.filter((sess: any) => sess.status === "APPROVED").reduce((ss: number, sess: any) => ss + sess.amountEarned, 0), 0);
   const totalFullSalary = teachersWithSalary.reduce((s, t) => {
     const sal = t.salary;
     return s + sal.baseSalary + sal.housingAllowance + sal.transportAllowance + sal.otherAllowances;
   }, 0);
-  const totalUnverified = teachers.reduce((s, t) => s + t.sessions.filter((se: any) => !se.verified).length, 0);
+  const totalUnverified = teachers.reduce((s, t) => s + t.sessions.filter((se: any) => se.status === "PENDING_REVIEW").length, 0);
 
   const initSalaryForm = (stId: string, existing?: any) => {
     setSalaryForm({
@@ -55,9 +54,6 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
   const handlePay = async (id: string) => { setLoading(id); await processPayroll(id); router.refresh(); setLoading(""); };
   const handleCancel = async (id: string) => { setLoading(id); await cancelPayroll(id); router.refresh(); setLoading(""); };
   const handleAdjust = async () => { if (!adjustForm) return; setLoading("adj"); await adjustPayroll(adjustForm.id, adjustForm.amount, adjustForm.notes); setAdjustForm(null); router.refresh(); setLoading(""); };
-  const handleVerify = async (id: string) => { setLoading(id); await verifySession(id); router.refresh(); setLoading(""); };
-  const handleBulkVerify = async (ids: string[]) => { setLoading("bulkv"); await bulkVerifySessions(ids); router.refresh(); setLoading(""); };
-  const handleReject = async () => { if (!rejectForm) return; setLoading("rej"); await rejectSession(rejectForm.id, rejectForm.reason); setRejectForm(null); router.refresh(); setLoading(""); };
 
   return (
     <div className="space-y-6">
@@ -68,7 +64,7 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
         {[
           { key: "overview", label: "📊 Overview" },
           { key: "salaries", label: `💰 Salaries (${teachers.length})` },
-          { key: "sessions", label: `📝 Sessions (${totalUnverified} unverified)` },
+          { key: "sessions", label: `📝 Sessions (${totalUnverified} pending)` },
           { key: "payroll", label: `💳 Payroll — ${MONTHS[currentMonth - 1]}` },
         ].map((t) => (
           <button key={t.key} onClick={() => setTab(t.key as any)} className={`text-xs px-5 py-2.5 rounded-lg font-medium ${tab === t.key ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600"}`}>{t.label}</button>
@@ -193,59 +189,8 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
 
       {/* ===================== SESSIONS ===================== */}
       {tab === "sessions" && (
-        <div className="space-y-4">
-          {totalUnverified > 0 && (
-            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
-              <span className="text-xs text-amber-700 font-medium">{totalUnverified} unverified session(s)</span>
-              <button onClick={() => {
-                const ids = teachers.flatMap((t: any) => t.sessions.filter((s: any) => !s.verified).map((s: any) => s.id));
-                handleBulkVerify(ids);
-              }} disabled={loading === "bulkv"} className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-medium">
-                {loading === "bulkv" ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3 inline mr-1" /> Verify All</>}
-              </button>
-            </div>
-          )}
-
-          {teachers.map((t: any) => {
-            if (t.sessions.length === 0) return null;
-            return (
-              <div key={t.id} className="card">
-                <h4 className="text-sm font-semibold mb-3">{t.teacher.user.name} — {t.sessions.length} session(s)</h4>
-                <div className="space-y-2">
-                  {t.sessions.map((s: any) => (
-                    <div key={s.id} className="flex items-center gap-3 py-2 border-b border-gray-50">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${s.verified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
-                        {s.verified ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-medium">{s.topic || "Teaching session"}</p>
-                        <p className="text-[10px] text-gray-500">{new Date(s.date).toLocaleDateString()} • {s.hoursWorked}h {s.verified ? `• Verified by ${s.verifiedBy}` : ""}</p>
-                        {s.notes?.startsWith("REJECTED") && <p className="text-[10px] text-red-500">{s.notes}</p>}
-                      </div>
-                      <span className="text-sm font-bold text-emerald-600">{s.currency} {fmt(s.amountEarned)}</span>
-                      {!s.verified && (
-                        <div className="flex gap-1">
-                          <button onClick={() => handleVerify(s.id)} disabled={loading === s.id} className="text-[10px] px-2 py-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100"><Check className="w-3 h-3" /></button>
-                          <button onClick={() => setRejectForm({ id: s.id, reason: "" })} className="text-[10px] px-2 py-1 rounded bg-red-50 text-red-500 hover:bg-red-100"><X className="w-3 h-3" /></button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          {rejectForm && (
-            <div className="card bg-red-50 border-red-200">
-              <h4 className="text-sm font-semibold text-red-800 mb-2">Reject Session</h4>
-              <input className="input-field" placeholder="Reason for rejection" value={rejectForm.reason} onChange={(e) => setRejectForm({ ...rejectForm, reason: e.target.value })} />
-              <div className="flex gap-2 mt-2">
-                <button onClick={handleReject} disabled={loading === "rej" || !rejectForm.reason} className="text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white">{loading === "rej" ? <Loader2 className="w-3 h-3 animate-spin" /> : "Reject"}</button>
-                <button onClick={() => setRejectForm(null)} className="btn-ghost text-xs">Cancel</button>
-              </div>
-            </div>
-          )}
+        <div>
+          {sessionReview || <p className="text-sm text-gray-500 p-8 text-center">No session tracking available.</p>}
         </div>
       )}
 
@@ -253,7 +198,7 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
       {tab === "payroll" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">Payroll for {MONTHS[currentMonth - 1]} {currentYear} — based on earned sessions</p>
+            <p className="text-sm text-gray-500">Payroll for {MONTHS[currentMonth - 1]} {currentYear} — based on approved sessions</p>
             <div className="flex gap-2">
               <button onClick={handleGeneratePayroll} disabled={loading === "gen"} className="btn-primary text-xs">{loading === "gen" ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />} Generate</button>
               <button onClick={handleBatchPay} disabled={loading === "batch"} className="text-xs px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium">{loading === "batch" ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Banknote className="w-3 h-3 mr-1" />} Pay All</button>
