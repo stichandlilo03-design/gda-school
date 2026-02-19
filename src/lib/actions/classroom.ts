@@ -60,6 +60,9 @@ export async function markAttendance(data: {
     where: { classId: data.classId, studentId: data.studentId, date: dateOnly },
   });
 
+  const cls = await db.class.findUnique({ where: { id: data.classId }, select: { session: true } });
+  const classSession = cls?.session || "SESSION_A";
+
   if (existing) {
     await db.attendanceRecord.update({
       where: { id: existing.id },
@@ -71,6 +74,7 @@ export async function markAttendance(data: {
         classId: data.classId,
         studentId: data.studentId,
         date: dateOnly,
+        session: classSession,
         status: data.status as any,
         joinedAt: data.status === "PRESENT" || data.status === "LATE" ? new Date() : null,
       },
@@ -89,6 +93,9 @@ export async function bulkMarkAttendance(classId: string, records: { studentId: 
   const dateOnly = new Date();
   dateOnly.setHours(0, 0, 0, 0);
 
+  const cls = await db.class.findUnique({ where: { id: classId }, select: { session: true } });
+  const classSession = cls?.session || "SESSION_A";
+
   for (const rec of records) {
     const existing = await db.attendanceRecord.findFirst({
       where: { classId, studentId: rec.studentId, date: dateOnly },
@@ -102,6 +109,7 @@ export async function bulkMarkAttendance(classId: string, records: { studentId: 
       await db.attendanceRecord.create({
         data: {
           classId, studentId: rec.studentId, date: dateOnly,
+          session: classSession,
           status: rec.status as any,
           joinedAt: rec.status === "PRESENT" || rec.status === "LATE" ? new Date() : null,
         },
@@ -198,8 +206,10 @@ export async function studentJoinClass(classId: string) {
       data: { status: status as any, joinedAt: new Date() },
     });
   } else {
+    const cls = await db.class.findUnique({ where: { id: classId }, select: { session: true } });
+    const classSession = cls?.session || "SESSION_A";
     await db.attendanceRecord.create({
-      data: { classId, studentId: student.id, date: dateOnly, status: status as any, joinedAt: new Date() },
+      data: { classId, studentId: student.id, date: dateOnly, session: classSession, status: status as any, joinedAt: new Date() },
     });
   }
 
