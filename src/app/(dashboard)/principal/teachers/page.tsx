@@ -1,21 +1,34 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import TeacherManager from "./teacher-manager";
 
-export default function Page() {
+export default async function TeachersPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+
+  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
+  if (!principal) return null;
+
+  const schoolTeachers = await db.schoolTeacher.findMany({
+    where: { schoolId: principal.schoolId },
+    include: {
+      teacher: {
+        include: {
+          user: { select: { name: true, email: true, image: true, phone: true } },
+          classes: { where: { isActive: true }, include: { enrollments: { where: { status: "ACTIVE" } } } },
+        },
+      },
+    },
+    orderBy: { hiredAt: "desc" },
+  });
+
   return (
     <>
-      <DashboardHeader title="Teacher Management" subtitle="Hire and manage teachers" />
+      <DashboardHeader title="Teacher Management" subtitle="Hire, manage, and review teachers" />
       <div className="p-6 lg:p-8">
-        <div className="card">
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Teacher Management</h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">Review teacher applications, manage existing teachers, and monitor performance.</p>
-          </div>
-        </div>
+        <TeacherManager teachers={JSON.parse(JSON.stringify(schoolTeachers))} />
       </div>
     </>
   );

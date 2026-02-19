@@ -1,21 +1,69 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import { Users, BookOpen } from "lucide-react";
 
-export default function Page() {
+export default async function TeacherStudentsPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+
+  const teacher = await db.teacher.findUnique({
+    where: { userId: session.user.id },
+    include: {
+      classes: {
+        where: { isActive: true },
+        include: {
+          enrollments: {
+            where: { status: "ACTIVE" },
+            include: { student: { include: { user: { select: { name: true, email: true } } } } },
+          },
+          schoolGrade: true,
+        },
+      },
+    },
+  });
+
+  const allStudents = new Map<string, { student: any; classes: string[] }>();
+  teacher?.classes.forEach((c) => {
+    c.enrollments.forEach((e) => {
+      if (allStudents.has(e.student.id)) {
+        allStudents.get(e.student.id)!.classes.push(c.name);
+      } else {
+        allStudents.set(e.student.id, { student: e.student, classes: [c.name] });
+      }
+    });
+  });
+
   return (
     <>
-      <DashboardHeader title="My Students" subtitle="View enrolled students" />
+      <DashboardHeader title="My Students" subtitle={`${allStudents.size} student(s) across all classes`} />
       <div className="p-6 lg:p-8">
-        <div className="card">
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">My Students</h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">View and manage students enrolled across all your classes.</p>
+        {allStudents.size === 0 ? (
+          <div className="card text-center py-12">
+            <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No students enrolled yet. Students will appear here once they enroll in your classes.</p>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            {Array.from(allStudents.values()).map(({ student, classes }) => (
+              <div key={student.id} className="card flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                  {student.user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800">{student.user.name}</p>
+                  <p className="text-xs text-gray-500">{student.user.email} • {student.gradeLevel}</p>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {classes.map((c, i) => (
+                    <span key={i} className="badge-info text-[10px]">{c}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );

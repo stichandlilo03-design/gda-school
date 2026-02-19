@@ -1,21 +1,30 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import StudentManager from "./student-manager";
 
-export default function Page() {
+export default async function StudentsPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+
+  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
+  if (!principal) return null;
+
+  const students = await db.student.findMany({
+    where: { schoolId: principal.schoolId },
+    include: {
+      user: { select: { name: true, email: true, image: true, isActive: true, createdAt: true } },
+      enrollments: { where: { status: "ACTIVE" } },
+    },
+    orderBy: { enrolledAt: "desc" },
+  });
+
   return (
     <>
-      <DashboardHeader title="Student Management" subtitle="All enrolled students" />
+      <DashboardHeader title="Student Management" subtitle={`${students.length} students enrolled`} />
       <div className="p-6 lg:p-8">
-        <div className="card">
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Student Management</h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">View all students enrolled in your school. Manage suspensions and promotions.</p>
-          </div>
-        </div>
+        <StudentManager students={JSON.parse(JSON.stringify(students))} />
       </div>
     </>
   );

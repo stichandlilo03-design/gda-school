@@ -1,21 +1,35 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import FeeManager from "./fee-manager";
 
-export default function Page() {
+export default async function FeesPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+
+  const principal = await db.principal.findUnique({
+    where: { userId: session.user.id },
+    include: { school: true },
+  });
+  if (!principal) return null;
+
+  const grades = await db.schoolGrade.findMany({
+    where: { schoolId: principal.schoolId },
+    orderBy: { gradeLevel: "asc" },
+  });
+
+  const fees = await db.feeStructure.findMany({
+    where: { schoolId: principal.schoolId },
+    include: { schoolGrade: true },
+    orderBy: { term: "asc" },
+  });
+
   return (
     <>
-      <DashboardHeader title="School Fees" subtitle="Configure fee structures" />
+      <DashboardHeader title="School Fees" subtitle={`Currency: ${principal.school.currency}`} />
       <div className="p-6 lg:p-8">
-        <div className="card">
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">School Fees</h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">Set tuition, registration, exam, and technology fees for each grade level and term.</p>
-          </div>
-        </div>
+        <FeeManager grades={JSON.parse(JSON.stringify(grades))} fees={JSON.parse(JSON.stringify(fees))} currency={principal.school.currency} />
       </div>
     </>
   );

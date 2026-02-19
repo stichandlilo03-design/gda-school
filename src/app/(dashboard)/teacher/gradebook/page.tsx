@@ -1,21 +1,32 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import GradebookManager from "./gradebook-manager";
 
-export default function Page() {
+export default async function GradebookPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) return null;
+
+  const teacher = await db.teacher.findUnique({
+    where: { userId: session.user.id },
+    include: {
+      classes: {
+        where: { isActive: true },
+        include: {
+          enrollments: { where: { status: "ACTIVE" }, include: { student: { include: { user: { select: { name: true } } } } } },
+          assessments: { include: { scores: true }, orderBy: { createdAt: "desc" } },
+          schoolGrade: true,
+        },
+      },
+    },
+  });
+
   return (
     <>
-      <DashboardHeader title="Gradebook" subtitle="Enter and manage student grades" />
+      <DashboardHeader title="Gradebook" subtitle="Create assessments and enter student grades" />
       <div className="p-6 lg:p-8">
-        <div className="card">
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Gradebook</h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto">Enter CA scores, test results, and exam grades for your students.</p>
-          </div>
-        </div>
+        <GradebookManager classes={JSON.parse(JSON.stringify(teacher?.classes || []))} />
       </div>
     </>
   );
