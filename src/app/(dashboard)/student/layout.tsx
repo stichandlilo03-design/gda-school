@@ -2,22 +2,18 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
-import {
-  LayoutDashboard, BookOpen, Calendar, Award, FolderOpen,
-  BarChart3, MessageSquare, CreditCard, UserCheck, Play
-} from "lucide-react";
 
 const studentLinks = [
-  { href: "/student", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/student/classroom", icon: Play, label: "My Classroom" },
-  { href: "/student/teachers", icon: BookOpen, label: "Browse Classes" },
-  { href: "/student/schedule", icon: Calendar, label: "My Schedule" },
-  { href: "/student/grades", icon: BarChart3, label: "My Grades" },
-  { href: "/student/attendance", icon: UserCheck, label: "Attendance" },
-  { href: "/student/materials", icon: FolderOpen, label: "Materials" },
-  { href: "/student/messages", icon: MessageSquare, label: "Messages" },
-  { href: "/student/fees", icon: CreditCard, label: "School Fees" },
-  { href: "/student/certificates", icon: Award, label: "Certificates" },
+  { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
+  { href: "/student/classroom", icon: "Play", label: "My Classroom" },
+  { href: "/student/teachers", icon: "BookOpen", label: "Browse Classes" },
+  { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
+  { href: "/student/schedule", icon: "Clock", label: "My Schedule" },
+  { href: "/student/grades", icon: "ClipboardList", label: "My Grades" },
+  { href: "/student/attendance", icon: "UserCheck", label: "Attendance" },
+  { href: "/student/materials", icon: "FolderOpen", label: "Materials" },
+  { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
+  { href: "/student/certificates", icon: "Award", label: "Certificates" },
 ];
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {

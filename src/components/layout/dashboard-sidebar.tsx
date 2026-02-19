@@ -5,14 +5,14 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
-  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase, Monitor,
-  CreditCard, MessageSquare, User
+  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase,
+  Monitor, CreditCard, MessageSquare, Building2, Play, User, Shield
 } from "lucide-react";
 
 const iconMap: Record<string, any> = {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
   ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor, CreditCard,
-  MessageSquare, User,
+  MessageSquare, Building2, Play, User, Shield,
 };
 
 interface SidebarProps {
@@ -81,9 +81,7 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
           <div className="p-4 border-t border-gray-100">
             <div className="flex items-center gap-3 mb-3">
               {user.image ? (
-                <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-gray-200">
-                  <img src={user.image} alt="" className="w-full h-full object-cover" />
-                </div>
+                <img src={user.image} alt="" className="w-9 h-9 rounded-full object-cover" />
               ) : (
                 <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
                   {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}

@@ -2,11 +2,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
-import MaterialsList from "./materials-list";
+import StudentMaterialsClient from "./materials-client";
 
-export default async function MaterialsPage() {
+export default async function StudentMaterialsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ classId?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session) return null;
+
+  const params = await searchParams;
+  const classIdFilter = params.classId;
 
   const student = await db.student.findUnique({
     where: { userId: session.user.id },
@@ -16,11 +23,10 @@ export default async function MaterialsPage() {
         include: {
           class: {
             include: {
-              teacher: { include: { user: { select: { name: true } } } },
-              schoolGrade: true,
               materials: {
                 where: { isPublished: true },
                 orderBy: { createdAt: "desc" },
+                include: { teacher: { include: { user: { select: { name: true } } } } },
               },
             },
           },
@@ -31,24 +37,24 @@ export default async function MaterialsPage() {
 
   if (!student) return null;
 
-  const allMaterials = student.enrollments.flatMap((e) =>
-    e.class.materials.map((m: any) => ({
-      ...m,
-      className: e.class.name,
-      teacherName: e.class.teacher.user.name,
-      grade: e.class.schoolGrade.gradeLevel,
-    }))
-  ).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const allClasses = student.enrollments.map((e) => ({
+    id: e.class.id,
+    name: e.class.name,
+    materialCount: e.class.materials.length,
+  }));
 
-  const classNames = [...new Set(student.enrollments.map((e) => e.class.name))];
+  const allMaterials = student.enrollments.flatMap((e) =>
+    e.class.materials.map((m) => ({ ...m, className: e.class.name }))
+  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
     <>
-      <DashboardHeader title="Learning Materials" subtitle="Resources from your enrolled classes" />
+      <DashboardHeader title="Class Materials" subtitle={`${allMaterials.length} materials from ${allClasses.length} classes`} />
       <div className="p-6 lg:p-8">
-        <MaterialsList
+        <StudentMaterialsClient
           materials={JSON.parse(JSON.stringify(allMaterials))}
-          classNames={classNames}
+          classes={allClasses}
+          initialClassFilter={classIdFilter || ""}
         />
       </div>
     </>
