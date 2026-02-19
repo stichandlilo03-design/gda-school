@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import Link from "next/link";
-import { Users, GraduationCap, BookOpen, DollarSign, Clock, AlertCircle, CheckCircle, ArrowRight } from "lucide-react";
+import { Users, GraduationCap, BookOpen, DollarSign, Clock, AlertCircle, ArrowRight, Briefcase, Calendar } from "lucide-react";
 
 export default async function PrincipalDashboard() {
   const session = await getServerSession(authOptions);
@@ -17,6 +17,7 @@ export default async function PrincipalDashboard() {
           students: true,
           teachers: true,
           grades: true,
+          vacancies: { where: { status: "OPEN" }, include: { _count: { select: { applications: true } } } },
         },
       },
     },
@@ -25,40 +26,60 @@ export default async function PrincipalDashboard() {
   if (!principal) return <div className="p-8">Principal profile not found.</div>;
 
   const school = principal.school;
-  const pendingStudents = school.students.filter((s) => s.approvalStatus === "PENDING").length;
+  const pendingStudents = school.students.filter((s) => s.approvalStatus === "PENDING" || s.approvalStatus === "INTERVIEW_SCHEDULED" || s.approvalStatus === "INTERVIEWED").length;
   const approvedStudents = school.students.filter((s) => s.approvalStatus === "APPROVED").length;
-  const pendingTeachers = school.teachers.filter((t) => t.status === "PENDING").length;
+  const pendingTeachers = school.teachers.filter((t) => t.status === "PENDING" || t.status === "INTERVIEW_SCHEDULED" || t.status === "INTERVIEWED").length;
   const activeTeachers = school.teachers.filter((t) => t.status === "APPROVED" && t.isActive).length;
+  const openVacancies = school.vacancies.length;
+  const totalApplications = school.vacancies.reduce((sum, v) => sum + v._count.applications, 0);
+
+  // Count scheduled interviews
+  const scheduledInterviews = await db.interview.count({
+    where: {
+      status: "SCHEDULED",
+      OR: [
+        { student: { schoolId: principal.schoolId } },
+        { schoolTeacher: { schoolId: principal.schoolId } },
+        { vacancyApp: { vacancy: { schoolId: principal.schoolId } } },
+      ],
+    },
+  });
 
   return (
     <>
-      <DashboardHeader title={`Welcome back!`} subtitle={school.name} />
+      <DashboardHeader title="Welcome back!" subtitle={school.name} />
       <div className="p-6 lg:p-8 space-y-8">
         {/* Pending Alerts */}
-        {(pendingStudents > 0 || pendingTeachers > 0) && (
+        {(pendingStudents > 0 || pendingTeachers > 0 || scheduledInterviews > 0) && (
           <div className="space-y-3">
             {pendingStudents > 0 && (
               <Link href="/principal/students" className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
+                <div className="w-10 h-10 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center"><AlertCircle className="w-5 h-5" /></div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-amber-800">{pendingStudents} Student Application{pendingStudents > 1 ? "s" : ""} Pending</h3>
-                  <p className="text-xs text-amber-600">Review and approve or reject student registrations</p>
+                  <h3 className="text-sm font-semibold text-amber-800">{pendingStudents} Student{pendingStudents > 1 ? "s" : ""} Pending Review</h3>
+                  <p className="text-xs text-amber-600">Approve, schedule interviews, or reject student applications</p>
                 </div>
                 <ArrowRight className="w-5 h-5 text-amber-500" />
               </Link>
             )}
             {pendingTeachers > 0 && (
               <Link href="/principal/teachers" className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
+                <div className="w-10 h-10 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center"><AlertCircle className="w-5 h-5" /></div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-blue-800">{pendingTeachers} Teacher Request{pendingTeachers > 1 ? "s" : ""} Pending</h3>
-                  <p className="text-xs text-blue-600">Review teacher requests to join your school</p>
+                  <h3 className="text-sm font-semibold text-blue-800">{pendingTeachers} Teacher{pendingTeachers > 1 ? "s" : ""} Pending Review</h3>
+                  <p className="text-xs text-blue-600">Review teacher requests, schedule interviews, approve or reject</p>
                 </div>
                 <ArrowRight className="w-5 h-5 text-blue-500" />
+              </Link>
+            )}
+            {scheduledInterviews > 0 && (
+              <Link href="/principal/interviews" className="flex items-center gap-4 p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-purple-200 text-purple-700 flex items-center justify-center"><Calendar className="w-5 h-5" /></div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-purple-800">{scheduledInterviews} Interview{scheduledInterviews > 1 ? "s" : ""} Scheduled</h3>
+                  <p className="text-xs text-purple-600">Join meetings, submit evaluations, and review results</p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-purple-500" />
               </Link>
             )}
           </div>
@@ -83,14 +104,17 @@ export default async function PrincipalDashboard() {
             <div className="text-xs text-gray-500 mt-1">Active Teachers</div>
           </div>
           <div className="stat-card">
+            <div className="flex items-center justify-between mb-2">
+              <Briefcase className="w-8 h-8 text-purple-500" />
+              {totalApplications > 0 && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">{totalApplications} apps</span>}
+            </div>
+            <div className="text-2xl font-bold text-gray-900">{openVacancies}</div>
+            <div className="text-xs text-gray-500 mt-1">Open Vacancies</div>
+          </div>
+          <div className="stat-card">
             <BookOpen className="w-8 h-8 text-amber-500 mb-2" />
             <div className="text-2xl font-bold text-gray-900">{school.grades.length}</div>
             <div className="text-xs text-gray-500 mt-1">Grade Levels</div>
-          </div>
-          <div className="stat-card">
-            <DollarSign className="w-8 h-8 text-purple-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{school.currency}</div>
-            <div className="text-xs text-gray-500 mt-1">Currency</div>
           </div>
         </div>
 
@@ -101,16 +125,18 @@ export default async function PrincipalDashboard() {
             {[
               { href: "/principal/students", label: "Review Students", icon: GraduationCap, badge: pendingStudents },
               { href: "/principal/teachers", label: "Manage Teachers", icon: Users, badge: pendingTeachers },
-              { href: "/principal/curriculum", label: "Setup Curriculum", icon: BookOpen },
+              { href: "/principal/interviews", label: "Interviews", icon: Calendar, badge: scheduledInterviews },
+              { href: "/principal/vacancies", label: "Vacancies", icon: Briefcase, badge: totalApplications },
+              { href: "/principal/curriculum", label: "Curriculum", icon: BookOpen },
               { href: "/principal/fees", label: "Set Fees", icon: DollarSign },
+              { href: "/principal/reports", label: "Reports", icon: BookOpen },
+              { href: "/principal/settings", label: "Settings", icon: BookOpen },
             ].map((action) => (
               <Link key={action.href} href={action.href} className="relative flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                 <action.icon className="w-6 h-6 text-brand-500" />
                 <span className="text-xs font-medium text-gray-700 text-center">{action.label}</span>
                 {action.badge && action.badge > 0 && (
-                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                    {action.badge}
-                  </span>
+                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">{action.badge}</span>
                 )}
               </Link>
             ))}

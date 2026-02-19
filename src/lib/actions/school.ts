@@ -9,7 +9,6 @@ import { revalidatePath } from "next/cache";
 // TEACHER APPROVAL / MANAGEMENT
 // ============================================================
 
-// Principal invites a teacher by email
 export async function inviteTeacherToSchool(teacherEmail: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -30,8 +29,7 @@ export async function inviteTeacherToSchool(teacherEmail: string) {
 
   if (existing) {
     if (existing.status === "APPROVED" && existing.isActive) return { error: "Teacher is already in your school." };
-    if (existing.status === "PENDING") return { error: "Teacher already has a pending request." };
-    // Reinstate or re-invite
+    if (existing.status === "PENDING" || existing.status === "INTERVIEW_SCHEDULED") return { error: "Teacher already has a pending request." };
     await db.schoolTeacher.update({
       where: { id: existing.id },
       data: { status: "APPROVED", isActive: true, requestedBy: "PRINCIPAL" },
@@ -54,7 +52,6 @@ export async function inviteTeacherToSchool(teacherEmail: string) {
   return { success: true, message: "Teacher invited and added to your school!" };
 }
 
-// Approve a teacher's request
 export async function approveTeacher(schoolTeacherId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -69,7 +66,6 @@ export async function approveTeacher(schoolTeacherId: string) {
   return { success: true };
 }
 
-// Reject a teacher's request
 export async function rejectTeacher(schoolTeacherId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -84,7 +80,6 @@ export async function rejectTeacher(schoolTeacherId: string) {
   return { success: true };
 }
 
-// Remove an active teacher
 export async function removeTeacherFromSchool(schoolTeacherId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -94,7 +89,6 @@ export async function removeTeacherFromSchool(schoolTeacherId: string) {
   return { success: true };
 }
 
-// Reinstate a removed teacher
 export async function reinstateTeacher(schoolTeacherId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -108,7 +102,6 @@ export async function reinstateTeacher(schoolTeacherId: string) {
 // STUDENT APPROVAL / MANAGEMENT
 // ============================================================
 
-// Approve a student application
 export async function approveStudent(studentId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -123,7 +116,6 @@ export async function approveStudent(studentId: string) {
   return { success: true };
 }
 
-// Reject a student application
 export async function rejectStudent(studentId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -138,7 +130,6 @@ export async function rejectStudent(studentId: string) {
   return { success: true };
 }
 
-// Suspend an approved student
 export async function suspendStudent(studentId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -155,7 +146,6 @@ export async function suspendStudent(studentId: string) {
   return { success: true };
 }
 
-// Reinstate a suspended student
 export async function reinstateStudent(studentId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -173,7 +163,7 @@ export async function reinstateStudent(studentId: string) {
 }
 
 // ============================================================
-// SCHOOL SETTINGS (unchanged)
+// SCHOOL SETTINGS
 // ============================================================
 export async function updateSchoolSettings(data: {
   name: string;
