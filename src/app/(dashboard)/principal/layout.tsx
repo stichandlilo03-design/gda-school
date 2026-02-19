@@ -3,19 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 import { db } from "@/lib/db";
-import {
-  LayoutDashboard, Users, GraduationCap, DollarSign, BookOpen,
-  BarChart3, Settings, Shield, Award,
-} from "lucide-react";
 
 const principalLinks = [
-  { href: "/principal", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/principal/teachers", icon: Users, label: "Teachers" },
-  { href: "/principal/students", icon: GraduationCap, label: "Students" },
-  { href: "/principal/fees", icon: DollarSign, label: "School Fees" },
-  { href: "/principal/curriculum", icon: BookOpen, label: "Curriculum" },
-  { href: "/principal/reports", icon: BarChart3, label: "Reports" },
-  { href: "/principal/settings", icon: Settings, label: "School Settings" },
+  { href: "/principal", icon: "LayoutDashboard", label: "Dashboard" },
+  { href: "/principal/teachers", icon: "Users", label: "Teachers" },
+  { href: "/principal/students", icon: "GraduationCap", label: "Students" },
+  { href: "/principal/fees", icon: "DollarSign", label: "School Fees" },
+  { href: "/principal/curriculum", icon: "BookOpen", label: "Curriculum" },
+  { href: "/principal/reports", icon: "BarChart3", label: "Reports" },
+  { href: "/principal/settings", icon: "Settings", label: "School Settings" },
 ];
 
 export default async function PrincipalLayout({ children }: { children: React.ReactNode }) {

@@ -5,15 +5,22 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   GraduationCap, LayoutDashboard, BookOpen, Users, Calendar, Award, Settings,
-  LogOut, ChevronDown, Bell, ClipboardList, BarChart3, DollarSign,
-  UserCheck, BookMarked, FolderOpen, Clock, Menu, X, School,
+  LogOut, Bell, ClipboardList, BarChart3, DollarSign,
+  UserCheck, BookMarked, FolderOpen, Clock, Menu, X, Star, Shield,
 } from "lucide-react";
 import { useState } from "react";
 import { cn, getInitials } from "@/lib/utils";
 
+// Icon map - resolves string names to components
+const iconMap: Record<string, any> = {
+  LayoutDashboard, BookOpen, Users, Calendar, Award, Settings,
+  ClipboardList, BarChart3, DollarSign, UserCheck, BookMarked,
+  FolderOpen, Clock, Star, Shield, GraduationCap,
+};
+
 interface SidebarLink {
   href: string;
-  icon: any;
+  icon: string; // Now a string name, not a component
   label: string;
 }
 
@@ -52,6 +59,7 @@ export default function DashboardSidebar({ user, links, schoolName }: DashboardS
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {links.map((link) => {
           const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+          const IconComponent = iconMap[link.icon] || LayoutDashboard;
           return (
             <Link
               key={link.href}
@@ -64,7 +72,7 @@ export default function DashboardSidebar({ user, links, schoolName }: DashboardS
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
             >
-              <link.icon className={cn("w-[18px] h-[18px]", isActive ? "text-brand-600" : "text-gray-400")} />
+              <IconComponent className={cn("w-[18px] h-[18px]", isActive ? "text-brand-600" : "text-gray-400")} />
               {link.label}
             </Link>
           );
