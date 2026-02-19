@@ -21,7 +21,7 @@ export default function InterviewManager({ interviews, schoolCurrency }: { inter
   const [tab, setTab] = useState<"scheduled" | "completed" | "all">("scheduled");
   const [scoreForm, setScoreForm] = useState<Record<string, any>>({});
   const [salaryFor, setSalaryFor] = useState<string | null>(null);
-  const [salaryForm, setSalaryForm] = useState({ baseSalary: 0, currency: schoolCurrency || "USD", payFrequency: "MONTHLY", housingAllowance: 0, transportAllowance: 0, otherAllowances: 0, taxRate: 0, pensionRate: 0, otherDeductions: 0, notes: "" });
+  const [salaryForm, setSalaryForm] = useState({ baseSalary: 0, currency: schoolCurrency || "USD", payFrequency: "MONTHLY", workingDaysPerMonth: 22, housingAllowance: 0, transportAllowance: 0, otherAllowances: 0, taxRate: 0, pensionRate: 0, otherDeductions: 0, notes: "" });
 
   const scheduled = interviews.filter((i) => i.status === "SCHEDULED");
   const completed = interviews.filter((i) => i.status === "COMPLETED");
