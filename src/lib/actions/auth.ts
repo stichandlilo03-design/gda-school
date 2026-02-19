@@ -62,7 +62,7 @@ export async function registerStudent(data: {
 }
 
 // ============================================================
-// REGISTER TEACHER — can optionally request to join a school
+// REGISTER TEACHER — subjects, grades, optional school
 // ============================================================
 export async function registerTeacher(data: {
   name: string;
@@ -73,6 +73,8 @@ export async function registerTeacher(data: {
   yearsExperience: number;
   teachingStyle: string;
   qualifications: string[];
+  subjects?: string[];
+  preferredGrades?: string[];
   schoolId?: string;
 }) {
   try {
@@ -98,10 +100,11 @@ export async function registerTeacher(data: {
         yearsExperience: data.yearsExperience,
         teachingStyle: data.teachingStyle,
         qualifications: data.qualifications,
+        subjects: data.subjects || [],
+        preferredGrades: data.preferredGrades || [],
       },
     });
 
-    // If teacher selected a school, create a pending request
     if (data.schoolId) {
       const school = await db.school.findUnique({ where: { id: data.schoolId } });
       if (school) {
@@ -111,6 +114,7 @@ export async function registerTeacher(data: {
             schoolId: data.schoolId,
             status: "PENDING",
             requestedBy: "TEACHER",
+            subjectsAppliedFor: data.subjects || [],
           },
         });
       }
@@ -128,7 +132,7 @@ export async function registerTeacher(data: {
 }
 
 // ============================================================
-// REGISTER PRINCIPAL — creates school (unchanged)
+// REGISTER PRINCIPAL — creates school
 // ============================================================
 export async function registerPrincipal(data: {
   name: string;

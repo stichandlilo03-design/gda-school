@@ -4,7 +4,7 @@ import { useState } from "react";
 import { inviteTeacherToSchool, approveTeacher, rejectTeacher, removeTeacherFromSchool, reinstateTeacher } from "@/lib/actions/school";
 import { scheduleTeacherInterview } from "@/lib/actions/interview";
 import { useRouter } from "next/navigation";
-import { Plus, UserX, UserCheck, Loader2, Users, Star, BookOpen, Mail, Clock, XCircle, CheckCircle, Calendar } from "lucide-react";
+import { Plus, UserX, UserCheck, Loader2, Users, Star, BookOpen, Mail, Clock, XCircle, CheckCircle, Calendar, GraduationCap } from "lucide-react";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING: { label: "Pending", color: "bg-amber-100 text-amber-700" },
@@ -47,9 +47,14 @@ export default function TeacherManager({ pending, approved, rejected }: { pendin
   const TeacherCard = ({ st, actions }: { st: any; actions: React.ReactNode }) => {
     const statusInfo = STATUS_LABELS[st.status] || STATUS_LABELS.PENDING;
     const lastInterview = st.interviews?.[0];
+    const teacherSubjects = (st.teacher.subjects as string[]) || [];
+    const teacherGrades = (st.teacher.preferredGrades as string[]) || [];
+    const appliedSubjects = (st.subjectsAppliedFor as string[]) || [];
+    const qualifications = (st.teacher.qualifications as string[]) || [];
+
     return (
       <div className="card">
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">
             {st.teacher.user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
           </div>
@@ -57,9 +62,9 @@ export default function TeacherManager({ pending, approved, rejected }: { pendin
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="text-sm font-semibold text-gray-800">{st.teacher.user.name}</h4>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusInfo.color}`}>{statusInfo.label}</span>
-              {st.requestedBy === "TEACHER" && st.status === "PENDING" && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Requested</span>}
+              {st.requestedBy === "TEACHER" && st.status === "PENDING" && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Applied</span>}
             </div>
-            <p className="text-xs text-gray-500">{st.teacher.user.email}</p>
+            <p className="text-xs text-gray-500">{st.teacher.user.email} • {st.teacher.user.countryCode}</p>
             <div className="flex items-center gap-4 mt-1 text-xs text-gray-400 flex-wrap">
               <span>{st.teacher.yearsExperience} yrs exp</span>
               <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {st.teacher.classes.length} classes</span>
@@ -73,13 +78,58 @@ export default function TeacherManager({ pending, approved, rejected }: { pendin
               )}
             </div>
             {st.teacher.bio && <p className="text-xs text-gray-400 mt-1 line-clamp-1">{st.teacher.bio}</p>}
+
+            {/* Subjects Applied For */}
+            {appliedSubjects.length > 0 && (
+              <div className="mt-2 p-2 bg-brand-50 rounded-lg">
+                <p className="text-[10px] font-bold text-brand-700 uppercase mb-1">Applying to Teach:</p>
+                <div className="flex flex-wrap gap-1">
+                  {appliedSubjects.map((s: string) => (
+                    <span key={s} className="text-[10px] bg-brand-200 text-brand-800 px-2 py-0.5 rounded-full font-medium">{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Teacher's full subject list */}
+            {teacherSubjects.length > 0 && appliedSubjects.length === 0 && (
+              <div className="mt-2">
+                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Subjects:</p>
+                <div className="flex flex-wrap gap-1">
+                  {teacherSubjects.map((s: string) => (
+                    <span key={s} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Grade levels */}
+            {teacherGrades.length > 0 && (
+              <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                <GraduationCap className="w-3 h-3 text-gray-400" />
+                {teacherGrades.map((g: string) => (
+                  <span key={g} className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">{g}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Qualifications */}
+            {qualifications.length > 0 && qualifications[0] && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {qualifications.filter(Boolean).map((q: string, i: number) => (
+                  <span key={i} className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded">{q}</span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1 flex-wrap">{actions}</div>
         </div>
 
         {scheduleFor === st.id && (
           <div className="mt-3 pt-3 border-t border-gray-100 p-3 bg-purple-50 rounded-lg space-y-3">
-            <h5 className="text-xs font-semibold text-purple-800">Schedule Hiring Interview</h5>
+            <h5 className="text-xs font-semibold text-purple-800">
+              Schedule Interview {appliedSubjects.length > 0 && <span className="font-normal text-purple-600">— for {appliedSubjects.join(", ")}</span>}
+            </h5>
             <div className="grid grid-cols-3 gap-3">
               <div><label className="text-[10px] text-gray-500">Date & Time *</label>
                 <input type="datetime-local" className="input-field text-xs" value={scheduleForm.scheduledAt} onChange={(e) => setScheduleForm((p) => ({ ...p, scheduledAt: e.target.value }))} /></div>
@@ -122,7 +172,7 @@ export default function TeacherManager({ pending, approved, rejected }: { pendin
 
       {showInvite && (
         <div className="card bg-blue-50 border-blue-200">
-          <h4 className="text-sm font-semibold mb-3">Invite Teacher by Email (skips interview)</h4>
+          <h4 className="text-sm font-semibold mb-3">Invite Teacher by Email</h4>
           <div className="flex gap-3">
             <div className="flex-1 flex items-center gap-2 bg-white rounded-lg border border-gray-300 px-3">
               <Mail className="w-4 h-4 text-gray-400" />
@@ -135,7 +185,6 @@ export default function TeacherManager({ pending, approved, rejected }: { pendin
         </div>
       )}
 
-      {/* Pending */}
       {tab === "pending" && (pending.length === 0 ? (
         <div className="card text-center py-12"><Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No pending requests.</p></div>
       ) : (
@@ -165,7 +214,6 @@ export default function TeacherManager({ pending, approved, rejected }: { pendin
         ))}</div>
       ))}
 
-      {/* Approved */}
       {tab === "approved" && (approved.length === 0 ? (
         <div className="card text-center py-12"><Users className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No active teachers.</p></div>
       ) : (
@@ -180,9 +228,8 @@ export default function TeacherManager({ pending, approved, rejected }: { pendin
         ))}</div>
       ))}
 
-      {/* Rejected */}
       {tab === "rejected" && (rejected.length === 0 ? (
-        <div className="card text-center py-12"><XCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No rejected requests.</p></div>
+        <div className="card text-center py-12"><XCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No rejected.</p></div>
       ) : (
         <div className="space-y-3">{rejected.map((st) => (
           <TeacherCard key={st.id} st={st} actions={

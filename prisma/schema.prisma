@@ -316,6 +316,8 @@ model Teacher {
   qualifications  Json     @default("[]")
   yearsExperience Int      @default(0)
   teachingStyle   String?
+  subjects        Json     @default("[]")
+  preferredGrades Json     @default("[]")
   rating          Float    @default(0)
   totalRatings    Int      @default(0)
   isVerified      Boolean  @default(false)
@@ -341,6 +343,7 @@ model SchoolTeacher {
   isActive    Boolean        @default(true)
   status      ApprovalStatus @default(PENDING)
   requestedBy String         @default("TEACHER")
+  subjectsAppliedFor Json    @default("[]")
   hiredAt     DateTime       @default(now())
 
   teacher     Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
@@ -394,6 +397,7 @@ model Student {
   certificates     Certificate[]
   seatAssignments  SeatAssignment[]
   interviews       Interview[]      @relation("StudentInterviews")
+  enrollmentRequests EnrollmentRequest[]
 
   @@index([userId])
   @@index([schoolId])
@@ -607,6 +611,7 @@ model Class {
   assessments   Assessment[]
   materials     ClassMaterial[]
   seats         SeatAssignment[]
+  enrollmentRequests EnrollmentRequest[]
 
   @@index([teacherId])
   @@index([schoolGradeId])
@@ -935,6 +940,22 @@ model PayrollRecord {
   @@unique([schoolTeacherId, month, year])
   @@index([schoolTeacherId])
   @@index([status])
+}
+
+model EnrollmentRequest {
+  id         String   @id @default(cuid())
+  studentId  String
+  classId    String
+  message    String?
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classId])
+  @@index([classId, status])
 }
 
 model TeachingSession {

@@ -52,7 +52,7 @@ export default async function LandingPage() {
               <Zap className="w-3 h-3" /> Global Digital Academy — Education Without Borders
             </div>
             <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
-              The Future of <span className="text-brand-600">African Education</span> Starts Here
+              The Future of <span className="text-brand-600">Digital Education</span> Starts Here
             </h1>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
               A complete school management platform with virtual classrooms, automated grading, certificate verification, and 3 daily learning sessions across all time zones.
@@ -101,7 +101,7 @@ export default async function LandingPage() {
               { icon: Video, title: "Virtual Classrooms", desc: "3 daily sessions (Morning, Afternoon, Evening) so students in any time zone can attend. Built-in video, materials, and attendance." },
               { icon: BookOpen, title: "Smart Gradebook", desc: "Create assessments, enter scores, auto-calculate grades. Students see results instantly with detailed feedback." },
               { icon: Star, title: "Blockchain Certificates", desc: "Tamper-proof certificates with unique verification codes. Employers can verify credentials instantly via QR code." },
-              { icon: Globe, title: "Multi-Country Support", desc: "Localized curriculum, 17+ countries, local currencies. Built for Africa-first but works globally." },
+              { icon: Globe, title: "Multi-Country Support", desc: "Localized curriculum, 17+ countries, local currencies and payment methods. Built for schools worldwide." },
               { icon: DollarSign, title: "Fee Management", desc: "Set fee structures per grade per term. Track payments and generate financial reports." },
               { icon: CheckCircle, title: "Approval Workflows", desc: "Students apply → interview → principal approves. Teachers request → interview → principal hires. Full audit trail." },
             ].map((f, i) => (
