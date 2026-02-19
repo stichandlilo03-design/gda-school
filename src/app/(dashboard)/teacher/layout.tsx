@@ -7,6 +7,7 @@ const teacherLinks = [
   { href: "/teacher", icon: "LayoutDashboard", label: "Dashboard" },
   { href: "/teacher/classes", icon: "BookOpen", label: "My Classes" },
   { href: "/teacher/students", icon: "Users", label: "Students" },
+  { href: "/teacher/messages", icon: "MessageSquare", label: "Messages" },
   { href: "/teacher/gradebook", icon: "ClipboardList", label: "Gradebook" },
   { href: "/teacher/attendance", icon: "UserCheck", label: "Attendance" },
   { href: "/teacher/materials", icon: "FolderOpen", label: "Materials" },

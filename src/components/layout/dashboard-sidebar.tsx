@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
-  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase, Monitor, CreditCard
+  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase, Monitor, CreditCard, MessageSquare
 } from "lucide-react";
 
 const iconMap: Record<string, any> = {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
-  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor, CreditCard,
+  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor, CreditCard, MessageSquare,
 };
 
 interface SidebarProps {
