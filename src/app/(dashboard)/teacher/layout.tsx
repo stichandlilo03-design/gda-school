@@ -5,6 +5,7 @@ import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 
 const teacherLinks = [
   { href: "/teacher", icon: "LayoutDashboard", label: "Dashboard" },
+  { href: "/teacher/profile", icon: "User", label: "My Profile" },
   { href: "/teacher/classes", icon: "BookOpen", label: "My Classes" },
   { href: "/teacher/students", icon: "Users", label: "Students" },
   { href: "/teacher/messages", icon: "MessageSquare", label: "Messages" },

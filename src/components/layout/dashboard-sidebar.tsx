@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
-  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase, Monitor, CreditCard, MessageSquare
+  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase, Monitor,
+  CreditCard, MessageSquare, User
 } from "lucide-react";
 
 const iconMap: Record<string, any> = {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
-  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor, CreditCard, MessageSquare,
+  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor, CreditCard,
+  MessageSquare, User,
 };
 
 interface SidebarProps {
@@ -78,9 +80,15 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
 
           <div className="p-4 border-t border-gray-100">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-              </div>
+              {user.image ? (
+                <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-gray-200">
+                  <img src={user.image} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                  {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate">{user.name}</p>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleColors[user.role] || "bg-gray-100 text-gray-600"}`}>

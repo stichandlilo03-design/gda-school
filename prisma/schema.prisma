@@ -312,12 +312,19 @@ model Teacher {
   id              String   @id @default(cuid())
   userId          String   @unique
   bio             String?  @db.Text
+  headline        String?
+  profilePicture  String?
   introVideoUrl   String?
+  linkedinUrl     String?
+  twitterUrl      String?
+  websiteUrl      String?
   qualifications  Json     @default("[]")
   yearsExperience Int      @default(0)
   teachingStyle   String?
   subjects        Json     @default("[]")
   preferredGrades Json     @default("[]")
+  languages       Json     @default("[]")
+  achievements    Json     @default("[]")
   rating          Float    @default(0)
   totalRatings    Int      @default(0)
   isVerified      Boolean  @default(false)

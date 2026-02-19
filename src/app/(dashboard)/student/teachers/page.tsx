@@ -17,7 +17,6 @@ export default async function StudentTeachersPage() {
   });
   if (!student) return null;
 
-  // Get all active classes in the student's school
   const classes = await db.class.findMany({
     where: {
       schoolGrade: { schoolId: student.schoolId },
@@ -26,7 +25,7 @@ export default async function StudentTeachersPage() {
     include: {
       teacher: {
         include: {
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, email: true, image: true } },
         },
       },
       schoolGrade: true,
