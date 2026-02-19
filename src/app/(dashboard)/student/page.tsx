@@ -2,9 +2,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
-import StudentInterviewBanner from "./interview-banner";
+import ClassTimerWidget from "@/components/class-timer-widget";
 import Link from "next/link";
-import { BookOpen, Users, Clock, Award, GraduationCap, School } from "lucide-react";
+import {
+  BookOpen, Users, Calendar, Award, Clock, TrendingUp,
+  ChevronRight, Play, CheckCircle, AlertCircle, MessageSquare,
+  GraduationCap, BarChart3, UserCheck, FolderOpen, CreditCard, Star
+} from "lucide-react";
 
 export default async function StudentDashboard() {
   const session = await getServerSession(authOptions);
@@ -13,112 +17,270 @@ export default async function StudentDashboard() {
   const student = await db.student.findUnique({
     where: { userId: session.user.id },
     include: {
-      school: { select: { name: true, motto: true, primaryColor: true, countryCode: true, currency: true } },
+      school: true,
+      user: { select: { name: true, image: true } },
       enrollments: {
         where: { status: "ACTIVE" },
         include: {
           class: {
             include: {
-              teacher: { include: { user: { select: { name: true } } } },
+              teacher: { include: { user: { select: { name: true, image: true } } } },
               schoolGrade: true,
+              schedules: true,
+              _count: { select: { enrollments: true } },
             },
           },
         },
       },
-      certificates: true,
-      interviews: {
-        orderBy: { scheduledAt: "desc" },
-        include: { interviewer: { select: { name: true } } },
+      certificates: { orderBy: { issuedAt: "desc" }, take: 3 },
+      attendances: {
+        where: { date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
       },
+      scores: {
+        include: { assessment: { include: { class: true } } },
+        orderBy: { gradedAt: "desc" },
+        take: 10,
+      },
+      payments: { orderBy: { createdAt: "desc" }, take: 3 },
     },
   });
 
-  if (!student) return <div className="p-8">Student profile not found.</div>;
+  if (!student) return null;
 
-  const isApproved = student.approvalStatus === "APPROVED";
-  const latestInterview = student.interviews[0] || null;
+  const firstName = session.user.name.split(" ")[0];
+  const enrollmentCount = student.enrollments.length;
+
+  // Attendance stats
+  const totalAttendance = student.attendances.length;
+  const presentCount = student.attendances.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
+  const attendancePercent = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 100;
+
+  // Grades overview
+  const gradedScores = student.scores.filter((s) => s.score !== null && s.assessment);
+  const avgScore = gradedScores.length > 0
+    ? Math.round(gradedScores.reduce((sum, s) => sum + ((s.score! / s.assessment.maxScore) * 100), 0) / gradedScores.length)
+    : null;
+
+  // Unread messages
+  const unreadCount = await db.message.count({ where: { receiverId: session.user.id, isRead: false } });
+
+  // Pending approval
+  const isPending = student.approvalStatus === "PENDING";
+
+  // Today's day
+  const days = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+  const today = days[new Date().getDay()];
+
+  // Greeting based on time
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <>
-      <DashboardHeader title={`Welcome, ${session.user.name.split(" ")[0]}!`} subtitle={student.school.name} />
-      <div className="p-6 lg:p-8 space-y-8">
+      <DashboardHeader
+        title={`${greeting}, ${firstName}!`}
+        subtitle={student.school?.name || "Global Digital Academy"}
+      />
+      <div className="p-6 lg:p-8 space-y-6">
 
-        {/* Interview Banner with Chat (client component) */}
-        <StudentInterviewBanner
-          approvalStatus={student.approvalStatus}
-          schoolName={student.school.name}
-          latestInterview={latestInterview ? JSON.parse(JSON.stringify(latestInterview)) : null}
-        />
-
-        {/* School Info */}
-        <div className="card">
-          <h3 className="section-title mb-3 flex items-center gap-2"><School className="w-4 h-4" /> School Details</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><span className="text-gray-500">School:</span> <strong>{student.school.name}</strong></div>
-            <div><span className="text-gray-500">Country:</span> <strong>{student.school.countryCode}</strong></div>
-            <div><span className="text-gray-500">Currency:</span> <strong>{student.school.currency}</strong></div>
-            <div><span className="text-gray-500">Grade:</span> <strong>{student.gradeLevel}</strong></div>
-            <div><span className="text-gray-500">Session:</span> <strong>{student.preferredSession.replace("SESSION_", "Session ")}</strong></div>
-            <div><span className="text-gray-500">Status:</span> <strong className={isApproved ? "text-emerald-600" : "text-amber-600"}>{student.approvalStatus}</strong></div>
+        {/* Pending approval banner */}
+        {isPending && (
+          <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-start gap-3">
+            <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold text-amber-800">Admission Pending</h3>
+              <p className="text-xs text-amber-700 mt-1">Your enrollment is being reviewed by the school principal. You can browse classes but cannot enroll until approved.</p>
+            </div>
           </div>
+        )}
+
+        {/* Unread messages alert */}
+        {unreadCount > 0 && (
+          <Link href="/student/messages" className="block p-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-blue-700 font-medium">You have {unreadCount} unread message{unreadCount > 1 ? "s" : ""}</span>
+              <ChevronRight className="w-3 h-3 text-blue-400 ml-auto" />
+            </div>
+          </Link>
+        )}
+
+        {/* Today's classes + Timer */}
+        <ClassTimerWidget role="STUDENT" />
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {[
+            { label: "Enrolled Classes", value: enrollmentCount, icon: BookOpen, color: "text-blue-600 bg-blue-100" },
+            { label: "Grade Level", value: student.gradeLevel, icon: GraduationCap, color: "text-emerald-600 bg-emerald-100" },
+            { label: "Attendance", value: `${attendancePercent}%`, icon: UserCheck, color: attendancePercent >= 80 ? "text-emerald-600 bg-emerald-100" : attendancePercent >= 60 ? "text-amber-600 bg-amber-100" : "text-red-600 bg-red-100" },
+            { label: "Avg Score", value: avgScore !== null ? `${avgScore}%` : "—", icon: BarChart3, color: "text-purple-600 bg-purple-100" },
+            { label: "Certificates", value: student.certificates.length, icon: Award, color: "text-amber-600 bg-amber-100" },
+          ].map((stat, i) => (
+            <div key={i} className="stat-card">
+              <div className={`w-9 h-9 rounded-lg ${stat.color} flex items-center justify-center mb-2`}>
+                <stat.icon className="w-4.5 h-4.5" />
+              </div>
+              <div className="text-xl font-bold text-gray-900">{stat.value}</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">{stat.label}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="stat-card"><BookOpen className="w-8 h-8 text-brand-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{student.enrollments.length}</div><div className="text-xs text-gray-500 mt-1">Enrolled Classes</div></div>
-          <div className="stat-card"><GraduationCap className="w-8 h-8 text-emerald-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{student.gradeLevel}</div><div className="text-xs text-gray-500 mt-1">Grade Level</div></div>
-          <div className="stat-card"><Award className="w-8 h-8 text-amber-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{student.certificates.length}</div><div className="text-xs text-gray-500 mt-1">Certificates</div></div>
-          <div className="stat-card"><Clock className="w-8 h-8 text-purple-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{student.preferredSession.replace("SESSION_", "")}</div><div className="text-xs text-gray-500 mt-1">Session</div></div>
-        </div>
-
-        {isApproved && (
-          <>
-            {/* My Classes */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* My Classes */}
+          <div className="lg:col-span-2 space-y-6">
             <div className="card">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="section-title">My Classes</h3>
-                <Link href="/student/teachers" className="text-xs text-brand-600 hover:underline font-medium">+ Browse Teachers</Link>
+                <h2 className="section-title">My Classes</h2>
+                <Link href="/student/teachers" className="text-xs text-brand-600 hover:underline flex items-center gap-1">
+                  Browse more <ChevronRight className="w-3 h-3" />
+                </Link>
               </div>
-              {student.enrollments.length > 0 ? (
-                <div className="space-y-3">
-                  {student.enrollments.map((enrollment) => (
-                    <Link key={enrollment.id} href={`/student/classroom?classId=${enrollment.classId}`}
-                      className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm">
-                        {enrollment.class.name.slice(0, 2).toUpperCase()}
+              {enrollmentCount > 0 ? (
+                <div className="space-y-2">
+                  {student.enrollments.map((enrollment) => {
+                    const teacherPic = enrollment.class.teacher.profilePicture || enrollment.class.teacher.user.image;
+                    const teacherInitials = enrollment.class.teacher.user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2);
+                    const studentCount = enrollment.class._count.enrollments;
+                    const todaySchedule = enrollment.class.schedules.find((s: any) => s.dayOfWeek === today);
+
+                    return (
+                      <div key={enrollment.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                        {teacherPic ? (
+                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-brand-200 flex-shrink-0">
+                            <img src={teacherPic} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                            {teacherInitials}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-800 truncate">{enrollment.class.name}</p>
+                          <p className="text-[10px] text-gray-500">
+                            {enrollment.class.teacher.user.name} • {enrollment.class.schoolGrade.gradeLevel} • {studentCount} students
+                          </p>
+                          {todaySchedule && (
+                            <p className="text-[10px] text-brand-600 font-medium mt-0.5">
+                              Today: {todaySchedule.startTime} — {todaySchedule.endTime}
+                            </p>
+                          )}
+                        </div>
+                        <Link href={`/student/materials?classId=${enrollment.classId}`} className="text-[10px] px-2.5 py-1.5 rounded-lg bg-brand-50 text-brand-600 font-medium hover:bg-brand-100">
+                          <FolderOpen className="w-3 h-3 inline mr-0.5" /> Materials
+                        </Link>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-800">{enrollment.class.name}</p>
-                        <p className="text-xs text-gray-500">Teacher: {enrollment.class.teacher.user.name} • {enrollment.class.schoolGrade.gradeLevel} • {enrollment.class.session.replace("SESSION_", "Session ")}</p>
-                      </div>
-                      <span className="badge-success text-[10px]">Active</span>
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-sm text-gray-500 mb-3">No classes yet.</p>
-                  <Link href="/student/teachers" className="btn-primary text-sm">Browse Teachers</Link>
+                <div className="text-center py-10">
+                  <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <h3 className="text-sm font-medium text-gray-600 mb-1">No classes yet</h3>
+                  <p className="text-xs text-gray-400 mb-4">Browse teachers and request to join classes</p>
+                  <Link href="/student/teachers" className="btn-primary text-xs px-4 py-2">Browse Classes</Link>
                 </div>
               )}
             </div>
 
+            {/* Recent Grades */}
+            {gradedScores.length > 0 && (
+              <div className="card">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="section-title">Recent Grades</h2>
+                  <Link href="/student/grades" className="text-xs text-brand-600 hover:underline flex items-center gap-1">
+                    View all <ChevronRight className="w-3 h-3" />
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {gradedScores.slice(0, 5).map((s) => {
+                    const pct = Math.round((s.score! / s.assessment.maxScore) * 100);
+                    const grade = pct >= 90 ? "A" : pct >= 80 ? "B" : pct >= 70 ? "C" : pct >= 60 ? "D" : "F";
+                    const gradeColor = pct >= 70 ? "text-emerald-700 bg-emerald-100" : pct >= 60 ? "text-amber-700 bg-amber-100" : "text-red-700 bg-red-100";
+                    return (
+                      <div key={s.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${gradeColor}`}>{grade}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800 truncate">{s.assessment.title}</p>
+                          <p className="text-[10px] text-gray-500">{s.assessment.class?.name} • {s.assessment.type}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-gray-800">{s.score}/{s.assessment.maxScore}</p>
+                          <p className="text-[10px] text-gray-400">{pct}%</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-6">
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { href: "/student/subjects", label: "My Subjects", icon: BookOpen },
-                { href: "/student/timetable", label: "Timetable", icon: Clock },
-                { href: "/student/grades", label: "My Grades", icon: GraduationCap },
-                { href: "/student/certificates", label: "Certificates", icon: Award },
-              ].map((action) => (
-                <Link key={action.href} href={action.href} className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors card">
-                  <action.icon className="w-6 h-6 text-brand-500" />
-                  <span className="text-xs font-medium text-gray-700">{action.label}</span>
-                </Link>
-              ))}
+            <div className="card">
+              <h2 className="section-title mb-3">Quick Actions</h2>
+              <div className="space-y-1">
+                {[
+                  { href: "/student/teachers", icon: BookOpen, label: "Browse & Join Classes", color: "text-blue-600" },
+                  { href: "/student/schedule", icon: Calendar, label: "My Schedule", color: "text-emerald-600" },
+                  { href: "/student/grades", icon: BarChart3, label: "View Grades", color: "text-purple-600" },
+                  { href: "/student/attendance", icon: UserCheck, label: "Attendance Record", color: "text-amber-600" },
+                  { href: "/student/materials", icon: FolderOpen, label: "Learning Materials", color: "text-cyan-600" },
+                  { href: "/student/fees", icon: CreditCard, label: "School Fees", color: "text-pink-600" },
+                  { href: "/student/certificates", icon: Award, label: "Certificates", color: "text-indigo-600" },
+                  { href: "/student/messages", icon: MessageSquare, label: "Messages", color: "text-gray-600" },
+                ].map((action, i) => (
+                  <Link key={i} href={action.href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors group">
+                    <action.icon className={`w-4 h-4 ${action.color}`} />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900">{action.label}</span>
+                    <ChevronRight className="w-3 h-3 text-gray-400 ml-auto" />
+                  </Link>
+                ))}
+              </div>
             </div>
-          </>
-        )}
+
+            {/* Attendance snapshot */}
+            <div className="card">
+              <h3 className="section-title mb-3">Attendance This Month</h3>
+              <div className="flex items-center gap-4">
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="15.9" fill="none"
+                      stroke={attendancePercent >= 80 ? "#10b981" : attendancePercent >= 60 ? "#f59e0b" : "#ef4444"}
+                      strokeWidth="3" strokeDasharray={`${attendancePercent} ${100 - attendancePercent}`} strokeLinecap="round" />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-gray-800">{attendancePercent}%</span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">{presentCount} present out of {totalAttendance} classes</p>
+                  <Link href="/student/attendance" className="text-[10px] text-brand-600 hover:underline">View details →</Link>
+                </div>
+              </div>
+            </div>
+
+            {/* School Info */}
+            {student.school && (
+              <div className="card bg-gradient-to-br from-brand-600 to-brand-700 text-white border-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <GraduationCap className="w-5 h-5" />
+                  <h3 className="font-semibold text-sm">{student.school.name}</h3>
+                </div>
+                {student.school.motto && (
+                  <p className="text-brand-200 text-xs italic mb-2">&ldquo;{student.school.motto}&rdquo;</p>
+                )}
+                <div className="text-[10px] text-brand-300 space-y-0.5">
+                  <p>Grade: {student.gradeLevel}</p>
+                  <p>Session: {student.preferredSession.replace("SESSION_", "Session ")}</p>
+                  <p>Status: {student.approvalStatus === "APPROVED" ? "✓ Enrolled" : student.approvalStatus === "PENDING" ? "⏳ Pending" : "✗ " + student.approvalStatus}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </>
   );
