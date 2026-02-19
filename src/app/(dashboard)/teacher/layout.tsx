@@ -2,19 +2,22 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
+import {
+  LayoutDashboard, BookOpen, Users, Calendar, ClipboardList, FolderOpen,
+  UserCheck, BarChart3, Clock, MessageSquare, Play, User
+} from "lucide-react";
 
 const teacherLinks = [
-  { href: "/teacher", icon: "LayoutDashboard", label: "Dashboard" },
-  { href: "/teacher/profile", icon: "User", label: "My Profile" },
-  { href: "/teacher/classes", icon: "BookOpen", label: "My Classes" },
-  { href: "/teacher/students", icon: "Users", label: "Students" },
-  { href: "/teacher/messages", icon: "MessageSquare", label: "Messages" },
-  { href: "/teacher/gradebook", icon: "ClipboardList", label: "Gradebook" },
-  { href: "/teacher/attendance", icon: "UserCheck", label: "Attendance" },
-  { href: "/teacher/materials", icon: "FolderOpen", label: "Materials" },
-  { href: "/teacher/schedule", icon: "Clock", label: "Schedule" },
-  { href: "/teacher/payroll", icon: "DollarSign", label: "My Payroll" },
-  { href: "/teacher/vacancies", icon: "Briefcase", label: "Job Board" },
+  { href: "/teacher", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/teacher/classroom", icon: Play, label: "Classroom" },
+  { href: "/teacher/classes", icon: BookOpen, label: "My Classes" },
+  { href: "/teacher/students", icon: Users, label: "Students" },
+  { href: "/teacher/gradebook", icon: ClipboardList, label: "Gradebook" },
+  { href: "/teacher/attendance", icon: UserCheck, label: "Attendance" },
+  { href: "/teacher/materials", icon: FolderOpen, label: "Materials" },
+  { href: "/teacher/schedule", icon: Clock, label: "Schedule" },
+  { href: "/teacher/messages", icon: MessageSquare, label: "Messages" },
+  { href: "/teacher/profile", icon: User, label: "My Profile" },
 ];
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
