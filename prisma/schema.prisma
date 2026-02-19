@@ -768,7 +768,7 @@ model ClassMaterial {
   title       String
   description String?
   type        MaterialType
-  url         String
+  url         String       @db.Text
   fileSize    Int?
   isPublished Boolean      @default(true)
   createdAt   DateTime     @default(now())
@@ -811,8 +811,8 @@ model Payment {
   description    String
   status         PaymentStatus @default(PENDING)
   paymentMethod  String?
-  transactionRef String?       @unique
-  proofUrl       String?
+  transactionRef String?
+  proofUrl       String?       @db.Text
   proofNote      String?
   reviewedBy     String?
   reviewedAt     DateTime?

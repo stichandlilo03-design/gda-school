@@ -5,6 +5,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+// Helper: get class session slot
+async function getClassSession(classId: string) {
+  const cls = await db.class.findUnique({ where: { id: classId }, select: { session: true } });
+  return cls?.session || "SESSION_A";
+}
+
 // ============ TEACHER ACTIONS ============
 
 // Start a live class session
@@ -52,12 +58,12 @@ export async function markAttendance(data: {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
 
+  const classSession = await getClassSession(data.classId);
   const dateVal = data.date ? new Date(data.date) : new Date();
   const dateOnly = new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate());
 
-  // Upsert attendance
   const existing = await db.attendanceRecord.findFirst({
-    where: { classId: data.classId, studentId: data.studentId, date: dateOnly },
+    where: { classId: data.classId, studentId: data.studentId, date: dateOnly, session: classSession },
   });
 
   if (existing) {
@@ -71,6 +77,7 @@ export async function markAttendance(data: {
         classId: data.classId,
         studentId: data.studentId,
         date: dateOnly,
+        session: classSession,
         status: data.status as any,
         joinedAt: data.status === "PRESENT" || data.status === "LATE" ? new Date() : null,
       },
@@ -86,12 +93,13 @@ export async function bulkMarkAttendance(classId: string, records: { studentId: 
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
 
+  const classSession = await getClassSession(classId);
   const dateOnly = new Date();
   dateOnly.setHours(0, 0, 0, 0);
 
   for (const rec of records) {
     const existing = await db.attendanceRecord.findFirst({
-      where: { classId, studentId: rec.studentId, date: dateOnly },
+      where: { classId, studentId: rec.studentId, date: dateOnly, session: classSession },
     });
     if (existing) {
       await db.attendanceRecord.update({
@@ -102,6 +110,7 @@ export async function bulkMarkAttendance(classId: string, records: { studentId: 
       await db.attendanceRecord.create({
         data: {
           classId, studentId: rec.studentId, date: dateOnly,
+          session: classSession,
           status: rec.status as any,
           joinedAt: rec.status === "PRESENT" || rec.status === "LATE" ? new Date() : null,
         },
@@ -181,6 +190,8 @@ export async function studentJoinClass(classId: string) {
   });
   if (!live) return { error: "No active class session" };
 
+  const classSession = await getClassSession(classId);
+
   // Check time since class started — if within 10 min, PRESENT; else LATE
   const minutesSinceStart = live.startedAt ? (Date.now() - live.startedAt.getTime()) / 60000 : 0;
   const status = minutesSinceStart <= 10 ? "PRESENT" : "LATE";
@@ -189,7 +200,7 @@ export async function studentJoinClass(classId: string) {
   dateOnly.setHours(0, 0, 0, 0);
 
   const existing = await db.attendanceRecord.findFirst({
-    where: { classId, studentId: student.id, date: dateOnly },
+    where: { classId, studentId: student.id, date: dateOnly, session: classSession },
   });
 
   if (existing) {
@@ -199,7 +210,7 @@ export async function studentJoinClass(classId: string) {
     });
   } else {
     await db.attendanceRecord.create({
-      data: { classId, studentId: student.id, date: dateOnly, status: status as any, joinedAt: new Date() },
+      data: { classId, studentId: student.id, date: dateOnly, session: classSession, status: status as any, joinedAt: new Date() },
     });
   }
 

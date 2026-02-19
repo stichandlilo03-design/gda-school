@@ -22,26 +22,31 @@ export default async function StudentFeesPage() {
     where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
   });
 
-  let feeStructure = null;
+  let feeStructures: any[] = [];
   if (schoolGrade) {
-    feeStructure = await db.feeStructure.findFirst({
+    feeStructures = await db.feeStructure.findMany({
       where: { schoolGradeId: schoolGrade.id, isActive: true },
     });
   }
 
-  // Find bank account matching student's currency/country
-  const matchingAccounts = student.school.bankAccounts.filter(
-    (a) => a.currency === (feeStructure?.currency || student.school.currency)
+  // Total fees across all active fee structures for this grade
+  const totalFees = feeStructures.reduce(
+    (sum, fs) => sum + fs.tuitionFee + fs.registrationFee + fs.examFee + fs.technologyFee, 0
   );
-  const allAccounts = student.school.bankAccounts;
 
-  const totalFees = feeStructure
-    ? feeStructure.tuitionFee + feeStructure.registrationFee + feeStructure.examFee + feeStructure.technologyFee
-    : 0;
-  const totalPaid = student.payments
-    .filter((p) => p.status === "COMPLETED")
-    .reduce((sum, p) => sum + p.amount, 0);
-  const pendingReview = student.payments.filter((p) => p.status === "UNDER_REVIEW").reduce((s, p) => s + p.amount, 0);
+  // Find bank accounts matching student's currency
+  const schoolCurrency = feeStructures[0]?.currency || student.school.currency;
+  const matchingAccounts = student.school.bankAccounts.filter(
+    (a: any) => a.currency === schoolCurrency
+  );
+
+  // Totals
+  const approvedPaid = student.payments
+    .filter((p: any) => p.status === "COMPLETED")
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
+  const pendingReview = student.payments
+    .filter((p: any) => p.status === "UNDER_REVIEW")
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
 
   return (
     <>
@@ -49,13 +54,13 @@ export default async function StudentFeesPage() {
       <div className="p-6 lg:p-8">
         <StudentFeeClient
           student={JSON.parse(JSON.stringify(student))}
-          feeStructure={feeStructure ? JSON.parse(JSON.stringify(feeStructure)) : null}
-          bankAccounts={JSON.parse(JSON.stringify(matchingAccounts.length > 0 ? matchingAccounts : allAccounts))}
+          feeStructures={JSON.parse(JSON.stringify(feeStructures))}
+          bankAccounts={JSON.parse(JSON.stringify(matchingAccounts.length > 0 ? matchingAccounts : student.school.bankAccounts))}
           totalFees={totalFees}
-          totalPaid={totalPaid}
+          totalPaid={approvedPaid}
           pendingReview={pendingReview}
           payments={JSON.parse(JSON.stringify(student.payments))}
-          currency={feeStructure?.currency || student.school.currency}
+          currency={schoolCurrency}
         />
       </div>
     </>
