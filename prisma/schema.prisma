@@ -344,6 +344,12 @@ model SchoolTeacher {
   status      ApprovalStatus @default(PENDING)
   requestedBy String         @default("TEACHER")
   subjectsAppliedFor Json    @default("[]")
+  assignedSubjects Json      @default("[]")
+  isSuspended     Boolean    @default(false)
+  suspendedAt     DateTime?
+  suspendReason   String?
+  terminatedAt    DateTime?
+  terminateReason String?
   hiredAt     DateTime       @default(now())
 
   teacher     Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
