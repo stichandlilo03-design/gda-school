@@ -14,25 +14,57 @@ export default async function StudentsPage() {
   const students = await db.student.findMany({
     where: { schoolId: principal.schoolId },
     include: {
-      user: { select: { name: true, email: true, image: true, isActive: true, createdAt: true, countryCode: true } },
-      enrollments: { where: { status: "ACTIVE" } },
-      interviews: { orderBy: { scheduledAt: "desc" }, take: 1, include: { interviewer: { select: { name: true } } } },
+      user: { select: { id: true, name: true, email: true, image: true, isActive: true, phone: true, countryCode: true, createdAt: true } },
+      enrollments: {
+        where: { status: "ACTIVE" },
+        include: { class: { select: { id: true, name: true } } },
+      },
+      interviews: {
+        where: { type: "ADMISSION" },
+        orderBy: { scheduledAt: "desc" },
+        take: 1,
+        include: { interviewer: { select: { name: true } } },
+      },
+      attendances: {
+        where: { date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
+      },
+      scores: {
+        where: { score: { not: null } },
+        include: { assessment: { select: { maxScore: true } } },
+        take: 20,
+      },
+      certificates: { select: { id: true } },
     },
     orderBy: { enrolledAt: "desc" },
   });
 
-  const pending = students.filter((s) => s.approvalStatus === "PENDING" || s.approvalStatus === "INTERVIEW_SCHEDULED" || s.approvalStatus === "INTERVIEWED");
-  const approved = students.filter((s) => s.approvalStatus === "APPROVED");
-  const rejected = students.filter((s) => s.approvalStatus === "REJECTED");
+  const pending = students.filter((s) => ["PENDING", "INTERVIEW_SCHEDULED", "INTERVIEWED"].includes(s.approvalStatus));
+  const active = students.filter((s) => s.approvalStatus === "APPROVED" && !s.isSuspended && !s.isExpelled);
+  const suspended = students.filter((s) => s.isSuspended);
+  const expelled = students.filter((s) => s.isExpelled);
+  const rejected = students.filter((s) => s.approvalStatus === "REJECTED" && !s.isExpelled);
+
+  // Grade levels in school
+  const grades = await db.schoolGrade.findMany({
+    where: { schoolId: principal.schoolId },
+    orderBy: { gradeLevel: "asc" },
+  });
 
   return (
     <>
-      <DashboardHeader title="Student Management" subtitle={`${pending.length} pending • ${approved.length} approved`} />
+      <DashboardHeader
+        title="Student Management"
+        subtitle={`${students.length} total • ${pending.length} pending • ${active.length} active • ${suspended.length} suspended`}
+      />
       <div className="p-6 lg:p-8">
         <StudentManager
           pending={JSON.parse(JSON.stringify(pending))}
-          approved={JSON.parse(JSON.stringify(approved))}
+          active={JSON.parse(JSON.stringify(active))}
+          suspended={JSON.parse(JSON.stringify(suspended))}
+          expelled={JSON.parse(JSON.stringify(expelled))}
           rejected={JSON.parse(JSON.stringify(rejected))}
+          grades={grades.map((g) => g.gradeLevel)}
+          principalUserId={session.user.id}
         />
       </div>
     </>

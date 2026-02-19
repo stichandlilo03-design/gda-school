@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 const STATUS_MAP: Record<string, { icon: any; color: string; label: string }> = {
-  PAID: { icon: CheckCircle, color: "text-emerald-600 bg-emerald-100", label: "Paid" },
+  COMPLETED: { icon: CheckCircle, color: "text-emerald-600 bg-emerald-100", label: "Paid" },
   PENDING: { icon: Clock, color: "text-amber-600 bg-amber-100", label: "Pending" },
   FAILED: { icon: XCircle, color: "text-red-600 bg-red-100", label: "Failed" },
   REFUNDED: { icon: Receipt, color: "text-blue-600 bg-blue-100", label: "Refunded" },
@@ -45,7 +45,7 @@ export default async function FeesPage() {
     : 0;
 
   const totalPaid = student.payments
-    .filter((p) => p.status === "PAID")
+    .filter((p) => p.status === "COMPLETED")
     .reduce((sum, p) => sum + p.amount, 0);
 
   const balance = totalFees - totalPaid;

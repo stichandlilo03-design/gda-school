@@ -398,6 +398,14 @@ model Student {
   dateOfBirth      DateTime?
   preferredSession SessionSlot      @default(SESSION_A)
   approvalStatus   ApprovalStatus   @default(PENDING)
+  isSuspended      Boolean          @default(false)
+  suspendedAt      DateTime?
+  suspendReason    String?
+  suspendUntil     DateTime?
+  isExpelled       Boolean          @default(false)
+  expelledAt       DateTime?
+  expelReason      String?
+  promotionNote    String?
   enrolledAt       DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 

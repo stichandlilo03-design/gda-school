@@ -8,11 +8,12 @@ import {
   Star, Linkedin, Twitter, Globe, Award
 } from "lucide-react";
 
-export default async function ClassroomPage({ searchParams }: { searchParams: { classId?: string } }) {
+export default async function ClassroomPage({ searchParams }: { searchParams: Promise<{ classId?: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const classId = searchParams.classId;
+  const params = await searchParams;
+  const classId = params.classId;
   if (!classId) {
     return (
       <>
