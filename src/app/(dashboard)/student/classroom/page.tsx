@@ -5,7 +5,8 @@ import DashboardHeader from "@/components/layout/dashboard-header";
 import Link from "next/link";
 import { Monitor, Users, BookOpen, FileText, MessageSquare, Video } from "lucide-react";
 
-export default async function ClassroomPage({ searchParams }: { searchParams: { classId?: string } }) {
+export default async function ClassroomPage({ searchParams }: { searchParams: Promise<{ classId?: string }> }) {
+  const params = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
@@ -28,7 +29,7 @@ export default async function ClassroomPage({ searchParams }: { searchParams: { 
     },
   });
 
-  const classId = searchParams?.classId;
+  const classId = params?.classId;
   const enrollment = classId ? student?.enrollments.find((e) => e.classId === classId) : student?.enrollments[0];
   const cls = enrollment?.class;
 
