@@ -6,7 +6,8 @@ import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 const studentLinks = [
   { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
   { href: "/student/classroom", icon: "Play", label: "My Classroom" },
-  { href: "/student/teachers", icon: "BookOpen", label: "Browse Classes" },
+  { href: "/student/subjects", icon: "BookOpen", label: "My Subjects" },
+  { href: "/student/teachers", icon: "Users", label: "Browse Teachers" },
   { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
   { href: "/student/schedule", icon: "Clock", label: "My Schedule" },
   { href: "/student/grades", icon: "ClipboardList", label: "My Grades" },

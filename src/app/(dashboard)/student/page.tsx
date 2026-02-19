@@ -266,8 +266,8 @@ export default async function StudentDashboard() {
               My Classes
               {!hasAccess && <Lock className="w-4 h-4 text-amber-500" />}
             </h2>
-            <Link href="/student/teachers" className="text-xs text-brand-500 hover:underline flex items-center gap-1">
-              Browse Classes <ChevronRight className="w-3 h-3" />
+            <Link href="/student/subjects" className="text-xs text-brand-500 hover:underline flex items-center gap-1">
+              My Subjects <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
 
@@ -275,8 +275,8 @@ export default async function StudentDashboard() {
             <div className="text-center py-12">
               <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <h3 className="text-sm font-medium text-gray-600 mb-1">No classes yet</h3>
-              <p className="text-xs text-gray-400 mb-4">Browse teachers and enroll in classes to get started</p>
-              <Link href="/student/teachers" className="btn-primary text-xs px-4 py-2">Browse Teachers</Link>
+              <p className="text-xs text-gray-400 mb-4">Browse your subjects and choose teachers to get started</p>
+              <Link href="/student/subjects" className="btn-primary text-xs px-4 py-2">Choose Subjects</Link>
             </div>
           ) : (
             <div className="space-y-4">
@@ -469,7 +469,8 @@ export default async function StudentDashboard() {
               <div className="space-y-1.5">
                 {[
                   { href: "/student/classroom", icon: Play, label: "Live Classroom", color: "text-red-600" },
-                  { href: "/student/teachers", icon: Users, label: "Browse & Enroll Classes", color: "text-blue-600" },
+                  { href: "/student/subjects", icon: BookOpen, label: "My Subjects & Enroll", color: "text-blue-600" },
+                  { href: "/student/teachers", icon: Users, label: "Browse Teachers", color: "text-indigo-600" },
                   { href: "/student/materials", icon: BookOpen, label: "Class Materials", color: "text-emerald-600" },
                   { href: "/student/grades", icon: TrendingUp, label: "My Grades", color: "text-amber-600" },
                   { href: "/student/fees", icon: CreditCard, label: "School Fees", color: "text-purple-600" },

@@ -540,6 +540,7 @@ model Subject {
   createdAt    DateTime @default(now())
 
   gradeSubjects GradeSubject[]
+  classes       Class[]
 
   @@unique([code])
 }
@@ -632,6 +633,7 @@ model Class {
 
   teacher       Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   schoolGrade   SchoolGrade @relation(fields: [schoolGradeId], references: [id], onDelete: Cascade)
+  subject       Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   enrollments   Enrollment[]
   schedules     ClassSchedule[]
   attendances   AttendanceRecord[]

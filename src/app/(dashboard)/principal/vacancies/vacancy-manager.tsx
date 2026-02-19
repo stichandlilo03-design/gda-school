@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createVacancy, closeVacancy, reopenVacancy, shortlistApplicant, acceptApplicant, rejectApplicant } from "@/lib/actions/vacancy";
+import { createVacancy, closeVacancy, reopenVacancy, shortlistApplicant, acceptApplicant, rejectApplicant, approveAndAssignToGrade } from "@/lib/actions/vacancy";
 import { scheduleVacancyInterview } from "@/lib/actions/interview";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2, Briefcase, Users, CheckCircle, XCircle, Clock, Calendar, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
@@ -65,6 +65,35 @@ export default function VacancyManager({ vacancies, currency }: { vacancies: any
             <input type="number" className="input-field" placeholder={`Min salary (${currency})`} value={form.salaryMin || ""} onChange={(e) => setForm((p) => ({ ...p, salaryMin: parseFloat(e.target.value) || 0 }))} />
             <input type="number" className="input-field" placeholder={`Max salary (${currency})`} value={form.salaryMax || ""} onChange={(e) => setForm((p) => ({ ...p, salaryMax: parseFloat(e.target.value) || 0 }))} />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Grade Level (assigns teacher on approval)</label>
+              <select className="input-field" value={form.gradeLevel} onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))}>
+                <option value="">Select grade...</option>
+                {["K1","K2","K3","G1","G2","G3","G4","G5","G6","G7","G8","G9","G10","G11","G12"].map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Session</label>
+              <select className="input-field" value={form.session} onChange={(e) => setForm((p) => ({ ...p, session: e.target.value }))}>
+                <option value="">Any session</option>
+                <option value="SESSION_A">Morning (A)</option>
+                <option value="SESSION_B">Afternoon (B)</option>
+                <option value="SESSION_C">Evening (C)</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="label">Subjects (teacher will be assigned classes for these)</label>
+            {form.subjects.map((s, i) => (
+              <div key={i} className="flex gap-2 mb-1">
+                <input className="input-field flex-1" placeholder="e.g. Mathematics" value={s}
+                  onChange={(e) => { const u = [...form.subjects]; u[i] = e.target.value; setForm((p) => ({ ...p, subjects: u })); }} />
+                {i > 0 && <button onClick={() => setForm((p) => ({ ...p, subjects: p.subjects.filter((_, j) => j !== i) }))} className="text-red-400 text-xs px-2">&times;</button>}
+              </div>
+            ))}
+            <button onClick={() => setForm((p) => ({ ...p, subjects: [...p.subjects, ""] }))} className="text-xs text-brand-600 hover:underline">+ Add Subject</button>
+          </div>
           <div>
             <label className="label">Requirements</label>
             {form.requirements.map((r, i) => (
@@ -98,7 +127,7 @@ export default function VacancyManager({ vacancies, currency }: { vacancies: any
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${v.status === "OPEN" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>{v.status}</span>
                   {v.isPublic && <span className="text-[10px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Public</span>}
                 </div>
-                <p className="text-xs text-gray-500">{v.employmentType} • {v._count.applications} applicants{v.deadline ? ` • Deadline: ${new Date(v.deadline).toLocaleDateString()}` : ""}</p>
+                <p className="text-xs text-gray-500">{v.employmentType} • {v._count.applications} applicants{v.gradeLevel ? ` • ${v.gradeLevel}` : ""}{v.deadline ? ` • Deadline: ${new Date(v.deadline).toLocaleDateString()}` : ""}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -151,9 +180,19 @@ export default function VacancyManager({ vacancies, currency }: { vacancies: any
                           )}
                           {app.status === "INTERVIEWED" && (
                             <>
-                              <button onClick={() => { setLoading(app.id); acceptApplicant(app.id).then(() => { router.refresh(); setLoading(""); }); }}
+                              <button onClick={() => { setLoading(app.id); approveAndAssignToGrade(app.id).then((r) => { if (r.error) alert(r.error); else alert(r.message || "Approved!"); router.refresh(); setLoading(""); }); }}
+                                className="text-[10px] px-2.5 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-medium flex items-center gap-1">
+                                {loading === app.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><CheckCircle className="w-3 h-3" /> Approve &amp; Assign</>}
+                              </button>
+                              <button onClick={() => { setLoading(app.id); rejectApplicant(app.id).then(() => { router.refresh(); setLoading(""); }); }}
+                                className="text-[10px] px-2 py-1 rounded text-red-500 hover:bg-red-50">Reject</button>
+                            </>
+                          )}
+                          {app.status === "SHORTLISTED" && (
+                            <>
+                              <button onClick={() => { setLoading(app.id); approveAndAssignToGrade(app.id).then((r) => { if (r.error) alert(r.error); else alert(r.message || "Approved!"); router.refresh(); setLoading(""); }); }}
                                 className="text-[10px] px-2 py-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-medium">
-                                <CheckCircle className="w-3 h-3 mr-0.5 inline" /> Accept & Hire
+                                Approve
                               </button>
                               <button onClick={() => { setLoading(app.id); rejectApplicant(app.id).then(() => { router.refresh(); setLoading(""); }); }}
                                 className="text-[10px] px-2 py-1 rounded text-red-500 hover:bg-red-50">Reject</button>

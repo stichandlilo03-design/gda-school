@@ -170,3 +170,97 @@ export async function rejectApplicant(appId: string) {
   revalidatePath("/principal/vacancies");
   return { success: true };
 }
+
+// Approve applicant after interview — assign to school + create class for the vacancy grade
+export async function approveAndAssignToGrade(appId: string) {
+  const sess = await getServerSession(authOptions);
+  if (!sess || sess.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  const principal = await db.principal.findUnique({ where: { userId: sess.user.id }, include: { school: true } });
+  if (!principal) return { error: "Principal not found" };
+
+  const app = await db.vacancyApplication.update({
+    where: { id: appId },
+    data: { status: "ACCEPTED" },
+    include: { vacancy: true },
+  });
+
+  if (!app.teacherId) return { error: "This applicant is not a registered teacher on the platform. Accept manually." };
+
+  // Add teacher to school
+  const existing = await db.schoolTeacher.findUnique({
+    where: { teacherId_schoolId: { teacherId: app.teacherId, schoolId: app.vacancy.schoolId } },
+  });
+  if (!existing) {
+    await db.schoolTeacher.create({
+      data: { teacherId: app.teacherId, schoolId: app.vacancy.schoolId, status: "APPROVED", isActive: true, requestedBy: "PRINCIPAL" },
+    });
+  } else {
+    await db.schoolTeacher.update({ where: { id: existing.id }, data: { status: "APPROVED", isActive: true } });
+  }
+
+  // If vacancy has a grade level, find/create the school grade and create a class
+  if (app.vacancy.gradeLevel) {
+    let schoolGrade = await db.schoolGrade.findFirst({
+      where: { schoolId: app.vacancy.schoolId, gradeLevel: app.vacancy.gradeLevel },
+    });
+    if (!schoolGrade) {
+      schoolGrade = await db.schoolGrade.create({
+        data: { schoolId: app.vacancy.schoolId, gradeLevel: app.vacancy.gradeLevel },
+      });
+    }
+
+    // Parse subjects from vacancy
+    const subjects = Array.isArray(app.vacancy.subjects) ? app.vacancy.subjects as string[] : [];
+    for (const subjectName of subjects) {
+      if (!subjectName) continue;
+      // Find or create subject
+      let subject = await db.subject.findFirst({ where: { name: subjectName } });
+      if (!subject) {
+        const code = subjectName.slice(0, 3).toUpperCase().replace(/\s/g, "");
+        subject = await db.subject.upsert({
+          where: { code },
+          update: {},
+          create: { name: subjectName, code },
+        });
+      }
+
+      // Ensure GradeSubject link
+      await db.gradeSubject.upsert({
+        where: { schoolGradeId_subjectId: { schoolGradeId: schoolGrade.id, subjectId: subject.id } },
+        update: {},
+        create: { schoolGradeId: schoolGrade.id, subjectId: subject.id },
+      });
+
+      // Create class for the teacher
+      const existingClass = await db.class.findFirst({
+        where: { teacherId: app.teacherId!, schoolGradeId: schoolGrade.id, subjectId: subject.id },
+      });
+      if (!existingClass) {
+        await db.class.create({
+          data: {
+            teacherId: app.teacherId!,
+            schoolGradeId: schoolGrade.id,
+            subjectId: subject.id,
+            name: `${subjectName} - ${app.vacancy.gradeLevel}`,
+            session: app.vacancy.session || "SESSION_A",
+            maxStudents: 40,
+          },
+        });
+      }
+    }
+  }
+
+  // Close vacancy if needed
+  const remaining = await db.vacancyApplication.count({
+    where: { vacancyId: app.vacancyId, status: { in: ["APPLIED", "SHORTLISTED", "INTERVIEW_SCHEDULED"] } },
+  });
+  if (remaining === 0) {
+    await db.vacancy.update({ where: { id: app.vacancyId }, data: { status: "FILLED" } });
+  }
+
+  revalidatePath("/principal/vacancies");
+  revalidatePath("/principal/teachers");
+  revalidatePath("/principal/curriculum");
+  return { success: true, message: "Teacher approved, assigned to school, and classes created!" };
+}
