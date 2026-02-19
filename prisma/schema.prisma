@@ -111,6 +111,45 @@ enum TermNumber {
   TERM_3
 }
 
+enum ApprovalStatus {
+  PENDING
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  APPROVED
+  REJECTED
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum InterviewResult {
+  PASS
+  FAIL
+  PENDING_REVIEW
+  CONDITIONAL
+}
+
+enum VacancyStatus {
+  OPEN
+  CLOSED
+  FILLED
+  DRAFT
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
 // ============================================================
 // AUTH & USERS
 // ============================================================
@@ -174,6 +213,7 @@ model User {
   principal      Principal?
   sentMessages   Message[]  @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
+  interviewsConducted Interview[] @relation("Interviewer")
 
   @@index([email])
   @@index([role])
@@ -207,6 +247,7 @@ model School {
   feeStructures   FeeStructure[]
   announcements   Announcement[]
   terms           Term[]
+  vacancies       Vacancy[]
 
   @@index([slug])
   @@index([countryCode])
@@ -268,33 +309,38 @@ model Teacher {
   classes         Class[]
   availability    TeacherAvailability[]
   materials       ClassMaterial[]
+  vacancyApplications VacancyApplication[]
 
   @@index([userId])
   @@index([rating])
 }
 
 model SchoolTeacher {
-  id         String   @id @default(cuid())
-  teacherId  String
-  schoolId   String
-  isActive   Boolean  @default(true)
-  hiredAt    DateTime @default(now())
+  id          String         @id @default(cuid())
+  teacherId   String
+  schoolId    String
+  isActive    Boolean        @default(true)
+  status      ApprovalStatus @default(PENDING)
+  requestedBy String         @default("TEACHER")
+  hiredAt     DateTime       @default(now())
 
-  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  school     School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacher     Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  school      School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  interviews  Interview[] @relation("TeacherInterviews")
 
   @@unique([teacherId, schoolId])
   @@index([schoolId])
+  @@index([status])
 }
 
 model TeacherAvailability {
-  id         String      @id @default(cuid())
-  teacherId  String
-  dayOfWeek  DayOfWeek
-  session    SessionSlot
-  isAvailable Boolean    @default(true)
+  id          String      @id @default(cuid())
+  teacherId   String
+  dayOfWeek   DayOfWeek
+  session     SessionSlot
+  isAvailable Boolean     @default(true)
 
-  teacher    Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher     Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@unique([teacherId, dayOfWeek, session])
 }
@@ -304,30 +350,128 @@ model TeacherAvailability {
 // ============================================================
 
 model Student {
-  id              String           @id @default(cuid())
-  userId          String           @unique
-  schoolId        String
-  gradeLevel      GradeLevel
-  parentName      String?
-  parentEmail     String?
-  parentPhone     String?
-  dateOfBirth     DateTime?
-  preferredSession SessionSlot     @default(SESSION_A)
-  enrolledAt      DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  schoolId         String
+  gradeLevel       GradeLevel
+  parentName       String?
+  parentEmail      String?
+  parentPhone      String?
+  dateOfBirth      DateTime?
+  preferredSession SessionSlot      @default(SESSION_A)
+  approvalStatus   ApprovalStatus   @default(PENDING)
+  enrolledAt       DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  school          School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  enrollments     Enrollment[]
-  attendances     AttendanceRecord[]
-  scores          Score[]
-  payments        Payment[]
-  certificates    Certificate[]
-  seatAssignments SeatAssignment[]
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school           School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  enrollments      Enrollment[]
+  attendances      AttendanceRecord[]
+  scores           Score[]
+  payments         Payment[]
+  certificates     Certificate[]
+  seatAssignments  SeatAssignment[]
+  interviews       Interview[]      @relation("StudentInterviews")
 
   @@index([userId])
   @@index([schoolId])
   @@index([gradeLevel])
+  @@index([approvalStatus])
+}
+
+// ============================================================
+// INTERVIEWS
+// ============================================================
+
+model Interview {
+  id                String          @id @default(cuid())
+  interviewerId     String
+  studentId         String?
+  schoolTeacherId   String?
+  vacancyAppId      String?
+  type              String          @default("ADMISSION")
+  scheduledAt       DateTime
+  duration          Int             @default(30)
+  meetingLink       String?
+  meetingNotes      String?         @db.Text
+  status            InterviewStatus @default(SCHEDULED)
+  result            InterviewResult?
+  scoreOverall      Int?
+  scoreCommunication Int?
+  scoreKnowledge    Int?
+  scoreAttitude     Int?
+  scoreExperience   Int?
+  feedback          String?         @db.Text
+  recommendation    String?         @db.Text
+  completedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  interviewer       User            @relation("Interviewer", fields: [interviewerId], references: [id])
+  student           Student?        @relation("StudentInterviews", fields: [studentId], references: [id])
+  schoolTeacher     SchoolTeacher?  @relation("TeacherInterviews", fields: [schoolTeacherId], references: [id])
+  vacancyApp        VacancyApplication? @relation(fields: [vacancyAppId], references: [id])
+
+  @@index([studentId])
+  @@index([schoolTeacherId])
+  @@index([status])
+  @@index([vacancyAppId])
+}
+
+// ============================================================
+// VACANCIES & APPLICATIONS
+// ============================================================
+
+model Vacancy {
+  id              String        @id @default(cuid())
+  schoolId        String
+  title           String
+  description     String        @db.Text
+  requirements    Json          @default("[]")
+  subjects        Json          @default("[]")
+  gradeLevel      GradeLevel?
+  session         SessionSlot?
+  salaryMin       Float?
+  salaryMax       Float?
+  currency        String        @default("USD")
+  employmentType  String        @default("FULL_TIME")
+  deadline        DateTime?
+  maxApplicants   Int           @default(50)
+  status          VacancyStatus @default(OPEN)
+  isPublic        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  school          School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  applications    VacancyApplication[]
+
+  @@index([schoolId])
+  @@index([status])
+  @@index([isPublic, status])
+}
+
+model VacancyApplication {
+  id          String            @id @default(cuid())
+  vacancyId   String
+  teacherId   String?
+  applicantName  String
+  applicantEmail String
+  applicantPhone String?
+  coverLetter String?           @db.Text
+  resumeUrl   String?
+  experience  Int               @default(0)
+  qualifications Json           @default("[]")
+  status      ApplicationStatus @default(APPLIED)
+  appliedAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  vacancy     Vacancy           @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  teacher     Teacher?          @relation(fields: [teacherId], references: [id])
+  interviews  Interview[]
+
+  @@index([vacancyId])
+  @@index([teacherId])
+  @@index([status])
 }
 
 // ============================================================
@@ -377,10 +521,6 @@ model GradeSubject {
   @@unique([schoolGradeId, subjectId])
 }
 
-// ============================================================
-// SCHEME OF WORK
-// ============================================================
-
 model SchemeOfWork {
   id                String     @id @default(cuid())
   gradeSubjectId    String
@@ -401,10 +541,6 @@ model SchemeOfWork {
   @@unique([gradeSubjectId, countryCode, term, week])
   @@index([countryCode])
 }
-
-// ============================================================
-// TEXTBOOKS
-// ============================================================
 
 model Textbook {
   id              String   @id @default(cuid())

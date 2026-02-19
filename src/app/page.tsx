@@ -1,338 +1,242 @@
 import Link from "next/link";
-import {
-  BookOpen,
-  Users,
-  Globe,
-  Award,
-  Clock,
-  Shield,
-  GraduationCap,
-  ChevronRight,
-  Play,
-  Star,
-  CheckCircle2,
-} from "lucide-react";
+import { db } from "@/lib/db";
+import { GraduationCap, Globe, Users, BookOpen, Shield, Video, Briefcase, MapPin, ArrowRight, Star, CheckCircle, Zap, Clock, DollarSign } from "lucide-react";
 
-export default function HomePage() {
+export default async function LandingPage() {
+  let vacancies: any[] = [];
+  let schoolCount = 0;
+  let teacherCount = 0;
+  let studentCount = 0;
+
+  try {
+    vacancies = await db.vacancy.findMany({
+      where: { status: "OPEN", isPublic: true },
+      include: { school: { select: { name: true, countryCode: true } }, _count: { select: { applications: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+    });
+    schoolCount = await db.school.count({ where: { isActive: true } });
+    teacherCount = await db.teacher.count();
+    studentCount = await db.student.count();
+  } catch (e) {}
+
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-gray-200/50">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center">
-              <GraduationCap className="w-6 h-6 text-white" />
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-brand-600">GDA</span>
+            <span className="font-bold text-xl text-brand-600">GDA School</span>
           </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="#features" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">Features</Link>
-            <Link href="#how-it-works" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">How It Works</Link>
-            <Link href="#grades" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">Grade Levels</Link>
-            <Link href="#pricing" className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors">Pricing</Link>
+          <div className="hidden md:flex items-center gap-6 text-sm text-gray-600">
+            <a href="#features" className="hover:text-brand-600 transition-colors">Features</a>
+            <a href="#how-it-works" className="hover:text-brand-600 transition-colors">How It Works</a>
+            <a href="#vacancies" className="hover:text-brand-600 transition-colors">Job Board</a>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="btn-ghost">Sign In</Link>
-            <Link href="/register/student" className="btn-primary">Enroll Now</Link>
+            <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-brand-600 transition-colors px-4 py-2">Sign In</Link>
+            <Link href="/register/principal" className="btn-primary text-sm">Get Started</Link>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-50/80 via-white to-white" />
-        <div className="absolute top-20 left-10 w-72 h-72 bg-brand-200/30 rounded-full blur-3xl" />
-        <div className="absolute top-40 right-10 w-96 h-96 bg-accent-100/40 rounded-full blur-3xl" />
-        <div className="relative mx-auto max-w-7xl px-6">
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-50 via-white to-brand-50/30" />
+        <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
           <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 bg-brand-100/60 text-brand-600 rounded-full px-4 py-1.5 text-sm font-medium mb-6 animate-fade-in">
-              <Globe className="w-4 h-4" />
-              Available in 50+ countries
+            <div className="inline-flex items-center gap-2 bg-brand-100 text-brand-700 text-xs font-medium px-4 py-1.5 rounded-full mb-6">
+              <Zap className="w-3 h-3" /> Global Digital Academy — Education Without Borders
             </div>
-            <h1 className="text-5xl md:text-7xl font-extrabold text-brand-900 leading-[1.1] tracking-tight mb-6 animate-slide-up">
-              A Real School.
-              <br />
-              <span className="text-brand-500">Fully Digital.</span>
+            <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
+              The Future of <span className="text-brand-600">African Education</span> Starts Here
             </h1>
-            <p className="text-lg md:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: "0.1s" }}>
-              From Kindergarten to Senior Secondary — attend classes, choose your teachers,
-              earn real certificates. Every class runs 3 times daily so you never miss a lesson.
+            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+              A complete school management platform with virtual classrooms, automated grading, certificate verification, and 3 daily learning sessions across all time zones.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: "0.2s" }}>
-              <Link href="/register/student" className="btn-primary text-base px-8 py-4 w-full sm:w-auto">
-                Start Learning Today
-                <ChevronRight className="w-5 h-5 ml-1" />
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/register/principal" className="btn-primary px-8 py-3.5 text-base">
+                <Shield className="w-4 h-4 mr-2" /> Register Your School
               </Link>
-              <Link href="/register/teacher" className="btn-secondary text-base px-8 py-4 w-full sm:w-auto">
-                Apply as Teacher
+              <Link href="/register/teacher" className="btn-ghost px-8 py-3.5 text-base border border-gray-300">
+                <Users className="w-4 h-4 mr-2" /> Join as Teacher
+              </Link>
+              <Link href="/register/student" className="btn-ghost px-8 py-3.5 text-base border border-gray-300">
+                <BookOpen className="w-4 h-4 mr-2" /> Enroll as Student
               </Link>
             </div>
           </div>
 
-          {/* Stats bar */}
-          <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-6 max-w-lg mx-auto mt-16">
             {[
-              { value: "15", label: "Grade Levels", sub: "K1 to G12" },
-              { value: "3x", label: "Daily Sessions", sub: "Never miss class" },
-              { value: "50+", label: "Countries", sub: "Any curriculum" },
-              { value: "100%", label: "Digital", sub: "Real certificates" },
-            ].map((stat, i) => (
-              <div key={i} className="text-center p-4 animate-slide-up" style={{ animationDelay: `${0.3 + i * 0.1}s` }}>
-                <div className="text-3xl md:text-4xl font-extrabold text-brand-600">{stat.value}</div>
-                <div className="text-sm font-semibold text-gray-800 mt-1">{stat.label}</div>
-                <div className="text-xs text-gray-500">{stat.sub}</div>
+              { value: schoolCount, label: "Schools" },
+              { value: teacherCount, label: "Teachers" },
+              { value: studentCount, label: "Students" },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <div className="text-3xl font-bold text-brand-600">{stat.value}+</div>
+                <div className="text-sm text-gray-500">{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section id="features" className="py-24 bg-gray-50/50">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Everything a Real School Has. Online.</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              We didn&apos;t just build a video call app. We built an entire school with classrooms,
-              seating charts, attendance registers, report cards, and certificates.
-            </p>
+      {/* Features */}
+      <section id="features" className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Everything Your School Needs</h2>
+            <p className="text-gray-500 max-w-xl mx-auto">One platform for principals, teachers, and students — with built-in interviews, hiring, and credential verification.</p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              {
-                icon: Users,
-                title: "Choose Your Teacher",
-                desc: "Browse teacher profiles, read reviews, watch intro videos. Pick the teacher that fits your learning style for each subject.",
-                color: "bg-blue-100 text-blue-600",
-              },
-              {
-                icon: Clock,
-                title: "3x Daily Sessions",
-                desc: "Every class runs at 3 different times — morning, afternoon, and evening. Students across all time zones are covered.",
-                color: "bg-amber-100 text-amber-600",
-              },
-              {
-                icon: Globe,
-                title: "Any Country, Any Curriculum",
-                desc: "Nigerian 6-3-3-4, British GCSE, American K-12, Indian CBSE — our adaptive engine maps to your national standards.",
-                color: "bg-emerald-100 text-emerald-600",
-              },
-              {
-                icon: BookOpen,
-                title: "Virtual Classroom",
-                desc: "Real seating charts, whiteboards, hand-raising, live chat, breakout rooms, and automatic recording of every session.",
-                color: "bg-purple-100 text-purple-600",
-              },
-              {
-                icon: Award,
-                title: "Verified Certificates",
-                desc: "Every grade completion earns a blockchain-verified digital certificate. QR-scannable for instant verification by anyone.",
-                color: "bg-rose-100 text-rose-600",
-              },
-              {
-                icon: Shield,
-                title: "Complete School System",
-                desc: "School rules, anthem, assemblies, report cards, parent notifications, and a principal who runs the show.",
-                color: "bg-cyan-100 text-cyan-600",
-              },
-            ].map((feature, i) => (
-              <div key={i} className="card group hover:border-brand-200">
-                <div className={`w-12 h-12 rounded-xl ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                  <feature.icon className="w-6 h-6" />
+              { icon: Shield, title: "Principal Dashboard", desc: "Full school management — approve students, hire teachers, set fees, manage curriculum, schedule interviews, and post vacancies." },
+              { icon: Briefcase, title: "Vacancy & Hiring System", desc: "Post job openings visible on the public job board. Review applications, schedule interviews, score candidates, and hire — all in one place." },
+              { icon: Users, title: "Interview System", desc: "Schedule interviews for students and teachers. Score on communication, knowledge, attitude. Submit results for principal review." },
+              { icon: Video, title: "Virtual Classrooms", desc: "3 daily sessions (Morning, Afternoon, Evening) so students in any time zone can attend. Built-in video, materials, and attendance." },
+              { icon: BookOpen, title: "Smart Gradebook", desc: "Create assessments, enter scores, auto-calculate grades. Students see results instantly with detailed feedback." },
+              { icon: Star, title: "Blockchain Certificates", desc: "Tamper-proof certificates with unique verification codes. Employers can verify credentials instantly via QR code." },
+              { icon: Globe, title: "Multi-Country Support", desc: "Localized curriculum, 17+ countries, local currencies. Built for Africa-first but works globally." },
+              { icon: DollarSign, title: "Fee Management", desc: "Set fee structures per grade per term. Track payments and generate financial reports." },
+              { icon: CheckCircle, title: "Approval Workflows", desc: "Students apply → interview → principal approves. Teachers request → interview → principal hires. Full audit trail." },
+            ].map((f, i) => (
+              <div key={i} className="bg-white rounded-xl p-6 border border-gray-100 hover:border-brand-200 hover:shadow-md transition-all">
+                <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center mb-4">
+                  <f.icon className="w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{feature.desc}</p>
+                <h3 className="text-base font-semibold text-gray-900 mb-2">{f.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How it Works */}
-      <section id="how-it-works" className="py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
-            <p className="text-gray-600 max-w-xl mx-auto">Four simple steps to start your digital education journey.</p>
-          </div>
-          <div className="grid md:grid-cols-4 gap-8">
-            {[
-              { step: "01", title: "Register", desc: "Create your account as a student, teacher, or school principal. Select your country and grade level." },
-              { step: "02", title: "Choose Teachers", desc: "Browse available teachers for each subject. Read reviews, compare styles, and enroll in the classes you want." },
-              { step: "03", title: "Attend Class", desc: "Join your scheduled sessions (morning, afternoon, or evening). Interact live with teachers and classmates." },
-              { step: "04", title: "Earn Certificate", desc: "Complete your assessments, pass your exams, and receive blockchain-verified certificates." },
-            ].map((item, i) => (
-              <div key={i} className="relative text-center">
-                <div className="w-16 h-16 rounded-2xl bg-brand-600 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4">
-                  {item.step}
-                </div>
-                {i < 3 && (
-                  <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-px bg-brand-200" />
-                )}
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{item.title}</h3>
-                <p className="text-sm text-gray-600">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Grade Levels */}
-      <section id="grades" className="py-24 bg-brand-600">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">All Grade Levels Covered</h2>
-            <p className="text-brand-200 max-w-xl mx-auto">From first steps in Kindergarten to Senior Secondary graduation.</p>
-          </div>
-          <div className="grid md:grid-cols-5 gap-4">
-            {[
-              { level: "Foundation", grades: "K1 – K3", years: "3 years", color: "from-pink-400 to-rose-500" },
-              { level: "Lower Primary", grades: "G1 – G3", years: "3 years", color: "from-blue-400 to-indigo-500" },
-              { level: "Upper Primary", grades: "G4 – G6", years: "3 years", color: "from-emerald-400 to-teal-500" },
-              { level: "Junior Secondary", grades: "G7 – G9", years: "3 years", color: "from-amber-400 to-orange-500" },
-              { level: "Senior Secondary", grades: "G10 – G12", years: "3 years", color: "from-purple-400 to-violet-500" },
-            ].map((item, i) => (
-              <div key={i} className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 p-6 text-center hover:bg-white/20 transition-colors">
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mx-auto mb-4`}>
-                  <GraduationCap className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-white mb-1">{item.level}</h3>
-                <p className="text-brand-200 text-sm font-medium">{item.grades}</p>
-                <p className="text-brand-300 text-xs mt-1">{item.years}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Portals Section */}
-      <section className="py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Three Portals. One School.</h2>
-            <p className="text-gray-600 max-w-xl mx-auto">Each user type gets a purpose-built experience.</p>
-          </div>
+      {/* How It Works */}
+      <section id="how-it-works" className="py-20">
+        <div className="max-w-5xl mx-auto px-6">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-14">How It Works</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              {
-                title: "Student Portal",
-                desc: "Virtual classroom, timetable, grades, teachers list, certificate wall, textbook links, and class library.",
-                link: "/register/student",
-                btnText: "Enroll as Student",
-                features: ["Choose your teachers", "Virtual seating & classroom", "Track grades in real-time", "Download certificates"],
-                gradient: "from-blue-500 to-brand-600",
-              },
-              {
-                title: "Teacher Portal",
-                desc: "Class management, gradebook, attendance, lesson planner, materials library, and earnings dashboard.",
-                link: "/register/teacher",
-                btnText: "Apply as Teacher",
-                features: ["Manage multiple classes", "Full gradebook system", "Upload materials & resources", "Track your earnings"],
-                gradient: "from-emerald-500 to-teal-600",
-              },
-              {
-                title: "Principal Portal",
-                desc: "School dashboard, teacher & student management, fee control, curriculum settings, and reports.",
-                link: "/register/principal",
-                btnText: "Create Your School",
-                features: ["Full school oversight", "Set fees & curriculum", "Hire & manage teachers", "Issue certificates"],
-                gradient: "from-amber-500 to-orange-600",
-              },
-            ].map((portal, i) => (
-              <div key={i} className="card border-0 shadow-lg overflow-hidden">
-                <div className={`h-2 bg-gradient-to-r ${portal.gradient}`} />
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{portal.title}</h3>
-                  <p className="text-sm text-gray-600 mb-6">{portal.desc}</p>
-                  <ul className="space-y-3 mb-8">
-                    {portal.features.map((f, j) => (
-                      <li key={j} className="flex items-center gap-2 text-sm text-gray-700">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link href={portal.link} className="btn-primary w-full">
-                    {portal.btnText}
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Link>
-                </div>
+              { step: "1", title: "Principal Creates School", desc: "Register, set up curriculum, grade levels, fees, and post teaching vacancies. Your school is live in minutes." },
+              { step: "2", title: "Teachers & Students Apply", desc: "Teachers apply via the job board or register directly. Students pick a school. Both go through interviews before approval." },
+              { step: "3", title: "Learning Begins", desc: "Approved teachers create classes, upload materials, mark attendance, and grade assessments. Students attend virtual sessions." },
+            ].map((s) => (
+              <div key={s.step} className="text-center">
+                <div className="w-14 h-14 rounded-2xl bg-brand-600 text-white text-xl font-bold flex items-center justify-center mx-auto mb-4">{s.step}</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{s.title}</h3>
+                <p className="text-sm text-gray-500">{s.desc}</p>
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Vacancies / Job Board */}
+      <section id="vacancies" className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between mb-10">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Open Teaching Positions</h2>
+              <p className="text-gray-500">Schools are hiring — apply directly, no account needed.</p>
+            </div>
+            <Link href="/vacancies" className="btn-primary text-sm">
+              View All Jobs <ArrowRight className="w-4 h-4 ml-1" />
+            </Link>
+          </div>
+
+          {vacancies.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {vacancies.map((v: any) => (
+                <Link key={v.id} href="/vacancies" className="bg-white rounded-xl p-5 border border-gray-100 hover:border-brand-200 hover:shadow-md transition-all block">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm">
+                      {v.school.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900">{v.title}</h3>
+                      <p className="text-xs text-brand-600">{v.school.name}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 line-clamp-2 mb-3">{v.description}</p>
+                  <div className="flex flex-wrap gap-2 text-[10px] text-gray-500">
+                    <span className="flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" /> {v.school.countryCode}</span>
+                    <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" /> {v.employmentType?.replace("_", " ")}</span>
+                    <span className="flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> {v._count.applications} applied</span>
+                    {v.salaryMin > 0 && <span className="flex items-center gap-0.5"><DollarSign className="w-2.5 h-2.5" /> {v.currency} {v.salaryMin.toLocaleString()}</span>}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+              <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No open positions yet. Schools will post vacancies here.</p>
+              <p className="text-sm text-gray-400 mt-1">Are you a principal? <Link href="/register/principal" className="text-brand-600 hover:underline">Register your school</Link> and start hiring.</p>
+            </div>
+          )}
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-24 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute top-10 right-10 w-64 h-64 bg-brand-400/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 left-10 w-80 h-80 bg-accent-500/10 rounded-full blur-3xl" />
-        </div>
-        <div className="relative mx-auto max-w-4xl px-6 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-            The Future of Education Starts Here
-          </h2>
-          <p className="text-lg text-brand-200 mb-10 max-w-2xl mx-auto">
-            Join thousands of students and teachers building the next generation of education.
-            No borders. No limits. Just learning.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/register/student" className="btn-accent text-base px-10 py-4 w-full sm:w-auto">
-              Start Free Trial
-            </Link>
-            <Link href="/register/principal" className="inline-flex items-center justify-center rounded-lg border-2 border-white/30 bg-transparent px-10 py-4 text-base font-semibold text-white transition-all hover:bg-white/10 w-full sm:w-auto">
-              Create a School
-            </Link>
+      <section className="py-20">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Ready to Transform Your School?</h2>
+          <p className="text-gray-500 mb-8 max-w-xl mx-auto">Join the growing network of schools, teachers, and students building the future of education.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/register/principal" className="btn-primary px-10 py-4 text-base">Register as Principal</Link>
+            <Link href="/register/teacher" className="btn-ghost px-10 py-4 text-base border border-gray-300">Register as Teacher</Link>
+            <Link href="/register/student" className="btn-ghost px-10 py-4 text-base border border-gray-300">Enroll as Student</Link>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-brand-900 text-gray-400 py-16">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid md:grid-cols-4 gap-10">
+      <footer className="bg-gray-900 text-gray-400 py-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-9 h-9 rounded-lg bg-brand-500 flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5 text-white" />
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center">
+                  <GraduationCap className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-lg font-bold text-white">Global Digital Academy</span>
+                <span className="font-bold text-white">GDA School</span>
               </div>
-              <p className="text-sm leading-relaxed">
-                A fully digital school platform. Real classes, real teachers, real certificates.
-              </p>
+              <p className="text-sm">Global Digital Academy — quality education for everyone, everywhere.</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-white mb-4 uppercase tracking-wider">Platform</h4>
-              <ul className="space-y-2.5 text-sm">
-                <li><Link href="/register/student" className="hover:text-white transition-colors">Student Portal</Link></li>
-                <li><Link href="/register/teacher" className="hover:text-white transition-colors">Teacher Portal</Link></li>
-                <li><Link href="/register/principal" className="hover:text-white transition-colors">Principal Portal</Link></li>
-                <li><Link href="#grades" className="hover:text-white transition-colors">Grade Levels</Link></li>
-              </ul>
+              <h4 className="text-white font-semibold mb-3 text-sm">Platform</h4>
+              <div className="space-y-2 text-sm">
+                <Link href="/register/principal" className="block hover:text-white">For Schools</Link>
+                <Link href="/register/teacher" className="block hover:text-white">For Teachers</Link>
+                <Link href="/register/student" className="block hover:text-white">For Students</Link>
+                <Link href="/vacancies" className="block hover:text-white">Job Board</Link>
+              </div>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-white mb-4 uppercase tracking-wider">Resources</h4>
-              <ul className="space-y-2.5 text-sm">
-                <li><Link href="#" className="hover:text-white transition-colors">Help Center</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Curriculum Guide</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Teacher Training</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">API Documentation</Link></li>
-              </ul>
+              <h4 className="text-white font-semibold mb-3 text-sm">Features</h4>
+              <div className="space-y-2 text-sm">
+                <span className="block">Virtual Classrooms</span>
+                <span className="block">Interview System</span>
+                <span className="block">Smart Gradebook</span>
+                <span className="block">Certificate Verification</span>
+              </div>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-white mb-4 uppercase tracking-wider">Legal</h4>
-              <ul className="space-y-2.5 text-sm">
-                <li><Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Terms of Service</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Cookie Policy</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Child Safety</Link></li>
-              </ul>
+              <h4 className="text-white font-semibold mb-3 text-sm">Support</h4>
+              <div className="space-y-2 text-sm">
+                <span className="block">help@gdaschools.sbs</span>
+                <span className="block">17+ Countries Supported</span>
+              </div>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t border-gray-800 text-center text-sm">
-            <p>&copy; {new Date().getFullYear()} Global Digital Academy. All rights reserved.</p>
+          <div className="border-t border-gray-800 pt-6 text-sm text-center">
+            &copy; {new Date().getFullYear()} GDA School. All rights reserved.
           </div>
         </div>
       </footer>

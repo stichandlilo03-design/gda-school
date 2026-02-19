@@ -16,19 +16,28 @@ export default async function TeachersPage() {
     include: {
       teacher: {
         include: {
-          user: { select: { name: true, email: true, image: true, phone: true } },
+          user: { select: { name: true, email: true, image: true, phone: true, countryCode: true } },
           classes: { where: { isActive: true }, include: { enrollments: { where: { status: "ACTIVE" } } } },
         },
       },
+      interviews: { orderBy: { scheduledAt: "desc" }, take: 1, include: { interviewer: { select: { name: true } } } },
     },
     orderBy: { hiredAt: "desc" },
   });
 
+  const pending = schoolTeachers.filter((st) => st.status === "PENDING" || st.status === "INTERVIEW_SCHEDULED" || st.status === "INTERVIEWED");
+  const approved = schoolTeachers.filter((st) => st.status === "APPROVED");
+  const rejected = schoolTeachers.filter((st) => st.status === "REJECTED");
+
   return (
     <>
-      <DashboardHeader title="Teacher Management" subtitle="Hire, manage, and review teachers" />
+      <DashboardHeader title="Teacher Management" subtitle={`${pending.length} pending • ${approved.length} active`} />
       <div className="p-6 lg:p-8">
-        <TeacherManager teachers={JSON.parse(JSON.stringify(schoolTeachers))} />
+        <TeacherManager
+          pending={JSON.parse(JSON.stringify(pending))}
+          approved={JSON.parse(JSON.stringify(approved))}
+          rejected={JSON.parse(JSON.stringify(rejected))}
+        />
       </div>
     </>
   );

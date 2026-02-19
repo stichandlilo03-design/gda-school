@@ -8,6 +8,8 @@ const principalLinks = [
   { href: "/principal", icon: "LayoutDashboard", label: "Dashboard" },
   { href: "/principal/teachers", icon: "Users", label: "Teachers" },
   { href: "/principal/students", icon: "GraduationCap", label: "Students" },
+  { href: "/principal/interviews", icon: "Calendar", label: "Interviews" },
+  { href: "/principal/vacancies", icon: "Briefcase", label: "Vacancies" },
   { href: "/principal/fees", icon: "DollarSign", label: "School Fees" },
   { href: "/principal/curriculum", icon: "BookOpen", label: "Curriculum" },
   { href: "/principal/reports", icon: "BarChart3", label: "Reports" },

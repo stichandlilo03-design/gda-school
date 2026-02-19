@@ -6,7 +6,174 @@ import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 // ============================================================
-// SCHOOL SETTINGS
+// TEACHER APPROVAL / MANAGEMENT
+// ============================================================
+
+// Principal invites a teacher by email
+export async function inviteTeacherToSchool(teacherEmail: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
+  if (!principal) return { error: "Principal not found" };
+
+  const user = await db.user.findUnique({
+    where: { email: teacherEmail.toLowerCase() },
+    include: { teacher: true },
+  });
+
+  if (!user || !user.teacher) return { error: "Teacher not found. They must register as a teacher first." };
+
+  const existing = await db.schoolTeacher.findUnique({
+    where: { teacherId_schoolId: { teacherId: user.teacher.id, schoolId: principal.schoolId } },
+  });
+
+  if (existing) {
+    if (existing.status === "APPROVED" && existing.isActive) return { error: "Teacher is already in your school." };
+    if (existing.status === "PENDING") return { error: "Teacher already has a pending request." };
+    // Reinstate or re-invite
+    await db.schoolTeacher.update({
+      where: { id: existing.id },
+      data: { status: "APPROVED", isActive: true, requestedBy: "PRINCIPAL" },
+    });
+    revalidatePath("/principal/teachers");
+    return { success: true, message: "Teacher re-added to your school." };
+  }
+
+  await db.schoolTeacher.create({
+    data: {
+      teacherId: user.teacher.id,
+      schoolId: principal.schoolId,
+      status: "APPROVED",
+      isActive: true,
+      requestedBy: "PRINCIPAL",
+    },
+  });
+
+  revalidatePath("/principal/teachers");
+  return { success: true, message: "Teacher invited and added to your school!" };
+}
+
+// Approve a teacher's request
+export async function approveTeacher(schoolTeacherId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  await db.schoolTeacher.update({
+    where: { id: schoolTeacherId },
+    data: { status: "APPROVED", isActive: true },
+  });
+
+  revalidatePath("/principal/teachers");
+  revalidatePath("/principal");
+  return { success: true };
+}
+
+// Reject a teacher's request
+export async function rejectTeacher(schoolTeacherId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  await db.schoolTeacher.update({
+    where: { id: schoolTeacherId },
+    data: { status: "REJECTED", isActive: false },
+  });
+
+  revalidatePath("/principal/teachers");
+  revalidatePath("/principal");
+  return { success: true };
+}
+
+// Remove an active teacher
+export async function removeTeacherFromSchool(schoolTeacherId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: false } });
+  revalidatePath("/principal/teachers");
+  return { success: true };
+}
+
+// Reinstate a removed teacher
+export async function reinstateTeacher(schoolTeacherId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: true, status: "APPROVED" } });
+  revalidatePath("/principal/teachers");
+  return { success: true };
+}
+
+// ============================================================
+// STUDENT APPROVAL / MANAGEMENT
+// ============================================================
+
+// Approve a student application
+export async function approveStudent(studentId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  await db.student.update({
+    where: { id: studentId },
+    data: { approvalStatus: "APPROVED" },
+  });
+
+  revalidatePath("/principal/students");
+  revalidatePath("/principal");
+  return { success: true };
+}
+
+// Reject a student application
+export async function rejectStudent(studentId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  await db.student.update({
+    where: { id: studentId },
+    data: { approvalStatus: "REJECTED" },
+  });
+
+  revalidatePath("/principal/students");
+  revalidatePath("/principal");
+  return { success: true };
+}
+
+// Suspend an approved student
+export async function suspendStudent(studentId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  const student = await db.student.findUnique({ where: { id: studentId } });
+  if (!student) return { error: "Student not found" };
+
+  await db.user.update({
+    where: { id: student.userId },
+    data: { isActive: false },
+  });
+
+  revalidatePath("/principal/students");
+  return { success: true };
+}
+
+// Reinstate a suspended student
+export async function reinstateStudent(studentId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  const student = await db.student.findUnique({ where: { id: studentId } });
+  if (!student) return { error: "Student not found" };
+
+  await db.user.update({
+    where: { id: student.userId },
+    data: { isActive: true },
+  });
+
+  revalidatePath("/principal/students");
+  return { success: true };
+}
+
+// ============================================================
+// SCHOOL SETTINGS (unchanged)
 // ============================================================
 export async function updateSchoolSettings(data: {
   name: string;
@@ -102,83 +269,6 @@ export async function removeSubjectFromGrade(gradeSubjectId: string) {
 
   await db.gradeSubject.delete({ where: { id: gradeSubjectId } });
   revalidatePath("/principal/curriculum");
-  return { success: true };
-}
-
-// ============================================================
-// TEACHER MANAGEMENT
-// ============================================================
-export async function addTeacherToSchool(teacherEmail: string) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
-
-  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
-  if (!principal) return { error: "Principal not found" };
-
-  const user = await db.user.findUnique({
-    where: { email: teacherEmail.toLowerCase() },
-    include: { teacher: true },
-  });
-
-  if (!user || !user.teacher) return { error: "Teacher not found. They must register first." };
-
-  const existing = await db.schoolTeacher.findUnique({
-    where: { teacherId_schoolId: { teacherId: user.teacher.id, schoolId: principal.schoolId } },
-  });
-  if (existing) return { error: "Teacher already in your school" };
-
-  await db.schoolTeacher.create({
-    data: { teacherId: user.teacher.id, schoolId: principal.schoolId },
-  });
-
-  revalidatePath("/principal/teachers");
-  return { success: true };
-}
-
-export async function removeTeacherFromSchool(schoolTeacherId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
-
-  await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: false } });
-  revalidatePath("/principal/teachers");
-  return { success: true };
-}
-
-export async function reinstateTeacher(schoolTeacherId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
-
-  await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: true } });
-  revalidatePath("/principal/teachers");
-  return { success: true };
-}
-
-// ============================================================
-// STUDENT MANAGEMENT
-// ============================================================
-export async function suspendStudent(studentId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
-
-  await db.user.update({
-    where: { id: (await db.student.findUnique({ where: { id: studentId } }))!.userId },
-    data: { isActive: false },
-  });
-
-  revalidatePath("/principal/students");
-  return { success: true };
-}
-
-export async function reinstateStudent(studentId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
-
-  await db.user.update({
-    where: { id: (await db.student.findUnique({ where: { id: studentId } }))!.userId },
-    data: { isActive: true },
-  });
-
-  revalidatePath("/principal/students");
   return { success: true };
 }
 

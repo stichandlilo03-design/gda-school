@@ -11,6 +11,7 @@ const teacherLinks = [
   { href: "/teacher/attendance", icon: "UserCheck", label: "Attendance" },
   { href: "/teacher/materials", icon: "FolderOpen", label: "Materials" },
   { href: "/teacher/schedule", icon: "Clock", label: "Schedule" },
+  { href: "/teacher/vacancies", icon: "Briefcase", label: "Job Board" },
 ];
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
