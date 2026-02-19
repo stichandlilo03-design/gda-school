@@ -14,20 +14,26 @@ export default async function PayrollPage() {
   });
   if (!principal) return null;
 
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
   const teachers = await db.schoolTeacher.findMany({
     where: { schoolId: principal.schoolId, status: "APPROVED", isActive: true },
     include: {
       teacher: { include: { user: { select: { name: true, email: true, countryCode: true } }, bankAccounts: { where: { isPrimary: true }, take: 1 } } },
       salary: { include: { history: { orderBy: { changedAt: "desc" }, take: 5 } } },
       payrolls: { orderBy: [{ year: "desc" }, { month: "desc" }], take: 12 },
+      sessions: {
+        where: { date: { gte: monthStart, lt: monthEnd } },
+        orderBy: { date: "desc" },
+      },
     },
   });
 
-  const now = new Date();
-
   return (
     <>
-      <DashboardHeader title="Payroll Management" subtitle="Manage salaries, generate payroll, and process payments" />
+      <DashboardHeader title="Payroll Management" subtitle="Track earnings, manage salaries, and process payments" />
       <div className="p-6 lg:p-8">
         <PayrollManager
           teachers={JSON.parse(JSON.stringify(teachers))}

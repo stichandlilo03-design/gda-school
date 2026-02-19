@@ -348,6 +348,7 @@ model SchoolTeacher {
   interviews  Interview[] @relation("TeacherInterviews")
   salary      TeacherSalary?
   payrolls    PayrollRecord[]
+  sessions    TeachingSession[]
 
   @@unique([teacherId, schoolId])
   @@index([schoolId])
@@ -879,6 +880,7 @@ model TeacherSalary {
   baseSalary      Float
   currency        String   @default("USD")
   payFrequency    String   @default("MONTHLY")
+  workingDaysPerMonth Int   @default(22)
   housingAllowance Float   @default(0)
   transportAllowance Float @default(0)
   otherAllowances Float    @default(0)
@@ -933,4 +935,25 @@ model PayrollRecord {
   @@unique([schoolTeacherId, month, year])
   @@index([schoolTeacherId])
   @@index([status])
+}
+
+model TeachingSession {
+  id              String   @id @default(cuid())
+  schoolTeacherId String
+  classId         String?
+  date            DateTime @db.Date
+  hoursWorked     Float    @default(1)
+  dailyRate       Float
+  amountEarned    Float
+  currency        String   @default("USD")
+  verified        Boolean  @default(false)
+  verifiedBy      String?
+  topic           String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  schoolTeacher   SchoolTeacher @relation(fields: [schoolTeacherId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolTeacherId, classId, date])
+  @@index([schoolTeacherId, date])
 }

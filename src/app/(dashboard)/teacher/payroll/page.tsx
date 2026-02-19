@@ -13,12 +13,14 @@ export default async function TeacherPayrollPage() {
     include: {
       user: { select: { countryCode: true } },
       bankAccounts: { orderBy: { isPrimary: "desc" } },
+      classes: { where: { isActive: true }, select: { id: true, name: true, schoolGrade: { select: { gradeLevel: true } } } },
       schools: {
         where: { status: "APPROVED", isActive: true },
         include: {
           school: { select: { name: true, currency: true } },
           salary: { include: { history: { orderBy: { changedAt: "desc" }, take: 10 } } },
           payrolls: { orderBy: [{ year: "desc" }, { month: "desc" }], take: 24 },
+          sessions: { orderBy: { date: "desc" }, take: 60 },
         },
       },
     },
@@ -28,11 +30,12 @@ export default async function TeacherPayrollPage() {
 
   return (
     <>
-      <DashboardHeader title="My Payroll" subtitle="Salary, bank accounts, and payment history" />
+      <DashboardHeader title="My Payroll" subtitle="Earnings, payment accounts & payslips" />
       <div className="p-6 lg:p-8">
         <TeacherPayroll
           schools={JSON.parse(JSON.stringify(teacher.schools))}
           bankAccounts={JSON.parse(JSON.stringify(teacher.bankAccounts))}
+          classes={JSON.parse(JSON.stringify(teacher.classes))}
           countryCode={teacher.user.countryCode}
         />
       </div>
