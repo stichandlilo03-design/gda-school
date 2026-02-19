@@ -150,6 +150,24 @@ enum ApplicationStatus {
   WITHDRAWN
 }
 
+enum PayrollStatus {
+  DRAFT
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum PayMethodType {
+  BANK_TRANSFER
+  MOBILE_MONEY
+  PAYPAL
+  CRYPTO
+  CASH
+  CHECK
+}
+
 // ============================================================
 // AUTH & USERS
 // ============================================================
@@ -310,6 +328,7 @@ model Teacher {
   availability    TeacherAvailability[]
   materials       ClassMaterial[]
   vacancyApplications VacancyApplication[]
+  bankAccounts    TeacherBankAccount[]
 
   @@index([userId])
   @@index([rating])
@@ -327,6 +346,8 @@ model SchoolTeacher {
   teacher     Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   school      School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   interviews  Interview[] @relation("TeacherInterviews")
+  salary      TeacherSalary?
+  payrolls    PayrollRecord[]
 
   @@unique([teacherId, schoolId])
   @@index([schoolId])
@@ -819,4 +840,97 @@ model Announcement {
   school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
+}
+
+// ============================================================
+// PAYROLL & SALARY
+// ============================================================
+
+model TeacherBankAccount {
+  id            String       @id @default(cuid())
+  teacherId     String
+  label         String       @default("Primary")
+  methodType    PayMethodType @default(BANK_TRANSFER)
+  bankName      String?
+  accountName   String?
+  accountNumber String?
+  routingNumber String?
+  swiftCode     String?
+  mobileProvider String?
+  mobileNumber  String?
+  paypalEmail   String?
+  cryptoAddress String?
+  cryptoNetwork String?
+  countryCode   String       @default("NG")
+  currency      String       @default("NGN")
+  isPrimary     Boolean      @default(false)
+  isVerified    Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  teacher       Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
+}
+
+model TeacherSalary {
+  id              String   @id @default(cuid())
+  schoolTeacherId String   @unique
+  baseSalary      Float
+  currency        String   @default("USD")
+  payFrequency    String   @default("MONTHLY")
+  housingAllowance Float   @default(0)
+  transportAllowance Float @default(0)
+  otherAllowances Float    @default(0)
+  taxRate         Float    @default(0)
+  pensionRate     Float    @default(0)
+  otherDeductions Float    @default(0)
+  effectiveFrom   DateTime @default(now())
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  schoolTeacher   SchoolTeacher @relation(fields: [schoolTeacherId], references: [id], onDelete: Cascade)
+  history         SalaryHistory[]
+}
+
+model SalaryHistory {
+  id              String   @id @default(cuid())
+  teacherSalaryId String
+  previousAmount  Float
+  newAmount       Float
+  reason          String?
+  changedBy       String
+  changedAt       DateTime @default(now())
+
+  teacherSalary   TeacherSalary @relation(fields: [teacherSalaryId], references: [id], onDelete: Cascade)
+
+  @@index([teacherSalaryId])
+}
+
+model PayrollRecord {
+  id              String        @id @default(cuid())
+  schoolTeacherId String
+  month           Int
+  year            Int
+  baseSalary      Float
+  allowances      Float         @default(0)
+  grossPay        Float
+  taxDeduction    Float         @default(0)
+  pensionDeduction Float        @default(0)
+  otherDeductions Float         @default(0)
+  netPay          Float
+  currency        String        @default("USD")
+  status          PayrollStatus @default(DRAFT)
+  paidAt          DateTime?
+  transactionRef  String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  schoolTeacher   SchoolTeacher @relation(fields: [schoolTeacherId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolTeacherId, month, year])
+  @@index([schoolTeacherId])
+  @@index([status])
 }

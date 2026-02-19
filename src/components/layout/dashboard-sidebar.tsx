@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
-  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase, Monitor
+  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase, Monitor, CreditCard
 } from "lucide-react";
 
 const iconMap: Record<string, any> = {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
-  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor,
+  ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor, CreditCard,
 };
 
 interface SidebarProps {
@@ -36,19 +36,15 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
 
   return (
     <>
-      {/* Mobile toggle */}
       <button onClick={() => setOpen(true)} className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md">
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Overlay */}
       {open && <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setOpen(false)} />}
 
-      {/* Sidebar */}
       <aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-200 z-50 transition-transform duration-300
         ${open ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
         <div className="flex flex-col h-full">
-          {/* Header */}
           <div className="p-5 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2">
@@ -64,7 +60,6 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
             </div>
           </div>
 
-          {/* Nav */}
           <nav className="flex-1 p-3 overflow-y-auto space-y-0.5">
             {links.map((link) => {
               const IconComponent = iconMap[link.icon] || LayoutDashboard;
@@ -81,7 +76,6 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
             })}
           </nav>
 
-          {/* User */}
           <div className="p-4 border-t border-gray-100">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
@@ -89,11 +83,9 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate">{user.name}</p>
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleColors[user.role] || "bg-gray-100 text-gray-600"}`}>
-                    {user.role}
-                  </span>
-                </div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleColors[user.role] || "bg-gray-100 text-gray-600"}`}>
+                  {user.role}
+                </span>
               </div>
             </div>
             <Link href="/api/auth/signout" className="flex items-center gap-2 text-xs text-gray-500 hover:text-red-600 transition-colors px-1">

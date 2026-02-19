@@ -11,6 +11,7 @@ const teacherLinks = [
   { href: "/teacher/attendance", icon: "UserCheck", label: "Attendance" },
   { href: "/teacher/materials", icon: "FolderOpen", label: "Materials" },
   { href: "/teacher/schedule", icon: "Clock", label: "Schedule" },
+  { href: "/teacher/payroll", icon: "DollarSign", label: "My Payroll" },
   { href: "/teacher/vacancies", icon: "Briefcase", label: "Job Board" },
 ];
 
