@@ -11,11 +11,26 @@ export default async function ClassesPage() {
   const teacher = await db.teacher.findUnique({
     where: { userId: session.user.id },
     include: {
-      schools: { where: { isActive: true }, include: { school: { include: { grades: true } } } },
+      schools: {
+        where: { isActive: true, status: "APPROVED" },
+        include: {
+          school: {
+            include: {
+              grades: { include: { subjects: { include: { subject: true } } } },
+            },
+          },
+        },
+      },
       classes: {
         include: {
-          enrollments: { where: { status: "ACTIVE" }, include: { student: { include: { user: { select: { name: true } } } } } },
+          enrollments: {
+            where: { status: "ACTIVE" },
+            include: { student: { include: { user: { select: { name: true, image: true, email: true } } } } },
+          },
           schoolGrade: true,
+          schedules: true,
+          requirements: { orderBy: { createdAt: "asc" } },
+          _count: { select: { materials: true, assessments: true, attendances: true } },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -26,7 +41,7 @@ export default async function ClassesPage() {
 
   return (
     <>
-      <DashboardHeader title="My Classes" subtitle="Create and manage your teaching classes" />
+      <DashboardHeader title="My Classes" subtitle={`${teacher?.classes.filter(c => c.isActive).length || 0} active classes`} />
       <div className="p-6 lg:p-8">
         <ClassManager
           classes={JSON.parse(JSON.stringify(teacher?.classes || []))}

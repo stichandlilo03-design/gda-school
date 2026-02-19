@@ -641,6 +641,7 @@ model Class {
   enrollmentRequests EnrollmentRequest[]
   announcements      ClassAnnouncement[]
   liveSessions       LiveClassSession[]
+  requirements       ClassRequirement[]
 
   @@index([teacherId])
   @@index([schoolGradeId])
@@ -1081,4 +1082,22 @@ model LiveClassSession {
   teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@index([classId, status])
+}
+
+// ============================================================
+// CLASS REQUIREMENTS (equipment/textbooks students need)
+// ============================================================
+
+model ClassRequirement {
+  id          String   @id @default(cuid())
+  classId     String
+  item        String
+  description String?
+  category    String   @default("GENERAL")
+  isRequired  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId])
 }
