@@ -3,7 +3,6 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import PayrollManager from "./payroll-manager";
-import SessionReview from "@/components/session-review";
 
 export default async function PayrollPage() {
   const session = await getServerSession(authOptions);
@@ -41,12 +40,6 @@ export default async function PayrollPage() {
           currency={principal.school.currency}
           currentMonth={now.getMonth() + 1}
           currentYear={now.getFullYear()}
-          sessionReview={
-            <SessionReview
-              teachers={JSON.parse(JSON.stringify(teachers))}
-              currency={principal.school.currency}
-            />
-          }
         />
       </div>
     </>

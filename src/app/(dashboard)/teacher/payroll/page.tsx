@@ -3,7 +3,6 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import TeacherPayroll from "./teacher-payroll";
-import ClassTimerWidget from "@/components/class-timer-widget";
 
 export default async function TeacherPayrollPage() {
   const session = await getServerSession(authOptions);
@@ -31,12 +30,8 @@ export default async function TeacherPayrollPage() {
 
   return (
     <>
-      <DashboardHeader title="My Payroll" subtitle="Earnings, sessions & payment accounts" />
-      <div className="p-6 lg:p-8 space-y-6">
-        {/* Live session tracker + today's schedule */}
-        <ClassTimerWidget role="TEACHER" />
-
-        {/* Payroll details */}
+      <DashboardHeader title="My Payroll" subtitle="Earnings, payment accounts & payslips" />
+      <div className="p-6 lg:p-8">
         <TeacherPayroll
           schools={JSON.parse(JSON.stringify(teacher.schools))}
           bankAccounts={JSON.parse(JSON.stringify(teacher.bankAccounts))}

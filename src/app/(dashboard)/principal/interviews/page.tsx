@@ -8,10 +8,7 @@ export default async function InterviewsPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const principal = await db.principal.findUnique({
-    where: { userId: session.user.id },
-    include: { school: { select: { currency: true } } },
-  });
+  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
   if (!principal) return null;
 
   const interviews = await db.interview.findMany({
@@ -24,8 +21,8 @@ export default async function InterviewsPage() {
     },
     include: {
       interviewer: { select: { name: true } },
-      student: { include: { user: { select: { name: true, email: true, phone: true } } } },
-      schoolTeacher: { include: { teacher: { include: { user: { select: { name: true, email: true, phone: true } } } } } },
+      student: { include: { user: { select: { name: true, email: true } } } },
+      schoolTeacher: { include: { teacher: { include: { user: { select: { name: true, email: true } } } } } },
       vacancyApp: { include: { vacancy: { select: { title: true } } } },
     },
     orderBy: { scheduledAt: "desc" },
@@ -33,12 +30,9 @@ export default async function InterviewsPage() {
 
   return (
     <>
-      <DashboardHeader title="Interview Management" subtitle="Schedule, conduct, and decide on all interviews" />
+      <DashboardHeader title="Interview Management" subtitle="Schedule and review all interviews" />
       <div className="p-6 lg:p-8">
-        <InterviewManager
-          interviews={JSON.parse(JSON.stringify(interviews))}
-          schoolCurrency={principal.school.currency}
-        />
+        <InterviewManager interviews={JSON.parse(JSON.stringify(interviews))} />
       </div>
     </>
   );
