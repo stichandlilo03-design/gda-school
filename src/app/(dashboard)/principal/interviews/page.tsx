@@ -21,16 +21,26 @@ export default async function InterviewsPage() {
     },
     include: {
       interviewer: { select: { name: true } },
-      student: { include: { user: { select: { name: true, email: true } } } },
-      schoolTeacher: { include: { teacher: { include: { user: { select: { name: true, email: true } } } } } },
-      vacancyApp: { include: { vacancy: { select: { title: true } } } },
+      student: {
+        include: {
+          user: { select: { name: true, email: true, phone: true } },
+        },
+      },
+      schoolTeacher: {
+        include: {
+          teacher: { include: { user: { select: { name: true, email: true, phone: true } } } },
+        },
+      },
+      vacancyApp: {
+        include: { vacancy: { select: { title: true } } },
+      },
     },
     orderBy: { scheduledAt: "desc" },
   });
 
   return (
     <>
-      <DashboardHeader title="Interview Management" subtitle="Schedule and review all interviews" />
+      <DashboardHeader title="Interview Management" subtitle="Schedule, conduct, and decide on all interviews" />
       <div className="p-6 lg:p-8">
         <InterviewManager interviews={JSON.parse(JSON.stringify(interviews))} />
       </div>

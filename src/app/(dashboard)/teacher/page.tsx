@@ -2,11 +2,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import TeacherInterviewBanner from "./interview-banner";
 import Link from "next/link";
 import {
   BookOpen, Users, Clock, ClipboardList, UserCheck, FolderOpen, Briefcase,
-  AlertCircle, CheckCircle, XCircle, Calendar, Video, Star, School, FileText,
-  ArrowRight, GraduationCap
+  AlertCircle, CheckCircle, XCircle, Calendar, Star, School, ArrowRight, GraduationCap
 } from "lucide-react";
 
 export default async function TeacherDashboard() {
@@ -52,27 +52,21 @@ export default async function TeacherDashboard() {
 
   if (!teacher) return <div className="p-8">Teacher profile not found.</div>;
 
-  // Get all school memberships
   const activeSchool = teacher.schools.find((s) => s.status === "APPROVED" && s.isActive);
   const pendingSchools = teacher.schools.filter((s) => s.status === "PENDING");
   const interviewScheduled = teacher.schools.filter((s) => s.status === "INTERVIEW_SCHEDULED");
   const interviewed = teacher.schools.filter((s) => s.status === "INTERVIEWED");
   const rejectedSchools = teacher.schools.filter((s) => s.status === "REJECTED");
 
-  // Stats
   const totalStudents = teacher.classes.reduce((sum, c) => sum + c.enrollments.length, 0);
   const totalClasses = teacher.classes.length;
   const totalMaterials = teacher.classes.reduce((sum, c) => sum + c.materials.length, 0);
 
-  // Unique students across all classes
   const uniqueStudentMap = new Map<string, any>();
   teacher.classes.forEach((c) => {
     c.enrollments.forEach((e) => {
       if (!uniqueStudentMap.has(e.student.userId)) {
-        uniqueStudentMap.set(e.student.userId, {
-          ...e.student,
-          classes: [c.name],
-        });
+        uniqueStudentMap.set(e.student.userId, { ...e.student, classes: [c.name] });
       } else {
         uniqueStudentMap.get(e.student.userId).classes.push(c.name);
       }
@@ -80,259 +74,98 @@ export default async function TeacherDashboard() {
   });
   const uniqueStudents = Array.from(uniqueStudentMap.values());
 
-  // Tasks based on scheme of work
   const today = new Date();
   const weekNumber = Math.ceil(((today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / 86400000 + new Date(today.getFullYear(), 0, 1).getDay() + 1) / 7);
   const currentTerm = today.getMonth() < 4 ? "TERM_1" : today.getMonth() < 8 ? "TERM_2" : "TERM_3";
   const termWeek = weekNumber <= 13 ? weekNumber : weekNumber <= 26 ? weekNumber - 13 : weekNumber - 26;
 
+  // Collect all interview IDs that are scheduled (for chat)
+  const scheduledInterviewIds = teacher.schools
+    .flatMap((s) => s.interviews)
+    .filter((i) => i.status === "SCHEDULED")
+    .map((i) => ({ id: i.id, scheduledAt: i.scheduledAt, interviewer: i.interviewer.name, meetingLink: (i as any).meetingLink }));
+
   return (
     <>
-      <DashboardHeader
-        title={`Welcome, ${session.user.name.split(" ")[0]}!`}
-        subtitle={activeSchool ? activeSchool.school.name : "Teacher Dashboard"}
-      />
+      <DashboardHeader title={`Welcome, ${session.user.name.split(" ")[0]}!`} subtitle={activeSchool ? activeSchool.school.name : "Teacher Dashboard"} />
       <div className="p-6 lg:p-8 space-y-8">
 
-        {/* ============================================================ */}
-        {/* STATUS BANNERS */}
-        {/* ============================================================ */}
+        {/* Interview banners with chat (client component) */}
+        <TeacherInterviewBanner
+          interviewScheduled={JSON.parse(JSON.stringify(interviewScheduled))}
+          interviewed={JSON.parse(JSON.stringify(interviewed))}
+          pendingSchools={JSON.parse(JSON.stringify(pendingSchools))}
+          rejectedSchools={JSON.parse(JSON.stringify(rejectedSchools))}
+          activeSchool={activeSchool ? JSON.parse(JSON.stringify(activeSchool)) : null}
+        />
 
-        {/* Interview Scheduled */}
-        {interviewScheduled.map((st) => (
-          <div key={st.id} className="p-5 bg-purple-50 border border-purple-200 rounded-xl">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-purple-200 text-purple-700 flex items-center justify-center">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-purple-800">Interview Scheduled — {st.school.name}</h3>
-                {st.interviews[0] && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-sm text-purple-600">
-                      <strong>Date:</strong> {new Date(st.interviews[0].scheduledAt).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-purple-600">
-                      <strong>Duration:</strong> {st.interviews[0].duration} minutes
-                    </p>
-                    {st.interviews[0].meetingLink && (
-                      <a href={st.interviews[0].meetingLink} target="_blank" rel="noopener"
-                        className="inline-flex items-center gap-1 text-sm font-semibold text-purple-700 hover:underline mt-1">
-                        <Video className="w-4 h-4" /> Join Meeting Link
-                      </a>
-                    )}
-                    {st.interviews[0].meetingNotes && (
-                      <p className="text-xs text-purple-500 mt-1">Note: {st.interviews[0].meetingNotes}</p>
-                    )}
-                    <p className="text-xs text-purple-400">Interviewer: {st.interviews[0].interviewer.name}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Interviewed — waiting for result */}
-        {interviewed.map((st) => (
-          <div key={st.id} className="p-5 bg-cyan-50 border border-cyan-200 rounded-xl">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-cyan-200 text-cyan-700 flex items-center justify-center">
-                <Clock className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-cyan-800">Interview Complete — {st.school.name}</h3>
-                <p className="text-sm text-cyan-600">Your interview has been completed. Awaiting the principal's decision.</p>
-                {st.interviews[0] && st.interviews[0].result && (
-                  <div className="mt-2 p-3 bg-white rounded-lg border border-cyan-100">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                        st.interviews[0].result === "PASS" ? "bg-emerald-100 text-emerald-700" :
-                        st.interviews[0].result === "FAIL" ? "bg-red-100 text-red-700" :
-                        "bg-amber-100 text-amber-700"
-                      }`}>{st.interviews[0].result}</span>
-                      {st.interviews[0].scoreOverall != null && (
-                        <span className="flex items-center gap-1 text-sm text-cyan-600"><Star className="w-3 h-3" /> Score: {st.interviews[0].scoreOverall}/100</span>
-                      )}
-                    </div>
-                    {st.interviews[0].feedback && <p className="text-xs text-gray-600 mt-2">{st.interviews[0].feedback}</p>}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Pending approval (no interview yet) */}
-        {pendingSchools.map((st) => (
-          <div key={st.id} className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-amber-800">Application Pending — {st.school.name}</h3>
-                <p className="text-sm text-amber-600">Your request to join is pending. The principal may schedule an interview or approve directly.</p>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Rejected */}
-        {rejectedSchools.map((st) => (
-          <div key={st.id} className="p-4 bg-red-50 border border-red-200 rounded-xl">
-            <div className="flex items-center gap-4">
-              <XCircle className="w-6 h-6 text-red-500" />
-              <div>
-                <h3 className="text-sm font-bold text-red-800">Not Approved — {st.school.name}</h3>
-                <p className="text-xs text-red-600">Your application was not approved. You can apply to other schools or check the job board.</p>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Approved school info */}
-        {activeSchool && (
-          <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-200 text-emerald-700 flex items-center justify-center">
-                <School className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-emerald-800">{activeSchool.school.name}</h3>
-                  <span className="text-[10px] bg-emerald-200 text-emerald-700 px-2 py-0.5 rounded-full font-bold">APPROVED</span>
-                </div>
-                {activeSchool.school.motto && <p className="text-xs text-emerald-600 italic">"{activeSchool.school.motto}"</p>}
-                <div className="flex items-center gap-4 mt-1 text-xs text-emerald-500">
-                  <span>Country: {activeSchool.school.countryCode}</span>
-                  <span>Currency: {activeSchool.school.currency}</span>
-                  <span>Joined: {new Date(activeSchool.hiredAt).toLocaleDateString()}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* No school yet */}
+        {/* No school */}
         {teacher.schools.length === 0 && (
           <div className="p-5 bg-gray-50 border border-gray-200 rounded-xl text-center">
             <School className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <h3 className="text-base font-bold text-gray-800 mb-2">No School Yet</h3>
-            <p className="text-sm text-gray-500 mb-4">You haven't joined a school yet. Browse the job board or wait for a principal to invite you.</p>
+            <p className="text-sm text-gray-500 mb-4">Browse the job board or wait for a principal to invite you.</p>
             <Link href="/teacher/vacancies" className="btn-primary text-sm"><Briefcase className="w-4 h-4 mr-1" /> Browse Job Board</Link>
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* STATS */}
-        {/* ============================================================ */}
-
+        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="stat-card">
-            <BookOpen className="w-8 h-8 text-brand-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{totalClasses}</div>
-            <div className="text-xs text-gray-500 mt-1">Active Classes</div>
-          </div>
-          <div className="stat-card">
-            <Users className="w-8 h-8 text-emerald-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{uniqueStudents.length}</div>
-            <div className="text-xs text-gray-500 mt-1">Total Students</div>
-          </div>
-          <div className="stat-card">
-            <FolderOpen className="w-8 h-8 text-amber-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{totalMaterials}</div>
-            <div className="text-xs text-gray-500 mt-1">Materials Uploaded</div>
-          </div>
-          <div className="stat-card">
-            <Star className="w-8 h-8 text-purple-500 mb-2" />
-            <div className="text-2xl font-bold text-gray-900">{teacher.rating > 0 ? teacher.rating.toFixed(1) : "—"}</div>
-            <div className="text-xs text-gray-500 mt-1">Rating</div>
-          </div>
+          <div className="stat-card"><BookOpen className="w-8 h-8 text-brand-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{totalClasses}</div><div className="text-xs text-gray-500 mt-1">Active Classes</div></div>
+          <div className="stat-card"><Users className="w-8 h-8 text-emerald-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{uniqueStudents.length}</div><div className="text-xs text-gray-500 mt-1">Total Students</div></div>
+          <div className="stat-card"><FolderOpen className="w-8 h-8 text-amber-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{totalMaterials}</div><div className="text-xs text-gray-500 mt-1">Materials</div></div>
+          <div className="stat-card"><Star className="w-8 h-8 text-purple-500 mb-2" /><div className="text-2xl font-bold text-gray-900">{teacher.rating > 0 ? teacher.rating.toFixed(1) : "—"}</div><div className="text-xs text-gray-500 mt-1">Rating</div></div>
         </div>
 
-        {/* ============================================================ */}
-        {/* WEEKLY TASKS / SCHEME OF WORK */}
-        {/* ============================================================ */}
-
+        {/* Weekly Tasks */}
         {activeSchool && totalClasses > 0 && (
           <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title flex items-center gap-2">
-                <ClipboardList className="w-4 h-4" /> Weekly Tasks — Week {termWeek} ({currentTerm.replace("_", " ")})
-              </h3>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">
-              The GDA scheme of work system generates weekly teaching plans per subject and grade.
-              As a teacher, your tasks each week include:
-            </p>
+            <h3 className="section-title flex items-center gap-2 mb-4"><ClipboardList className="w-4 h-4" /> Weekly Tasks — Week {termWeek} ({currentTerm.replace("_", " ")})</h3>
             <div className="space-y-3">
               {teacher.classes.map((cls) => {
                 const latestAttendance = cls.attendances[0];
                 const attendanceToday = latestAttendance && new Date(latestAttendance.date).toDateString() === today.toDateString();
                 const ungradedAssessments = cls.assessments.filter((a) => !a.isPublished).length;
-
                 return (
                   <div key={cls.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-800">{cls.name}</h4>
-                        <p className="text-xs text-gray-500">{cls.schoolGrade.gradeLevel} • {cls.session.replace("SESSION_", "Session ")} • {cls.enrollments.length} students</p>
-                      </div>
+                    <h4 className="text-sm font-bold text-gray-800">{cls.name}</h4>
+                    <p className="text-xs text-gray-500 mb-3">{cls.schoolGrade.gradeLevel} • {cls.session.replace("SESSION_", "Session ")} • {cls.enrollments.length} students</p>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                      <Link href="/teacher/attendance" className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium ${attendanceToday ? "bg-emerald-100 text-emerald-700" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                        <UserCheck className="w-3.5 h-3.5" /> {attendanceToday ? "Attendance Done" : "Mark Attendance"}
+                      </Link>
+                      <Link href="/teacher/gradebook" className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium ${ungradedAssessments > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-gray-100 text-gray-600"}`}>
+                        <ClipboardList className="w-3.5 h-3.5" /> {ungradedAssessments > 0 ? `${ungradedAssessments} to Grade` : "Gradebook"}
+                      </Link>
+                      <Link href="/teacher/materials" className="flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"><FolderOpen className="w-3.5 h-3.5" /> Upload Materials</Link>
+                      <Link href="/teacher/classes" className="flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"><BookOpen className="w-3.5 h-3.5" /> Manage Class</Link>
                     </div>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
-                      <Link href="/teacher/attendance" className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium transition-colors ${
-                        attendanceToday ? "bg-emerald-100 text-emerald-700" : "bg-amber-50 text-amber-700 border border-amber-200"
-                      }`}>
-                        <UserCheck className="w-3.5 h-3.5" />
-                        {attendanceToday ? "Attendance Done" : "Mark Attendance"}
-                      </Link>
-                      <Link href="/teacher/gradebook" className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium transition-colors ${
-                        ungradedAssessments > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-gray-100 text-gray-600"
-                      }`}>
-                        <ClipboardList className="w-3.5 h-3.5" />
-                        {ungradedAssessments > 0 ? `${ungradedAssessments} to Grade` : "Gradebook"}
-                      </Link>
-                      <Link href="/teacher/materials" className="flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        <FolderOpen className="w-3.5 h-3.5" /> Upload Materials
-                      </Link>
-                      <Link href="/teacher/classes" className="flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        <BookOpen className="w-3.5 h-3.5" /> Manage Class
-                      </Link>
-                    </div>
-                    {/* Weekly teaching guide */}
                     <div className="mt-3 p-3 bg-brand-50 rounded-lg border border-brand-100">
-                      <h5 className="text-[10px] font-bold text-brand-700 uppercase mb-1">Week {termWeek} Teaching Guide</h5>
+                      <h5 className="text-[10px] font-bold text-brand-700 uppercase mb-1">Week {termWeek} Guide</h5>
                       <div className="text-xs text-brand-600 space-y-0.5">
-                        <p>1. Deliver lesson content per scheme of work</p>
-                        <p>2. Mark attendance for every session</p>
-                        <p>3. Give and grade continuous assessments</p>
-                        <p>4. Upload notes/materials for students to review</p>
-                        <p>5. Record any student issues or achievements</p>
+                        <p>1. Deliver lesson content per scheme</p>
+                        <p>2. Mark attendance every session</p>
+                        <p>3. Give & grade continuous assessments</p>
+                        <p>4. Upload notes/materials for students</p>
+                        <p>5. Record student issues or achievements</p>
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-
-            {/* Tax & Compensation Note */}
             <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <h4 className="text-xs font-bold text-amber-800 uppercase mb-2">Compensation & Tax Handling</h4>
+              <h4 className="text-xs font-bold text-amber-800 uppercase mb-2">Compensation & Tax</h4>
               <div className="text-xs text-amber-700 space-y-1">
-                <p>Teachers on GDA are classified based on their school's country and employment type:</p>
-                <p><strong>Full-Time Teachers:</strong> Salary is set by the school. Income tax (PAYE) is deducted at source by the school based on local tax laws. For Nigeria: 7%-24% progressive rate. For Kenya: 10%-30%. For Ghana: 5%-30%.</p>
-                <p><strong>Part-Time / Contract:</strong> Paid per session or per term. Teachers are responsible for filing their own taxes as self-employed. GDA provides payment records for your tax filings.</p>
-                <p><strong>Platform Fee:</strong> GDA charges the school (not the teacher) a platform fee. Your agreed salary is paid in full.</p>
-                <p><strong>Pension:</strong> Where applicable (e.g., Nigeria NSITF/Pension), schools handle statutory deductions. Check with your school principal for details.</p>
+                <p><strong>Full-Time:</strong> PAYE deducted by school. Nigeria: 7-24%, Kenya: 10-30%, Ghana: 5-30%.</p>
+                <p><strong>Part-Time/Contract:</strong> Self-employed filing. GDA provides payment records.</p>
+                <p><strong>Platform Fee:</strong> Charged to school, not teacher. Your salary is paid in full.</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* MY STUDENTS */}
-        {/* ============================================================ */}
-
+        {/* Students */}
         {uniqueStudents.length > 0 && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
@@ -347,87 +180,36 @@ export default async function TeacherDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{student.user.name}</p>
-                    <p className="text-[10px] text-gray-500 truncate">{student.user.email}</p>
                     <div className="flex flex-wrap gap-1 mt-0.5">
-                      {student.classes.map((cls: string) => (
-                        <span key={cls} className="text-[9px] bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded">{cls}</span>
-                      ))}
+                      {student.classes.map((cls: string) => <span key={cls} className="text-[9px] bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded">{cls}</span>)}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            {uniqueStudents.length > 9 && <p className="text-xs text-gray-400 mt-3 text-center">+ {uniqueStudents.length - 9} more students</p>}
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* MY CLASSES */}
-        {/* ============================================================ */}
-
-        {teacher.classes.length > 0 && (
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="section-title flex items-center gap-2"><BookOpen className="w-4 h-4" /> My Classes</h3>
-              <Link href="/teacher/classes" className="text-xs text-brand-600 hover:underline">Manage <ArrowRight className="w-3 h-3 inline" /></Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {teacher.classes.map((cls) => (
-                <div key={cls.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-bold text-gray-800">{cls.name}</h4>
-                    <span className="text-[10px] bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full">{cls.schoolGrade.gradeLevel}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {cls.enrollments.length} students</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {cls.session.replace("SESSION_", "Session ")}</span>
-                    <span className="flex items-center gap-1"><FolderOpen className="w-3 h-3" /> {cls.materials.length} materials</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ============================================================ */}
-        {/* VACANCY APPLICATIONS */}
-        {/* ============================================================ */}
-
+        {/* Vacancy Applications */}
         {teacher.vacancyApplications.length > 0 && (
           <div className="card">
-            <h3 className="section-title mb-4 flex items-center gap-2"><Briefcase className="w-4 h-4" /> My Job Applications</h3>
+            <h3 className="section-title mb-4 flex items-center gap-2"><Briefcase className="w-4 h-4" /> My Applications</h3>
             <div className="space-y-2">
               {teacher.vacancyApplications.map((app: any) => (
                 <div key={app.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                   <Briefcase className="w-5 h-5 text-gray-400" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800">{app.vacancy.title}</p>
-                    <p className="text-xs text-gray-500">{app.vacancy.school.name} • Applied {new Date(app.appliedAt).toLocaleDateString()}</p>
+                    <p className="text-sm font-medium">{app.vacancy.title}</p>
+                    <p className="text-xs text-gray-500">{app.vacancy.school.name}</p>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                    app.status === "ACCEPTED" ? "bg-emerald-100 text-emerald-700" :
-                    app.status === "REJECTED" ? "bg-red-100 text-red-700" :
-                    app.status === "INTERVIEW_SCHEDULED" ? "bg-purple-100 text-purple-700" :
-                    app.status === "INTERVIEWED" ? "bg-cyan-100 text-cyan-700" :
-                    app.status === "SHORTLISTED" ? "bg-amber-100 text-amber-700" :
-                    "bg-blue-100 text-blue-700"
-                  }`}>{app.status.replace("_", " ")}</span>
-                  {app.interviews[0]?.meetingLink && app.status === "INTERVIEW_SCHEDULED" && (
-                    <a href={app.interviews[0].meetingLink} target="_blank" rel="noopener"
-                      className="text-[10px] px-2 py-1 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 font-medium">
-                      <Video className="w-3 h-3 inline mr-0.5" /> Join
-                    </a>
-                  )}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${app.status === "ACCEPTED" ? "bg-emerald-100 text-emerald-700" : app.status === "REJECTED" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>{app.status.replace("_", " ")}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* QUICK ACTIONS */}
-        {/* ============================================================ */}
-
+        {/* Quick Actions */}
         {activeSchool && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
@@ -438,11 +220,9 @@ export default async function TeacherDashboard() {
               { href: "/teacher/students", label: "Students", icon: Users },
               { href: "/teacher/schedule", label: "Schedule", icon: Clock },
               { href: "/teacher/vacancies", label: "Job Board", icon: Briefcase },
-            ].map((action) => (
-              <Link key={action.href} href={action.href}
-                className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors card">
-                <action.icon className="w-6 h-6 text-brand-500" />
-                <span className="text-xs font-medium text-gray-700">{action.label}</span>
+            ].map((a) => (
+              <Link key={a.href} href={a.href} className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors card">
+                <a.icon className="w-6 h-6 text-brand-500" /><span className="text-xs font-medium text-gray-700">{a.label}</span>
               </Link>
             ))}
           </div>
