@@ -216,14 +216,24 @@ export async function approveAndAssignToGrade(appId: string) {
     
     // If no subjects specified, create a general class from vacancy title
     if (subjects.length === 0) {
+      // Create or find a "General" subject as fallback
+      let generalSubject = await db.subject.findFirst({ where: { code: "GEN" } });
+      if (!generalSubject) {
+        generalSubject = await db.subject.create({ data: { name: app.vacancy.title || "General", code: "GEN" } });
+      }
+      await db.gradeSubject.upsert({
+        where: { schoolGradeId_subjectId: { schoolGradeId: schoolGrade.id, subjectId: generalSubject.id } },
+        update: {}, create: { schoolGradeId: schoolGrade.id, subjectId: generalSubject.id },
+      });
       const existingClass = await db.class.findFirst({
-        where: { teacherId: app.teacherId!, schoolGradeId: schoolGrade.id },
+        where: { teacherId: app.teacherId!, schoolGradeId: schoolGrade.id, subjectId: generalSubject.id },
       });
       if (!existingClass) {
         await db.class.create({
           data: {
             teacherId: app.teacherId!,
             schoolGradeId: schoolGrade.id,
+            subjectId: generalSubject.id,
             name: `${app.vacancy.title} - ${app.vacancy.gradeLevel}`,
             session: app.vacancy.session || "SESSION_A",
             maxStudents: 40,
