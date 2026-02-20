@@ -184,7 +184,7 @@ export async function removeStudentFromClass(enrollmentId: string, reason: strin
   const teacher = await db.teacher.findUnique({ where: { userId: session.user.id } });
   if (!teacher || enrollment.class.teacherId !== teacher.id) return { error: "Not your class" };
 
-  await db.enrollment.update({ where: { id: enrollmentId }, data: { status: "DROPPED" } });
+  await db.enrollment.update({ where: { id: enrollmentId }, data: { status: "WITHDRAWN" } });
 
   // Notify student
   await notify(
@@ -315,7 +315,7 @@ export async function removeTeacherFromSchool(schoolTeacherId: string, reason?: 
   const st = await db.schoolTeacher.findUnique({ where: { id: schoolTeacherId }, include: { teacher: true, school: true } });
   if (!st) return { error: "Not found" };
 
-  await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: false, status: "REMOVED" } });
+  await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: false, status: "REJECTED" } });
 
   await notify(st.teacher.userId, "⚠️ Removed from School", `You have been removed from ${st.school.name}.${reason ? ` Reason: ${reason}` : ""}`);
 
