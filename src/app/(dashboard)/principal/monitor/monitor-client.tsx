@@ -120,7 +120,7 @@ export default function MonitorClient({
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-bold">{ls.class?.subject?.name || ls.class?.name}</h4>
                           <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{ls.class?.schoolGrade?.gradeLevel}</span>
-                          <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>
+                          <span className={`text-[10px] text-white px-2 py-0.5 rounded-full font-bold ${ls.isPrep ? "bg-amber-500" : "bg-red-500 animate-pulse"}`}>{ls.isPrep ? "PREP" : "LIVE"}</span>
                           {mode==="voice"&&<Mic className="w-3 h-3 text-emerald-500" />}
                           {mode==="video"&&<Video className="w-3 h-3 text-blue-500" />}
                           {mode==="board"&&<Pencil className="w-3 h-3 text-amber-500" />}
@@ -128,6 +128,7 @@ export default function MonitorClient({
                         <p className="text-[10px] text-gray-500">Teacher: {ls.teacher?.user?.name} • {ls.class?.enrollments?.length||0} students</p>
                         {ls.autoStarted && !ls.teacherJoinedAt && <p className="text-[9px] text-amber-600 font-medium animate-pulse">⚠️ Auto-started — teacher hasn&apos;t joined yet</p>}
                         {ls.lateMinutes > 0 && <p className="text-[9px] text-red-500 font-medium">⏰ Teacher joined {ls.lateMinutes} min late</p>}
+                        {ls.isPrep && <p className="text-[9px] text-amber-600 font-medium">📋 Prep session — no credits generated</p>}
                         {ls.autoStarted && ls.teacherJoinedAt && ls.lateMinutes === 0 && <p className="text-[9px] text-emerald-500">✅ Teacher joined on time</p>}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -328,6 +329,7 @@ export default function MonitorClient({
                           <span className={`px-2 py-0.5 rounded-full ${s.durationMin>=35?"bg-emerald-100 text-emerald-700":s.durationMin>=20?"bg-amber-100 text-amber-700":"bg-red-100 text-red-700"}`}>
                             {s.durationMin||0}min
                           </span>
+                          {s.isPrep && <span className="ml-1 text-[9px] bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded-full">PREP</span>}
                         </td>
                         <td className="py-2 px-3">{chatCount>0 && <span className="text-blue-600">💬{chatCount}</span>}</td>
                         <td className="py-2 px-3">{qaCount>0 && <span className="text-amber-600">❓{qaCount}</span>} {whisperCount>0 && <span className="text-pink-600">🤫{whisperCount}</span>}</td>

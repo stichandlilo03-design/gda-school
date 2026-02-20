@@ -37,6 +37,24 @@ export async function GET() {
     }
 
     // ============================================================
+    // 1.5 PREP SESSION TIMEOUT — end prep sessions past their duration (NO credit)
+    // ============================================================
+    const prepSessions = await db.liveClassSession.findMany({
+      where: { status: "IN_PROGRESS", isPrep: true },
+    });
+    for (const prep of prepSessions) {
+      const prepMin = prep.startedAt ? Math.round((now.getTime() - prep.startedAt.getTime()) / 60000) : 0;
+      const prepLimit = prep.durationMin || 30;
+      if (prepMin >= prepLimit) {
+        await db.liveClassSession.update({
+          where: { id: prep.id },
+          data: { status: "ENDED", endedAt: now, durationMin: prepMin },
+        });
+        results.push(`Prep ended after ${prepMin}min (limit ${prepLimit}min) — no credit`);
+      }
+    }
+
+    // ============================================================
     // 2. TIMETABLE-BASED AUTO-START & AUTO-END
     // ============================================================
     // Fetch schedules for all possible "today" days across timezones
@@ -96,9 +114,10 @@ export async function GET() {
         }
       }
 
-      // Auto-end: past timetable end time OR past duration limit
+      // Auto-end: past timetable end time OR past duration limit (skip prep — handled separately)
       if (cls.liveSessions.length > 0) {
         const session = cls.liveSessions[0];
+        if (session.isPrep) continue; // Prep has its own timeout logic
         const sessionMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
         const sessionLimit = school.sessionDurationMin || 40;
 
@@ -115,10 +134,10 @@ export async function GET() {
     }
 
     // ============================================================
-    // 3. ORPHANED SESSIONS — exceed 1.5x limit with no timetable
+    // 3. ORPHANED SESSIONS — exceed 1.5x limit with no timetable (skip prep — handled above)
     // ============================================================
     const orphaned = await db.liveClassSession.findMany({
-      where: { status: "IN_PROGRESS" },
+      where: { status: "IN_PROGRESS", isPrep: false },
       include: { class: { include: { schoolGrade: { include: { school: true } } } } },
     });
     for (const session of orphaned) {
@@ -143,7 +162,7 @@ export async function GET() {
 }
 
 async function creditTeacher(session: any, schoolId: string, durationMin: number, now: Date, school: any) {
-  if (session.creditAwarded || durationMin < 1) return;
+  if (session.creditAwarded || durationMin < 1 || session.isPrep) return;
 
   const st = await db.schoolTeacher.findFirst({
     where: { teacherId: session.teacherId, schoolId },

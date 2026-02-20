@@ -14,16 +14,17 @@ const sections = [
     tips: ["Check your dashboard each morning for overnight activity.", "The pending tasks counter helps you prioritize what needs attention."],
   },
   {
-    icon: "📹", title: "Classroom Monitor", description: "Watch live classroom sessions in real-time",
+    icon: "📹", title: "Classroom Monitor", description: "Watch live and prep classroom sessions in real-time",
     link: "/principal/monitor",
     steps: [
-      "Go to 'Classroom Monitor' to see all active classroom sessions happening right now.",
-      "Each active session shows: teacher name, subject, grade, student count, duration, and teacher late status.",
-      "Click on a session to view the live blackboard content, chat messages, and student activity.",
-      "You can see which students are present, who raised their hand, and the full session timeline.",
-      "The monitor auto-refreshes to show real-time data without manual reload.",
+      "Go to 'Classroom Monitor' to see all active sessions (both LIVE and PREP).",
+      "LIVE sessions (red badge): Real teaching — teacher earns credits. Shows teacher, subject, grade, students, duration.",
+      "PREP sessions (amber badge): Teacher setting up — no credits generated. Shows 'no credits' indicator.",
+      "Click on a session to view the live blackboard, chat, Q&A, polls, and student activity.",
+      "Recent sessions table shows PREP badge on prep sessions and no credit amount.",
+      "The monitor auto-refreshes to show real-time data.",
     ],
-    tips: ["Use this to evaluate teacher performance without entering the classroom.", "Check for teacher punctuality — late arrivals are flagged automatically."],
+    tips: ["Prep sessions don't cost money — teachers use them to set up boards and exams.", "Check for teacher punctuality — late arrivals are flagged.", "Exam results from classroom tests flow into the grading system for your approval."],
   },
   {
     icon: "👩‍🏫", title: "Teachers", description: "Manage teachers, assign classes, rate performance, and view profiles",
@@ -187,6 +188,33 @@ const sections = [
     ],
     tips: ["Set your timezone first — this affects all session scheduling.", "Use the live preview when adjusting session/break timing."],
   },
+  {
+    icon: "📝", title: "Grading & Report Cards", description: "Approve grades, generate term reports, and manage student promotions",
+    link: "/principal/grading",
+    steps: [
+      "Go to 'Grading' to see all grades pending your approval from teachers.",
+      "Pending Grades tab: Review each assessment's student scores. Click Approve or Reject (with reason).",
+      "Only APPROVED grades are visible to students and parents — this prevents grade manipulation.",
+      "Term Reports tab: Select a term and click 'Generate Term Reports' to auto-calculate report cards.",
+      "Report cards use: CA (40%) from continuous assessments + Exam (60%) + attendance + assignment completion.",
+      "Review each report, add remarks, and sign/approve. For Term 3: select promotion grade and approve.",
+      "Classroom exams/tests (from teacher polls) also flow here as assessments for your approval.",
+    ],
+    tips: ["Teachers cannot bypass your approval. All grades must be reviewed.", "Term 3 is the promotion term — you decide if each student advances.", "Exam scores from live classroom tests appear automatically as SUBMITTED assessments."],
+  },
+  {
+    icon: "📅", title: "Academic Calendar", description: "Auto-generate term dates, holidays, and exam periods for your country",
+    link: "/principal/calendar",
+    steps: [
+      "Go to 'Calendar' to manage the academic calendar for your school.",
+      "Click 'Auto-Generate Calendar' to create terms, mid-term breaks, holidays, and exam periods based on your country.",
+      "The system supports 14 countries with pre-configured academic templates.",
+      "Add custom events (meetings, sports days, etc.) using the form below the calendar.",
+      "Set the active term — this determines which term grades and reports are filed under.",
+      "Delete events as needed. Auto-generated events can be customized after creation.",
+    ],
+    tips: ["Generate the calendar for 2+ years ahead to plan properly.", "The active term affects grade submissions and report card generation."],
+  },
 ];
 
 const faqs = [
@@ -201,6 +229,9 @@ const faqs = [
   { q: "What education systems are supported?", a: "The platform supports 14 countries: Nigeria (6-3-3-4), Kenya (CBC), Ghana, South Africa, Tanzania, Uganda, Cameroon, UK (Key Stages), USA (K-12), Canada, India (10+2), Australia, Pakistan, and Egypt." },
   { q: "How do I handle late teachers?", a: "The system automatically tracks teacher join times. Late arrivals are flagged in the Classroom Monitor and in the teacher's payroll session history. You can address this through Messages or in person." },
   { q: "What if a student's parent isn't linked?", a: "Students have basic parent info from registration (name, phone, email). For full parent portal access, the parent must register separately and link their child by name/email. You can see both in the student's expanded view." },
+  { q: "What are prep sessions?", a: "Prep sessions let teachers set up their classroom (board, exams, polls) before class starts. No payment is generated. Students can join but teachers can hide content (like exam answers). Prep ends when timer expires — it does NOT auto-convert to a live class." },
+  { q: "How do classroom exams work?", a: "Teachers create exams/tests in the live classroom with timed questions. Student answers are locked (can't be changed). When finished, the teacher saves results to the gradebook — creating an Assessment that appears in your Grading approval queue." },
+  { q: "Can students cheat on polls or exams?", a: "No. Once a student selects an answer, it is permanently locked. During exams, students only see the current question (not future ones). In exam mode, results are hidden until the teacher releases them. All scores flow through your approval before students see them." },
 ];
 
 export default function PrincipalHelpPage() {

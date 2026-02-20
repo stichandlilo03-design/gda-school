@@ -55,7 +55,7 @@ const sections = [
       "For Term 3 (promotion term), you'll see if your child was promoted and to which grade.",
       "Each report card has teacher remarks, principal remarks, and a digital signature date.",
     ],
-    tips: ["Only principal-approved grades appear — this prevents grade manipulation.", "Compare subject averages to identify where your child needs extra support.", "Report cards are auto-generated from multiple data points — attendance, assignments, assessments — making them very hard to fake."],
+    tips: ["Only principal-approved grades appear — this prevents grade manipulation.", "Classroom exams and tests taken during live sessions are auto-saved as assessment scores.", "Report cards are auto-generated from multiple data points — attendance, assignments, assessments, and classroom exams — making them very hard to fake."],
   },
   {
     icon: "💰", title: "Fees & Payments", description: "View fee breakdown, pay on behalf of your child, and track payment status",
@@ -155,6 +155,7 @@ const faqs = [
   { q: "How do report cards work?", a: "At the end of each term, the principal generates report cards automatically. They include approved grades (CA 40% + Exam 60%), attendance rate, assignment completion, and participation. The principal signs and approves each one before it becomes visible to you." },
   { q: "Can teachers change grades after approval?", a: "No. Once the principal approves grades, they are locked. Teachers must submit new assessments through the approval workflow. This prevents grade manipulation even if someone tries to bribe a teacher." },
   { q: "When does promotion happen?", a: "Promotion decisions are made at the end of Term 3 (the final term). The principal decides whether to promote each student based on their overall performance across all three terms." },
+  { q: "What are classroom exams and tests?", a: "Teachers can run timed exams and tests directly in the live classroom. Your child's answers are locked once selected (they can't cheat by changing answers). Results are automatically saved to the gradebook and appear in the Grades tab after the principal approves them." },
 ];
 
 export default function ParentHelpPage() {
