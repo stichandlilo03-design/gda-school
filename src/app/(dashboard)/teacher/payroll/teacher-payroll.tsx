@@ -47,15 +47,8 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
   const daysWorked = currentMonthSessions.length;
   const dailyRate = salary ? (salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances) / salary.workingDaysPerMonth : 0;
   const grossMonthly = salary ? salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances : 0;
-  const earnPercent = grossMonthly > 0 ? Math.round(((monthlyEarned + currentMonthCreditTotal) / grossMonthly) * 100) : 0;
 
-  // Payment totals
-  const totalPaid = payrolls.filter((p: any) => p.status === "PAID").reduce((s: number, p: any) => s + p.netPay, 0);
-  const totalPending = payrolls.filter((p: any) => p.status === "DRAFT" || p.status === "PENDING").reduce((s: number, p: any) => s + p.netPay, 0);
-  const currentMonthPayroll = payrolls.find((p: any) => p.month === now.getMonth() + 1 && p.year === now.getFullYear());
-  const currentMonthPaid = currentMonthPayroll?.status === "PAID";
-
-  // Session credit totals
+  // Session credit totals (must be before earnPercent)
   const totalCreditsEarned = sessionCredits.reduce((s: number, c: any) => s + c.creditAmount, 0);
   const currentMonthCredits = sessionCredits.filter((c: any) => {
     const d = new Date(c.createdAt);
@@ -63,6 +56,14 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
   });
   const currentMonthCreditTotal = currentMonthCredits.reduce((s: number, c: any) => s + c.creditAmount, 0);
   const totalSessionsTeached = sessionCredits.length;
+
+  const earnPercent = grossMonthly > 0 ? Math.round(((monthlyEarned + currentMonthCreditTotal) / grossMonthly) * 100) : 0;
+
+  // Payment totals
+  const totalPaid = payrolls.filter((p: any) => p.status === "PAID").reduce((s: number, p: any) => s + p.netPay, 0);
+  const totalPending = payrolls.filter((p: any) => p.status === "DRAFT" || p.status === "PENDING").reduce((s: number, p: any) => s + p.netPay, 0);
+  const currentMonthPayroll = payrolls.find((p: any) => p.month === now.getMonth() + 1 && p.year === now.getFullYear());
+  const currentMonthPaid = currentMonthPayroll?.status === "PAID";
 
   const selectedCountry = getCountryConfig(form.countryCode);
 

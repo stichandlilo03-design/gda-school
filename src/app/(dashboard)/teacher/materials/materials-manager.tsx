@@ -253,6 +253,55 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
         </div>
       )}
 
+      {/* ============ QUICK-USE TEMPLATES ============ */}
+      <div className="card bg-gradient-to-br from-brand-50 to-purple-50 border-brand-200">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">⚡ Quick-Use Teaching Tools</h3>
+          <span className="text-[10px] text-gray-400">Click to add to any class</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {[
+            { icon: "📝", title: "Lesson Plan Template", desc: "Structured lesson outline", type: "LINK", url: "https://docs.google.com/document/d/1u_z3MQvP5PY0_lesson_plan_template" },
+            { icon: "📊", title: "Grade Tracker Sheet", desc: "Student performance tracker", type: "LINK", url: "https://docs.google.com/spreadsheets/d/1_grade_tracker" },
+            { icon: "🎯", title: "Quiz Template", desc: "Ready-made quiz format", type: "LINK", url: "https://docs.google.com/forms/d/quiz_template" },
+            { icon: "📅", title: "Weekly Planner", desc: "Plan your week's lessons", type: "LINK", url: "https://docs.google.com/document/d/1_weekly_planner" },
+            { icon: "📋", title: "Attendance Sheet", desc: "Printable attendance tracker", type: "LINK", url: "https://docs.google.com/spreadsheets/d/attendance_sheet" },
+            { icon: "🏆", title: "Certificate Template", desc: "Student achievement cert", type: "LINK", url: "https://docs.google.com/presentation/d/certificate" },
+            { icon: "📖", title: "Reading Log", desc: "Track student reading", type: "LINK", url: "https://docs.google.com/document/d/reading_log" },
+            { icon: "🔬", title: "Lab Report Template", desc: "Science experiment format", type: "LINK", url: "https://docs.google.com/document/d/lab_report" },
+            { icon: "✍️", title: "Essay Rubric", desc: "Writing evaluation guide", type: "LINK", url: "https://docs.google.com/document/d/essay_rubric" },
+            { icon: "🎨", title: "Project Guidelines", desc: "Group project template", type: "LINK", url: "https://docs.google.com/document/d/project_guide" },
+          ].map((tpl, i) => (
+            <button key={i} onClick={async () => {
+              const classId = classes[0]?.id;
+              if (!classId) { alert("Create a class first"); return; }
+              if (classes.length > 1) {
+                const cls = prompt("Enter class name to add to:\n" + classes.map((c: any) => c.name).join("\n"));
+                const found = classes.find((c: any) => c.name.toLowerCase().includes((cls || "").toLowerCase()));
+                if (found) {
+                  setLoading("tpl-" + i);
+                  await addMaterial({ classId: found.id, title: tpl.title, description: tpl.desc, type: tpl.type, url: tpl.url });
+                  router.refresh(); setLoading("");
+                }
+              } else {
+                setLoading("tpl-" + i);
+                await addMaterial({ classId, title: tpl.title, description: tpl.desc, type: tpl.type, url: tpl.url });
+                router.refresh(); setLoading("");
+              }
+            }}
+              disabled={loading === "tpl-" + i}
+              className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-gray-200 hover:border-brand-300 hover:shadow-sm transition text-left group">
+              <span className="text-xl">{tpl.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-gray-700 truncate group-hover:text-brand-600">{tpl.title}</p>
+                <p className="text-[8px] text-gray-400 truncate">{tpl.desc}</p>
+              </div>
+              {loading === "tpl-" + i ? <Loader2 className="w-3 h-3 animate-spin text-brand-500" /> : <Plus className="w-3 h-3 text-gray-300 group-hover:text-brand-500" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Materials Grid */}
       <p className="text-xs text-gray-400">{filtered.length} material(s)</p>
 
