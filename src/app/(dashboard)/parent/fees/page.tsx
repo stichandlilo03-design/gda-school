@@ -12,7 +12,7 @@ export default async function ParentFeesPage() {
     include: { children: { include: { student: { include: {
       user: { select: { name: true } },
       school: { select: { name: true, currency: true } },
-      payments: { orderBy: { createdAt: "desc" }, include: { feeStructure: { include: { schoolGrade: true } } } },
+      payments: { orderBy: { createdAt: "desc" } },
     } } } } },
   });
 
@@ -58,7 +58,7 @@ export default async function ParentFeesPage() {
                 {payments.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-[10px]">
                     <div>
-                      <span className="font-medium">{p.feeStructure?.term || "Payment"}</span>
+                      <span className="font-medium">{p.description || "Payment"}</span>
                       <span className="text-gray-400 ml-2">{new Date(p.createdAt).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-2">

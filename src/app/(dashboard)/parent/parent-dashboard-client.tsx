@@ -242,7 +242,7 @@ export default function ParentDashboardClient({ parent }: { parent: any }) {
                       {payments.map((p: any) => (
                         <div key={p.id} className="flex items-center justify-between py-1.5 px-2 bg-gray-50 rounded-lg text-[10px]">
                           <div>
-                            <span className="font-medium">{p.feeStructure?.term || "Fee"}</span>
+                            <span className="font-medium">{p.description || "Fee"}</span>
                             <span className="text-gray-400 ml-1">{new Date(p.createdAt).toLocaleDateString()}</span>
                           </div>
                           <div className="flex items-center gap-2">
