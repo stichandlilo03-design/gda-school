@@ -12,10 +12,15 @@ export async function GET() {
     // ============================================================
     // 1. ENFORCE SCHOOL CLOSE TIME — end ALL sessions past close
     // ============================================================
-    const schools = await db.school.findMany({ where: { isActive: true }, select: { id: true, schoolCloseTime: true, schoolOpenTime: true, sessionDurationMin: true, sessionsPerDay: true, currency: true } });
+    const schools = await db.school.findMany({ where: { isActive: true }, select: { id: true, schoolCloseTime: true, schoolOpenTime: true, sessionDurationMin: true, sessionsPerDay: true, currency: true, timezone: true } });
     for (const school of schools) {
+      // Use school timezone for time calculations
+      const schoolTz = school.timezone || "UTC";
+      const schoolNow = new Date(now.toLocaleString("en-US", { timeZone: schoolTz }));
+      const schoolNowMin = schoolNow.getHours() * 60 + schoolNow.getMinutes();
+      const schoolToday = DAYS[schoolNow.getDay()];
       const closeMin = parseInt((school.schoolCloseTime || "15:00").split(":")[0]) * 60 + parseInt((school.schoolCloseTime || "15:00").split(":")[1] || "0");
-      if (nowMin > closeMin + 5) {
+      if (schoolNowMin > closeMin + 5) {
         const activeSessions = await db.liveClassSession.findMany({
           where: { status: { in: ["WAITING", "IN_PROGRESS"] }, class: { schoolGrade: { schoolId: school.id } } },
         });
@@ -34,8 +39,10 @@ export async function GET() {
     // ============================================================
     // 2. TIMETABLE-BASED AUTO-START & AUTO-END
     // ============================================================
+    // Fetch schedules for all possible "today" days across timezones
+    const possibleDays = [...new Set([today, DAYS[(now.getDay() + 1) % 7], DAYS[(now.getDay() + 6) % 7]])];
     const schedules = await db.classSchedule.findMany({
-      where: { dayOfWeek: today as any },
+      where: { dayOfWeek: { in: possibleDays as any[] } },
       include: {
         class: {
           include: {
@@ -54,14 +61,23 @@ export async function GET() {
       const school = cls.schoolGrade?.school;
       if (!school) continue;
 
+      // Use school timezone
+      const tz = (school as any).timezone || "UTC";
+      const localNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+      const localNowMin = localNow.getHours() * 60 + localNow.getMinutes();
+      const localToday = DAYS[localNow.getDay()];
+
+      // Skip if not this school's "today"
+      if (sched.dayOfWeek !== localToday) continue;
+
       const schoolOpenMin = parseInt((school.schoolOpenTime || "08:00").split(":")[0]) * 60 + parseInt((school.schoolOpenTime || "08:00").split(":")[1] || "0");
       const schoolCloseMin = parseInt((school.schoolCloseTime || "15:00").split(":")[0]) * 60 + parseInt((school.schoolCloseTime || "15:00").split(":")[1] || "0");
 
-      // Skip if outside school hours
-      if (nowMin < schoolOpenMin || nowMin > schoolCloseMin + 5) continue;
+      // Skip if outside school hours (using school local time)
+      if (localNowMin < schoolOpenMin || localNowMin > schoolCloseMin + 5) continue;
 
       // Auto-start: within 2 min of start time, no active session, teacher not busy
-      if (nowMin >= startMin && nowMin <= startMin + 2 && cls.liveSessions.length === 0) {
+      if (localNowMin >= startMin && localNowMin <= startMin + 2 && cls.liveSessions.length === 0) {
         const teacherBusy = await db.liveClassSession.findFirst({
           where: { teacherId: cls.teacherId, status: "IN_PROGRESS" },
         });
@@ -86,7 +102,7 @@ export async function GET() {
         const sessionMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
         const sessionLimit = school.sessionDurationMin || 40;
 
-        if (nowMin > endMin + 2 || sessionMin >= sessionLimit + 5) {
+        if (localNowMin > endMin + 2 || sessionMin >= sessionLimit + 5) {
           const durationMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
           await db.liveClassSession.update({
             where: { id: session.id },

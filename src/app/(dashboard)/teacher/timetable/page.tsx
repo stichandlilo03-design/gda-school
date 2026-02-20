@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import { to12h, sessionLabel, sessionBadgeColor } from "@/lib/time-utils";
 
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
 const DAY_SHORT: Record<string, string> = { MONDAY: "Mon", TUESDAY: "Tue", WEDNESDAY: "Wed", THURSDAY: "Thu", FRIDAY: "Fri", SATURDAY: "Sat" };
@@ -84,7 +85,7 @@ export default async function TeacherTimetablePage() {
         {/* School hours info */}
         {school && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 flex items-center gap-3 flex-wrap">
-            <span>🏫 School: <strong>{school.schoolOpenTime || "08:00"} - {school.schoolCloseTime || "15:00"}</strong></span>
+            <span>🏫 School: <strong>{to12h(school.schoolOpenTime || "08:00")} – {to12h(school.schoolCloseTime || "15:00")}</strong></span>
             <span>📚 {school.sessionsPerDay} periods/day</span>
             <span>⏱️ {school.sessionDurationMin}min/period</span>
             <span>☕ {school.breakDurationMin}min breaks</span>
@@ -99,7 +100,7 @@ export default async function TeacherTimetablePage() {
               {allSchedules.filter(s => s.dayOfWeek === todayDay).sort((a, b) => a.periodNumber - b.periodNumber).map(s => (
                 <div key={s.id} className={`p-3 rounded-xl border ${s.colorClass} min-w-[150px]`}>
                   <div className="text-xs font-bold">{s.subjectName}</div>
-                  <div className="text-[10px] opacity-70 mt-0.5">Period {s.periodNumber} · {s.startTime} - {s.endTime}</div>
+                  <div className="text-[10px] opacity-70 mt-0.5">Period {s.periodNumber} · {to12h(s.startTime)} – {to12h(s.endTime)}</div>
                   <div className="text-[9px] opacity-60 mt-0.5">
                     {s.gradeName} · {s.studentCount} students
                     <span className={`ml-1 text-[7px] px-1 rounded ${(s as any).sessionSlot === "SESSION_B" ? "bg-blue-500 text-white" : (s as any).sessionSlot === "SESSION_C" ? "bg-purple-500 text-white" : "bg-amber-500 text-white"}`}>
@@ -148,7 +149,7 @@ export default async function TeacherTimetablePage() {
                           {entry ? (
                             <div className={`p-2 rounded-lg border ${entry.colorClass}`}>
                               <p className="text-[11px] font-bold leading-tight">{entry.subjectName}</p>
-                              <p className="text-[9px] opacity-60 mt-0.5">{entry.startTime}-{entry.endTime}</p>
+                              <p className="text-[9px] opacity-60 mt-0.5">{to12h(entry.startTime)}–{to12h(entry.endTime)}</p>
                               <div className="flex items-center gap-1 mt-0.5">
                                 <p className="text-[8px] opacity-50">{entry.gradeName}</p>
                                 <span className={`text-[7px] px-1 rounded ${entry.sessionSlot === "SESSION_B" ? "bg-blue-500 text-white" : entry.sessionSlot === "SESSION_C" ? "bg-purple-500 text-white" : "bg-amber-500 text-white"}`}>

@@ -7,6 +7,7 @@ import {
   Loader2, Play, Zap, Award, Search, GraduationCap, Package,
 } from "lucide-react";
 import Link from "next/link";
+import { to12h } from "@/lib/time-utils";
 
 const SESSIONS: Record<string, string> = {
   SESSION_A: "Morning (06:00-10:00)",
@@ -256,7 +257,7 @@ export default function SubjectSelector({
                               {cls.schedules.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {cls.schedules.sort((a:any,b:any) => DAYS.indexOf(a.dayOfWeek) - DAYS.indexOf(b.dayOfWeek)).map((s:any) => (
-                                    <span key={s.id} className="text-[8px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {s.startTime}</span>
+                                    <span key={s.id} className="text-[8px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {to12h(s.startTime)}</span>
                                   ))}
                                 </div>
                               )}

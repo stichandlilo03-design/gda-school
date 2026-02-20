@@ -12,6 +12,7 @@ import ClassAlarm from "@/components/class-alarm";
 import VisualClassroom from "@/components/visual-classroom";
 import TeacherRating from "@/components/teacher-rating";
 import { getGradeLabelForCountry } from "@/lib/education-systems";
+import { to12h } from "@/lib/time-utils";
 
 const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
 const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -296,7 +297,7 @@ export default function StudentClassroomClient({
                         <div className="flex flex-wrap gap-1">
                           {cls.schedules.sort((a:any,b:any) => DAYS.indexOf(a.dayOfWeek)-DAYS.indexOf(b.dayOfWeek)).map((s:any, i:number) => (
                             <span key={i} className={`text-[10px] px-2 py-1 rounded-lg ${s.dayOfWeek === today ? "bg-brand-100 text-brand-700 font-bold" : "bg-gray-100 text-gray-600"}`}>
-                              {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {s.startTime}-{s.endTime}
+                              {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {to12h(s.startTime)}-{to12h(s.endTime)}
                             </span>
                           ))}
                         </div>

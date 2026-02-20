@@ -261,6 +261,7 @@ model School {
   sessionsPerDay     Int   @default(4)
   schoolOpenTime     String @default("08:00")
   schoolCloseTime    String @default("15:00")
+  timezone           String @default("UTC")
   feePaymentThreshold Int  @default(70)
   feePaymentPolicy    String @default("PERCENTAGE") // PERCENTAGE, FULL, FLEXIBLE
   feeInstructions     String? @db.Text

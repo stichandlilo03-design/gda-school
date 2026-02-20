@@ -148,7 +148,7 @@ export async function autoGenerateTimetable(gradeId: string) {
   return { success: true, message: `Generated ${created} slots across ${DAYS.length} days${skipped > 0 ? ` (${skipped} conflicts avoided)` : ""}` };
 }
 
-export async function updateSchoolHours(data: { schoolOpenTime: string; schoolCloseTime: string; sessionDurationMin: number; breakDurationMin: number; sessionsPerDay: number }) {
+export async function updateSchoolHours(data: { schoolOpenTime: string; schoolCloseTime: string; sessionDurationMin: number; breakDurationMin: number; sessionsPerDay: number; timezone?: string }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
 
@@ -163,6 +163,7 @@ export async function updateSchoolHours(data: { schoolOpenTime: string; schoolCl
       sessionDurationMin: data.sessionDurationMin,
       breakDurationMin: data.breakDurationMin,
       sessionsPerDay: data.sessionsPerDay,
+      ...(data.timezone ? { timezone: data.timezone } : {}),
     },
   });
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClass, deleteClass } from "@/lib/actions/teacher";
 import { addClassRequirement, deleteClassRequirement } from "@/lib/actions/class-requirements";
 import { useRouter } from "next/navigation";
+import { to12h } from "@/lib/time-utils";
 import {
   Plus, Trash2, Users, Clock, Loader2, BookOpen, ChevronDown, ChevronUp,
   Package, AlertCircle, CheckCircle, Settings, Calendar
@@ -224,7 +225,7 @@ export default function ClassManager({ classes, availableGrades }: { classes: an
                         <div className="flex flex-wrap gap-1.5">
                           {cls.schedules.sort((a: any, b: any) => DAYS.indexOf(a.dayOfWeek) - DAYS.indexOf(b.dayOfWeek)).map((s: any) => (
                             <span key={s.id} className="text-[10px] px-2 py-1 rounded-lg bg-brand-50 text-brand-700">
-                              {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {s.startTime}–{s.endTime}
+                              {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {to12h(s.startTime)}–{to12h(s.endTime)}
                             </span>
                           ))}
                         </div>

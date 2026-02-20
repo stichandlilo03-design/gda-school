@@ -6,6 +6,7 @@ import {
 } from "@/lib/actions/classroom";
 import { removeStudentFromClass } from "@/lib/actions/student-management";
 import { useRouter } from "next/navigation";
+import { to12h } from "@/lib/time-utils";
 import {
   Play, Square, Users, Clock, CheckCircle, XCircle, AlertTriangle,
   Loader2, Megaphone, Bell, ChevronDown, ChevronUp, Send, Trash2,
@@ -265,7 +266,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
             {todayScheds.length > 0 && (
               <div className="flex gap-1 mt-2">
                 {todayScheds.map((s: any, i: number) => (
-                  <span key={i} className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-lg font-medium">Today: {s.startTime}-{s.endTime}</span>
+                  <span key={i} className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-lg font-medium">Today: {to12h(s.startTime)}-{to12h(s.endTime)}</span>
                 ))}
               </div>
             )}

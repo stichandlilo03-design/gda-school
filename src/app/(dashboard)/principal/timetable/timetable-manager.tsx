@@ -5,6 +5,7 @@ import { saveTimetableSlot, deleteTimetableSlot, autoGenerateTimetable, updateSc
 import {
   Calendar, Clock, Plus, Trash2, Loader2, Wand2, Settings, BookOpen, Save, X, ChevronDown, Sun, Sunset, Moon, Info, AlertCircle
 } from "lucide-react";
+import { to12h, sessionLabel, sessionBadgeColor, SCHOOL_TIMEZONES } from "@/lib/time-utils";
 
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
 const DAY_SHORT: Record<string, string> = { MONDAY: "Mon", TUESDAY: "Tue", WEDNESDAY: "Wed", THURSDAY: "Thu", FRIDAY: "Fri", SATURDAY: "Sat" };
@@ -76,6 +77,7 @@ export default function TimetableManager({ school, grades, schoolTeachers }: Pro
     sessionDurationMin: school.sessionDurationMin || 40,
     breakDurationMin: school.breakDurationMin || 10,
     sessionsPerDay: school.sessionsPerDay || 4,
+    timezone: school.timezone || "UTC",
   });
 
   const [slotForm, setSlotForm] = useState({ classId: "", startTime: "", endTime: "" });
@@ -338,7 +340,7 @@ export default function TimetableManager({ school, grades, schoolTeachers }: Pro
             <div>
               <h3 className="text-sm font-semibold">School Hours &amp; Period Settings</h3>
               <p className="text-[10px] text-gray-500">
-                Opens {hours.schoolOpenTime} · Closes {hours.schoolCloseTime} · {hours.sessionsPerDay} periods · {hours.sessionDurationMin}min each · {hours.breakDurationMin}min breaks
+                Opens {to12h(hours.schoolOpenTime)} · Closes {to12h(hours.schoolCloseTime)} · {hours.sessionsPerDay} periods · {hours.sessionDurationMin}min each · {hours.breakDurationMin}min breaks
               </p>
             </div>
           </div>
@@ -351,9 +353,14 @@ export default function TimetableManager({ school, grades, schoolTeachers }: Pro
               Morning (A): 06:00–10:30 · Afternoon (B): 14:00–17:30 · Evening (C): 18:00–21:30<br />
               If running multiple sessions, set the widest window (e.g., 06:00–21:30) and sessions auto-stop at close time.
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
               <div><label className="label">School Opens</label><input type="time" className="input-field" value={hours.schoolOpenTime} onChange={e => setHours(h => ({ ...h, schoolOpenTime: e.target.value }))} /></div>
               <div><label className="label">School Closes</label><input type="time" className="input-field" value={hours.schoolCloseTime} onChange={e => setHours(h => ({ ...h, schoolCloseTime: e.target.value }))} /></div>
+              <div><label className="label">Timezone 🌍</label>
+                <select className="input-field" value={hours.timezone} onChange={e => setHours(h => ({ ...h, timezone: e.target.value }))}>
+                  {SCHOOL_TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                </select>
+              </div>
               <div><label className="label">Periods/Day</label>
                 <select className="input-field" value={hours.sessionsPerDay} onChange={e => setHours(h => ({ ...h, sessionsPerDay: parseInt(e.target.value) }))}>
                   {[3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
@@ -375,7 +382,7 @@ export default function TimetableManager({ school, grades, schoolTeachers }: Pro
               <div className="flex flex-wrap gap-1.5">
                 {timeSlots.map((s, i) => (
                   <span key={i} className={`text-[10px] px-2 py-1 rounded-lg ${s.isBreak ? "bg-amber-100 text-amber-700 font-medium" : "bg-white border border-gray-200 text-gray-600"}`}>
-                    {s.isBreak ? `☕ Break ${s.start}–${s.end}` : `P${s.period}: ${s.start}–${s.end}`}
+                    {s.isBreak ? `☕ Break ${to12h(s.start)}–${to12h(s.end)}` : `P${s.period}: ${to12h(s.start)}–${to12h(s.end)}`}
                   </span>
                 ))}
               </div>
@@ -464,9 +471,9 @@ export default function TimetableManager({ school, grades, schoolTeachers }: Pro
                 <tr key={idx} className={slot.isBreak ? "bg-amber-50/50" : ""}>
                   <td className="p-2 border border-gray-200 text-center">
                     {slot.isBreak ? (
-                      <div className="text-[10px] text-amber-600 font-medium">☕ Break<br />{slot.start}–{slot.end}</div>
+                      <div className="text-[10px] text-amber-600 font-medium">☕ Break<br />{to12h(slot.start)}–{to12h(slot.end)}</div>
                     ) : (
-                      <div><div className="text-[10px] font-bold text-gray-600">P{slot.period}</div><div className="text-[9px] text-gray-400">{slot.start}–{slot.end}</div></div>
+                      <div><div className="text-[10px] font-bold text-gray-600">P{slot.period}</div><div className="text-[9px] text-gray-400">{to12h(slot.start)}–{to12h(slot.end)}</div></div>
                     )}
                   </td>
                   {!slot.isBreak && DAYS.slice(0, hours.sessionsPerDay >= 6 ? 6 : 5).map(day => {
@@ -478,7 +485,7 @@ export default function TimetableManager({ school, grades, schoolTeachers }: Pro
                           <div className={`p-2 rounded-lg border ${entry.colorClass} relative group ${isOtherSession ? "opacity-50" : ""}`}>
                             <p className="text-[11px] font-bold leading-tight">{entry.subjectName}</p>
                             <p className="text-[9px] opacity-70 mt-0.5">{entry.teacherName}</p>
-                            <p className="text-[8px] opacity-50">{entry.startTime}–{entry.endTime}</p>
+                            <p className="text-[8px] opacity-50">{to12h(entry.startTime)}–{to12h(entry.endTime)}</p>
                             {entry.sessionSlot && (
                               <span className={`absolute top-0.5 left-0.5 text-[7px] px-1 rounded ${
                                 entry.sessionSlot === "SESSION_B" ? "bg-blue-500 text-white" :

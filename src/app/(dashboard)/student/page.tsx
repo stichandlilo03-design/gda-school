@@ -5,6 +5,7 @@ import DashboardHeader from "@/components/layout/dashboard-header";
 import KGDashboard from "@/components/kg-dashboard";
 import Link from "next/link";
 import { getGradeLabelForCountry } from "@/lib/education-systems";
+import { to12h } from "@/lib/time-utils";
 import {
   BookOpen, Users, Calendar, Award, Clock, TrendingUp,
   ChevronRight, Play, CheckCircle, AlertCircle, CreditCard,
@@ -328,12 +329,12 @@ export default async function StudentDashboard() {
                   return (
                   <div key={cls.id} className={`flex items-center gap-3 p-3 rounded-lg ${isCurrent ? "bg-emerald-50 border-2 border-emerald-300 ring-1 ring-emerald-200" : isPast ? "bg-gray-50 opacity-60" : "bg-brand-50/30 border border-brand-100"}`}>
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs ${isCurrent ? "bg-emerald-500 text-white" : isPast ? "bg-gray-200 text-gray-500" : "bg-brand-100 text-brand-600"}`}>
-                      {isCurrent ? "🟢" : isPast ? "✓" : cls.todaySchedule.startTime}
+                      {isCurrent ? "🟢" : isPast ? "✓" : to12h(cls.todaySchedule.startTime)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800 truncate">{cls.name}</p>
                       <p className="text-[10px] text-gray-500">
-                        {cls.todaySchedule.startTime} – {cls.todaySchedule.endTime} • {cls.teacher.user.name}
+                        {to12h(cls.todaySchedule.startTime)} – {to12h(cls.todaySchedule.endTime)} • {cls.teacher.user.name}
                       </p>
                       {isCurrent && <span className="text-[9px] text-emerald-600 font-bold animate-pulse">● LIVE NOW</span>}
                       {isPast && <span className="text-[9px] text-gray-400">Completed</span>}
@@ -431,7 +432,7 @@ export default async function StudentDashboard() {
                                 <div key={s.id} className={`text-[10px] px-2 py-1 rounded-lg ${
                                   s.dayOfWeek === today ? "bg-brand-100 text-brand-700 font-medium" : "bg-gray-100 text-gray-600"
                                 }`}>
-                                  {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {s.startTime}–{s.endTime}
+                                  {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {to12h(s.startTime)}–{to12h(s.endTime)}
                                   {s.dayOfWeek === today && " (Today)"}
                                 </div>
                               ))}
