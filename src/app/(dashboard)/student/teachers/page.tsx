@@ -27,7 +27,7 @@ export default async function StudentTeachersPage() {
     },
     include: {
       teacher: {
-        include: { user: { select: { name: true, image: true, email: true } } },
+        select: { id: true, bio: true, headline: true, profilePicture: true, introVideoUrl: true, rating: true, totalRatings: true, isVerified: true, isOnline: true, lastSeenAt: true, profileSlug: true, yearsExperience: true, teachingStyle: true, subjects: true, user: { select: { name: true, image: true, email: true } } },
       },
       subject: true,
       enrollments: { where: { status: "ACTIVE" } },
@@ -44,12 +44,19 @@ export default async function StudentTeachersPage() {
       teacherMap.set(cls.teacherId, {
         id: cls.teacherId,
         name: cls.teacher.user.name,
-        image: cls.teacher.user.image,
+        image: cls.teacher.user.image || cls.teacher.profilePicture,
         email: cls.teacher.user.email,
         rating: cls.teacher.rating,
+        totalRatings: cls.teacher.totalRatings,
         years: cls.teacher.yearsExperience,
         style: cls.teacher.teachingStyle,
         bio: cls.teacher.bio,
+        headline: cls.teacher.headline,
+        isOnline: cls.teacher.isOnline,
+        lastSeenAt: cls.teacher.lastSeenAt,
+        profileSlug: cls.teacher.profileSlug,
+        introVideoUrl: cls.teacher.introVideoUrl,
+        isVerified: cls.teacher.isVerified,
         subjects: [],
         classes: [],
       });

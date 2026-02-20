@@ -14,7 +14,7 @@ export default async function TeacherProfilePage() {
       user: { select: { name: true, email: true, phone: true, countryCode: true, image: true } },
       schools: {
         where: { status: "APPROVED", isActive: true },
-        include: { school: { select: { name: true } } },
+        include: { school: { select: { name: true, logo: true, primaryColor: true } } },
       },
       classes: { where: { isActive: true }, select: { id: true, name: true } },
     },

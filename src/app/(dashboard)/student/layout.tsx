@@ -14,6 +14,7 @@ const studentLinks = [
   { href: "/student/attendance", icon: "UserCheck", label: "Attendance" },
   { href: "/student/materials", icon: "FolderOpen", label: "Materials" },
   { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
+  { href: "/student/profile", icon: "User", label: "Profile & ID Card" },
   { href: "/student/certificates", icon: "Award", label: "Certificates" },
 ];
 

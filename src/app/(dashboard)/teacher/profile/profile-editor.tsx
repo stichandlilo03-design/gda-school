@@ -4,12 +4,15 @@ import { useState, useRef } from "react";
 import {
   updateTeacherProfile, updateTeacherUserInfo, uploadProfilePicture, removeProfilePicture,
 } from "@/lib/actions/teacher-profile";
+import { setTeacherOnlineStatus, setProfileSlug, uploadIntroVideo, uploadTeacherPhoto } from "@/lib/actions/profile";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Camera, Loader2, Save, Trash2, Plus, X, Linkedin, Globe, Twitter, Youtube,
-  GraduationCap, BookOpen, Award, Languages, User, Mail, Phone, Star, Eye
+  GraduationCap, BookOpen, Award, Languages, User, Mail, Phone, Star, Eye,
+  Share2, Video, Wifi, WifiOff, CreditCard, Copy, ExternalLink, Check
 } from "lucide-react";
+import IDCard from "@/components/id-card";
 
 const SUBJECTS = [
   "Mathematics", "English Language", "Physics", "Chemistry", "Biology", "Further Mathematics",
@@ -30,7 +33,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
-  const [tab, setTab] = useState<"profile" | "subjects" | "qualifications" | "preview">("profile");
+  const [tab, setTab] = useState<"profile" | "subjects" | "qualifications" | "preview" | "share" | "idcard">("profile");
 
   // Profile fields
   const [name, setName] = useState(user.name);
@@ -38,6 +41,12 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
   const [headline, setHeadline] = useState(teacher.headline || "");
   const [bio, setBio] = useState(teacher.bio || "");
   const [style, setStyle] = useState(teacher.teachingStyle || "");
+
+  // New: online/share/video
+  const [isOnline, setIsOnline] = useState(teacher.isOnline || false);
+  const [slug, setSlug] = useState(teacher.profileSlug || "");
+  const [slugInput, setSlugInput] = useState(teacher.profileSlug || "");
+  const [copied, setCopied] = useState(false);
   const [experience, setExperience] = useState(teacher.yearsExperience);
   const [linkedin, setLinkedin] = useState(teacher.linkedinUrl || "");
   const [twitter, setTwitter] = useState(teacher.twitterUrl || "");
@@ -125,7 +134,9 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
           { key: "profile", label: "📝 Profile & Links" },
           { key: "subjects", label: "📚 Subjects & Grades" },
           { key: "qualifications", label: "🎓 Qualifications" },
-          { key: "preview", label: "👁 Student Preview" },
+          { key: "share", label: "🔗 Share & Video" },
+          { key: "idcard", label: "🪪 ID Card" },
+          { key: "preview", label: "👁 Preview" },
         ].map((t) => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
             className={`text-xs px-4 py-2.5 rounded-lg font-medium ${tab === t.key ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
@@ -322,6 +333,146 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
       )}
 
       {/* =================== PREVIEW TAB =================== */}
+      {/* ========= SHARE & VIDEO ========= */}
+      {tab === "share" && (
+        <div className="space-y-4">
+          {/* Online/Offline Toggle */}
+          <div className="card">
+            <h3 className="text-sm font-bold mb-3">📡 Online Status</h3>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={async () => { setLoading("online"); const newState = !isOnline; setIsOnline(newState); await setTeacherOnlineStatus(newState); setMessage(newState ? "✅ You are now Online!" : "You are now Offline"); setLoading(""); router.refresh(); }}
+                disabled={loading === "online"}
+                className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition ${isOnline ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" : "bg-gray-100 text-gray-600"}`}
+              >
+                {loading === "online" ? <Loader2 className="w-4 h-4 animate-spin" /> : isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                {isOnline ? "🟢 Online" : "⚪ Offline"}
+              </button>
+              <p className="text-xs text-gray-500">Students will see you as {isOnline ? "online and active" : "offline"}. Toggle this when you start/finish teaching.</p>
+            </div>
+          </div>
+
+          {/* Profile Link */}
+          <div className="card">
+            <h3 className="text-sm font-bold mb-3">🔗 Shareable Profile Link</h3>
+            <p className="text-xs text-gray-500 mb-3">Create a custom profile link you can share with anyone — students, parents, on social media.</p>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <span className="absolute left-3 top-2.5 text-xs text-gray-400">gdaschools.sbs/profile/teacher/</span>
+                <input
+                  className="input-field pl-[195px] font-medium"
+                  placeholder="your-name"
+                  value={slugInput}
+                  onChange={e => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  setLoading("slug");
+                  const r = await setProfileSlug(slugInput);
+                  if (r.error) setMessage("Error: " + r.error);
+                  else { setSlug(r.slug!); setMessage("✅ Profile link saved!"); }
+                  setLoading(""); router.refresh();
+                }}
+                disabled={loading === "slug" || slugInput.length < 3}
+                className="btn-primary text-xs"
+              >
+                {loading === "slug" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} Save
+              </button>
+            </div>
+
+            {slug && (
+              <div className="mt-3 p-3 bg-brand-50 border border-brand-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-brand-800">Your profile link:</p>
+                  <p className="text-xs text-brand-600 font-mono">https://www.gdaschools.sbs/profile/teacher/{slug}</p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(`https://www.gdaschools.sbs/profile/teacher/${slug}`); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                    className="text-[10px] px-2 py-1.5 rounded-lg bg-white text-brand-600 border border-brand-200"
+                  >
+                    {copied ? <><Check className="w-3 h-3 inline mr-0.5" /> Copied!</> : <><Copy className="w-3 h-3 inline mr-0.5" /> Copy</>}
+                  </button>
+                  <a href={`/profile/teacher/${slug}`} target="_blank" className="text-[10px] px-2 py-1.5 rounded-lg bg-white text-brand-600 border border-brand-200">
+                    <ExternalLink className="w-3 h-3 inline mr-0.5" /> Open
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Intro Video */}
+          <div className="card">
+            <h3 className="text-sm font-bold mb-3">🎥 Introduction Video</h3>
+            <p className="text-xs text-gray-500 mb-3">Record a short video introducing yourself to students. Tell them your name, what you teach, and your teaching style.</p>
+
+            {teacher.introVideoUrl && (
+              <div className="mb-3">
+                <video src={teacher.introVideoUrl} controls className="w-full rounded-xl max-h-[300px]" />
+              </div>
+            )}
+
+            <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-brand-300 hover:bg-brand-50/30 transition">
+              {loading === "video" ? <Loader2 className="w-5 h-5 animate-spin text-gray-400" /> : <Video className="w-5 h-5 text-gray-400" />}
+              <span className="text-xs text-gray-500">{teacher.introVideoUrl ? "Upload new video (replaces current)" : "Upload intro video"}</span>
+              <input
+                type="file" accept="video/*" className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file) return;
+                  if (file.size > 8 * 1024 * 1024) { setMessage("Video must be under 8MB"); return; }
+                  setLoading("video");
+                  const reader = new FileReader();
+                  reader.onloadend = async () => {
+                    const r = await uploadIntroVideo(reader.result as string);
+                    if (r.error) setMessage("Error: " + r.error);
+                    else { setMessage("✅ Video uploaded!"); router.refresh(); }
+                    setLoading("");
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+            </label>
+            <p className="text-[10px] text-gray-400 mt-2">Max 8MB. MP4 or WebM recommended. Keep it under 60 seconds.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ========= ID CARD ========= */}
+      {tab === "idcard" && (
+        <div className="space-y-4">
+          <div className="card">
+            <h3 className="text-sm font-bold mb-3">🪪 Teacher ID Card</h3>
+            <p className="text-xs text-gray-500 mb-4">Your official school ID card. Download or print it.</p>
+
+            {!teacher.profilePicture && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-center mb-4">
+                <Camera className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                <p className="text-xs text-amber-700 font-medium">Upload a profile photo first</p>
+                <p className="text-[10px] text-amber-600 mt-1">Go to the Profile tab and upload your photo for the ID card</p>
+              </div>
+            )}
+
+            <div className="flex justify-center">
+              <IDCard
+                type="TEACHER"
+                name={user.name}
+                photo={teacher.profilePicture || user.image}
+                idNumber={teacher.id?.slice(-8).toUpperCase()}
+                schoolName={teacher.schools?.[0]?.school?.name || "GDA School"}
+                schoolLogo={teacher.schools?.[0]?.school?.logo}
+                subjects={(teacher.subjects as string[]) || []}
+                email={user.email}
+                countryCode={user.countryCode}
+                enrolledDate={new Date(teacher.createdAt).toLocaleDateString()}
+                isVerified={teacher.isVerified}
+                primaryColor={teacher.schools?.[0]?.school?.primaryColor}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {tab === "preview" && (
         <div className="space-y-6">
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 flex items-center gap-2">
@@ -411,7 +562,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
       )}
 
       {/* Save button (sticky) */}
-      {tab !== "preview" && (
+      {tab !== "preview" && tab !== "share" && tab !== "idcard" && (
         <div className="sticky bottom-4 flex justify-end">
           <button onClick={handleSaveProfile} disabled={loading === "save"} className="btn-primary px-8 py-3 shadow-lg text-sm">
             {loading === "save" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}

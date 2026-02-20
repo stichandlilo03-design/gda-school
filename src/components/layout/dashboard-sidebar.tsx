@@ -35,6 +35,7 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
     PRINCIPAL: "bg-purple-100 text-purple-700",
     TEACHER: "bg-emerald-100 text-emerald-700",
     STUDENT: "bg-blue-100 text-blue-700",
+    PARENT: "bg-rose-100 text-rose-700",
   };
 
   return (

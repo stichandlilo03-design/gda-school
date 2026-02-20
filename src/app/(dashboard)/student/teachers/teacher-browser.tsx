@@ -104,15 +104,22 @@ export default function TeacherBrowser({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-bold text-gray-800">{t.name}</h3>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${t.isOnline ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                        {t.isOnline ? "🟢 Online" : "⚪ Offline"}
+                      </span>
                       <div className="flex items-center gap-0.5">
                         <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                         <span className="text-xs text-gray-600">{t.rating > 0 ? t.rating.toFixed(1) : "New"}</span>
                       </div>
                       {t.years > 0 && <span className="text-[10px] text-gray-400">{t.years} yrs exp</span>}
+                      {t.isVerified && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">✓ Verified</span>}
                       {isMultiSubject && (
                         <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
                           <Zap className="w-3 h-3" /> {t.subjects.length} subjects
                         </span>
+                      )}
+                      {t.profileSlug && (
+                        <a href={`/profile/teacher/${t.profileSlug}`} target="_blank" onClick={e => e.stopPropagation()} className="text-[9px] text-brand-600 hover:underline">View Profile →</a>
                       )}
                     </div>
                     {/* Subject badges */}
@@ -142,7 +149,14 @@ export default function TeacherBrowser({
                 {/* Expanded: Classes */}
                 {isExp && (
                   <div className="mt-3 pt-3 border-t space-y-2">
+                    {t.headline && <p className="text-[10px] text-brand-600 font-medium mb-1">{t.headline}</p>}
                     {t.bio && <p className="text-xs text-gray-600 mb-2">{t.bio}</p>}
+                    {t.introVideoUrl && (
+                      <div className="mb-3">
+                        <p className="text-[10px] font-medium text-gray-500 mb-1">🎥 Introduction:</p>
+                        <video src={t.introVideoUrl} controls className="w-full rounded-lg max-h-[200px]" />
+                      </div>
+                    )}
                     {t.classes.map((cls: any) => {
                       const isEnrolled = enrolledSet.has(cls.id);
                       const isFull = cls.enrolled >= cls.max;

@@ -37,6 +37,7 @@ export default function LoginPage() {
         if (role === "STUDENT") router.push("/student");
         else if (role === "TEACHER") router.push("/teacher");
         else if (role === "PRINCIPAL") router.push("/principal");
+        else if (role === "PARENT") router.push("/parent");
         else router.push("/student");
       }
     } catch {
@@ -146,6 +147,8 @@ export default function LoginPage() {
               <Link href="/register/teacher" className="text-sm text-brand-500 hover:underline">Teacher</Link>
               <span className="text-gray-300">|</span>
               <Link href="/register/principal" className="text-sm text-brand-500 hover:underline">Principal</Link>
+              <span className="text-gray-300">|</span>
+              <Link href="/register/parent" className="text-sm text-brand-500 hover:underline">Parent</Link>
             </div>
           </div>
         </div>

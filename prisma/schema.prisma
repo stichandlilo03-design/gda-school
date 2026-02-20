@@ -16,6 +16,7 @@ enum UserRole {
   STUDENT
   TEACHER
   PRINCIPAL
+  PARENT
   SUPER_ADMIN
 }
 
@@ -231,6 +232,7 @@ model User {
   student        Student?
   teacher        Teacher?
   principal      Principal?
+  parent         Parent?
   sentMessages   Message[]  @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
   interviewsConducted Interview[] @relation("Interviewer")
@@ -340,6 +342,9 @@ model Teacher {
   rating          Float    @default(0)
   totalRatings    Int      @default(0)
   isVerified      Boolean  @default(false)
+  isOnline        Boolean  @default(false)
+  lastSeenAt      DateTime?
+  profileSlug     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -356,6 +361,7 @@ model Teacher {
 
   @@index([userId])
   @@index([rating])
+  @@index([profileSlug])
 }
 
 model SchoolTeacher {
@@ -421,6 +427,8 @@ model Student {
   expelledAt       DateTime?
   expelReason      String?
   feePaid          Boolean          @default(false)
+  profilePicture   String?
+  idNumber         String?
   promotionNote    String?
   enrolledAt       DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -436,6 +444,7 @@ model Student {
   interviews       Interview[]      @relation("StudentInterviews")
   enrollmentRequests EnrollmentRequest[]
   teacherRatings   TeacherRating[]
+  parentLinks      ParentStudent[]
 
   @@index([userId])
   @@index([schoolId])
@@ -1165,5 +1174,42 @@ model TeacherRating {
 
   @@unique([teacherId, studentId, sessionId])
   @@index([teacherId])
+  @@index([studentId])
+}
+
+// ============================================================
+// PARENT / GUARDIAN
+// ============================================================
+
+model Parent {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  phone           String?
+  occupation      String?
+  address         String?  @db.Text
+  relationship    String   @default("Parent") // Parent, Guardian, Uncle, etc.
+  profilePicture  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children        ParentStudent[]
+
+  @@index([userId])
+}
+
+model ParentStudent {
+  id        String   @id @default(cuid())
+  parentId  String
+  studentId String
+  relation  String   @default("Parent") // Parent, Guardian, Mother, Father, etc.
+  isPrimary Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  parent    Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([parentId])
   @@index([studentId])
 }

@@ -257,6 +257,14 @@ export default async function HomePage() {
                 features: ["Full school oversight", "Set fees & curriculum", "Hire & manage teachers", "Issue certificates"],
                 gradient: "from-amber-500 to-orange-600",
               },
+              {
+                title: "Parent Portal",
+                desc: "Track your children's grades, attendance, fees, timetable, and communicate with teachers.",
+                link: "/register/parent",
+                btnText: "Join as Parent",
+                features: ["Track all children", "View grades & attendance", "Fee payment history", "Teacher communication"],
+                gradient: "from-rose-500 to-pink-600",
+              },
             ].map((portal, i) => (
               <div key={i} className="card border-0 shadow-lg overflow-hidden">
                 <div className={`h-2 bg-gradient-to-r ${portal.gradient}`} />

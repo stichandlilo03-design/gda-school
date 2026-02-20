@@ -117,6 +117,23 @@ export default async function TeacherDashboard() {
         subtitle={activeSchool ? activeSchool.school.name : "Teacher Dashboard"}
       />
       <div className="p-6 lg:p-8 space-y-8">
+        {/* Profile Setup Prompt */}
+        {(!teacher.profilePicture || !teacher.profileSlug || !teacher.introVideoUrl) && (
+          <a href="/teacher/profile" className="block p-4 bg-gradient-to-r from-brand-50 to-emerald-50 border-2 border-brand-200 rounded-2xl hover:shadow-md transition group">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-brand-100 text-brand-600 flex items-center justify-center text-xl shrink-0">👤</div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-brand-800">Complete your teacher profile!</p>
+                <p className="text-[10px] text-brand-600 mt-0.5">
+                  {!teacher.profilePicture && "📷 Upload photo "}
+                  {!teacher.profileSlug && "🔗 Create shareable link "}
+                  {!teacher.introVideoUrl && "🎥 Record intro video"}
+                </p>
+              </div>
+              <span className="text-xs text-brand-600 font-medium group-hover:translate-x-1 transition">Set up →</span>
+            </div>
+          </a>
+        )}
 
         {/* ============================================================ */}
         {/* STATUS BANNERS */}

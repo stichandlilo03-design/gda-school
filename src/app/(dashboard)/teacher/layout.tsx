@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
+import TeacherHeartbeat from "@/components/teacher-heartbeat";
 
 const teacherLinks = [
   { href: "/teacher", icon: "LayoutDashboard", label: "Dashboard" },
@@ -30,6 +31,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
         links={teacherLinks}
       />
       <main className="lg:ml-64">{children}</main>
+      <TeacherHeartbeat />
     </div>
   );
 }
