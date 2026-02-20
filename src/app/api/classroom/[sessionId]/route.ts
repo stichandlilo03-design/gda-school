@@ -138,30 +138,204 @@ export async function POST(
         id: uid(), question: body.question,
         options: (body.options || []).map((o: string) => ({ text: o, votes: [], voterNames: [] })),
         createdAt: Date.now(), active: true, correctOption: null,
+        mode: body.mode || "poll", // "poll" | "test" | "exam"
       });
       await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
       return NextResponse.json({ ok: true });
+    }
+
+    // CREATE EXAM/TEST - multiple questions with timing
+    if (action === "create_exam") {
+      let polls = arr(ls.polls);
+      const examId = uid();
+      const questions = (body.questions || []).map((q: any, idx: number) => ({
+        id: uid(),
+        examId,
+        questionNumber: idx + 1,
+        question: q.question,
+        options: (q.options || []).map((o: string) => ({ text: o, votes: [], voterNames: [] })),
+        correctOption: q.correctOption ?? null,
+        timeLimitSec: q.timeLimitSec || 60,
+        active: false,
+        closed: false,
+      }));
+      polls.push({
+        id: examId,
+        mode: body.mode || "exam", // "test" | "exam"
+        title: body.title || (body.mode === "test" ? "Class Test" : "Examination"),
+        questions,
+        currentQuestion: -1, // not started yet
+        totalQuestions: questions.length,
+        createdAt: Date.now(),
+        active: true,
+        started: false,
+        finished: false,
+        showResults: false,
+      });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true, examId });
+    }
+
+    // START EXAM - activate first question
+    if (action === "start_exam") {
+      let polls = arr(ls.polls);
+      polls = polls.map((p: any) => {
+        if (p.id !== body.examId) return p;
+        const qs = [...p.questions];
+        if (qs.length > 0) { qs[0].active = true; qs[0].startedAt = Date.now(); }
+        return { ...p, started: true, currentQuestion: 0, questions: qs };
+      });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ADVANCE EXAM - move to next question (auto or manual)
+    if (action === "advance_exam") {
+      let polls = arr(ls.polls);
+      polls = polls.map((p: any) => {
+        if (p.id !== body.examId) return p;
+        const qs = [...p.questions];
+        const cur = p.currentQuestion;
+        if (cur >= 0 && cur < qs.length) { qs[cur].active = false; qs[cur].closed = true; }
+        const next = cur + 1;
+        if (next < qs.length) {
+          qs[next].active = true;
+          qs[next].startedAt = Date.now();
+          return { ...p, currentQuestion: next, questions: qs };
+        }
+        // All questions done
+        return { ...p, currentQuestion: next, questions: qs, finished: true, active: false };
+      });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // END EXAM - force end early
+    if (action === "end_exam") {
+      let polls = arr(ls.polls);
+      polls = polls.map((p: any) => {
+        if (p.id !== body.examId) return p;
+        const qs = p.questions.map((q: any) => ({ ...q, active: false, closed: true }));
+        return { ...p, questions: qs, finished: true, active: false };
+      });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // SHOW EXAM RESULTS
+    if (action === "show_exam_results") {
+      let polls = arr(ls.polls);
+      polls = polls.map((p: any) => p.id === body.examId ? { ...p, showResults: true } : p);
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // SAVE EXAM TO GRADES - teacher saves exam results to Assessment+Score records
+    if (action === "save_exam_to_grades") {
+      const exam = arr(ls.polls).find((p: any) => p.id === body.examId);
+      if (!exam || !exam.finished) return NextResponse.json({ error: "Exam not finished" }, { status: 400 });
+
+      // Find active term
+      const cls = await db.class.findUnique({ where: { id: ls.classId }, include: { schoolGrade: { include: { school: true } } } });
+      if (!cls) return NextResponse.json({ error: "Class not found" }, { status: 400 });
+      const activeTerm = await db.term.findFirst({ where: { schoolId: cls.schoolGrade.schoolId, isActive: true } });
+
+      const assessmentType = exam.mode === "exam" ? "END_OF_TERM_EXAM" : exam.mode === "test" ? "MID_TERM_TEST" : "CONTINUOUS_ASSESSMENT";
+      const totalQs = exam.questions.length;
+
+      // Create Assessment
+      const assessment = await db.assessment.create({
+        data: {
+          classId: ls.classId,
+          termId: activeTerm?.id || null,
+          type: assessmentType,
+          title: exam.title || `${exam.mode === "exam" ? "Exam" : "Test"} - ${new Date().toLocaleDateString()}`,
+          maxScore: totalQs,
+          weight: exam.mode === "exam" ? 3 : 1,
+          isPublished: true,
+          gradeStatus: "SUBMITTED",
+          submittedAt: new Date(),
+        },
+      });
+
+      // Calculate each student's score from all questions
+      const studentScores: Record<string, { correct: number; name: string }> = {};
+      for (const q of exam.questions) {
+        if (q.correctOption == null) continue;
+        for (const opt of q.options) {
+          for (const voter of (opt.voterNames || [])) {
+            if (!studentScores[voter.id]) studentScores[voter.id] = { correct: 0, name: voter.name };
+          }
+        }
+        // Check who voted for the correct option
+        const correctOpt = q.options[q.correctOption];
+        if (correctOpt) {
+          for (const voter of (correctOpt.voterNames || [])) {
+            if (studentScores[voter.id]) studentScores[voter.id].correct++;
+          }
+        }
+      }
+
+      // Create Score records
+      for (const [studentId, data] of Object.entries(studentScores)) {
+        try {
+          await db.score.create({
+            data: {
+              studentId,
+              assessmentId: assessment.id,
+              score: data.correct,
+              feedback: `${data.correct}/${totalQs} correct in classroom ${exam.mode}`,
+              gradedAt: new Date(),
+            },
+          });
+        } catch { /* skip if student doesn't exist or duplicate */ }
+      }
+
+      return NextResponse.json({ ok: true, assessmentId: assessment.id, studentCount: Object.keys(studentScores).length });
     }
 
     if (action === "vote_poll") {
       let polls = arr(ls.polls);
       polls = polls.map((p: any) => {
         if (p.id !== body.pollId) return p;
-        // Remove previous votes from this student across all options
-        const cleaned = p.options.map((o: any) => ({
-          ...o,
-          votes: (o.votes || []).filter((v: string) => v !== body.studentId),
-          voterNames: (o.voterNames || []).filter((v: any) => v.id !== body.studentId),
-        }));
+        // LOCK-IN: check if student already voted on this poll
+        const alreadyVoted = p.options.some((o: any) => (o.votes || []).includes(body.studentId));
+        if (alreadyVoted) return p; // Don't allow changing answer
         // Add vote to selected option
-        return { ...p, options: cleaned.map((o: any, i: number) => {
+        return { ...p, options: p.options.map((o: any, i: number) => {
           if (i !== body.optionIndex) return o;
           return {
             ...o,
-            votes: [...o.votes, body.studentId],
-            voterNames: [...o.voterNames, { id: body.studentId, name: body.studentName || "Student" }],
+            votes: [...(o.votes || []), body.studentId],
+            voterNames: [...(o.voterNames || []), { id: body.studentId, name: body.studentName || "Student" }],
           };
         })};
+      });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // VOTE ON EXAM QUESTION - lock-in per question
+    if (action === "vote_exam_question") {
+      let polls = arr(ls.polls);
+      polls = polls.map((p: any) => {
+        if (p.id !== body.examId) return p;
+        const qs = p.questions.map((q: any) => {
+          if (q.id !== body.questionId) return q;
+          if (q.closed) return q; // question already closed
+          // LOCK-IN: check if already voted
+          const alreadyVoted = q.options.some((o: any) => (o.votes || []).includes(body.studentId));
+          if (alreadyVoted) return q;
+          return { ...q, options: q.options.map((o: any, i: number) => {
+            if (i !== body.optionIndex) return o;
+            return {
+              ...o,
+              votes: [...(o.votes || []), body.studentId],
+              voterNames: [...(o.voterNames || []), { id: body.studentId, name: body.studentName || "Student" }],
+            };
+          })};
+        });
+        return { ...p, questions: qs };
       });
       await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
       return NextResponse.json({ ok: true });

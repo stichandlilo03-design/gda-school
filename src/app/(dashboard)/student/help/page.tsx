@@ -157,6 +157,9 @@ const sections = [
     ],
     tips: ["Submit before the due date to avoid overdue marks.", "Your assignment completion rate affects your term report."],
   },
+  {
+    icon: "🏆", title: "Certificates", description: "View certificates awarded to you",
+    link: "/student/certificates",
     steps: [
       "Go to 'Certificates' to see all certificates you've earned.",
       "Certificates are awarded by your school for achievements, completion, and excellence.",

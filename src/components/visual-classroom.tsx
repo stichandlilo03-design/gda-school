@@ -268,6 +268,11 @@ export default function VisualClassroom(props: Props) {
   const [floatingReactions, setFloatingReactions] = useState<{id:string;emoji:string;x:number}[]>([]);
   // Poll
   const [pollQ, setPollQ] = useState(""); const [pollOpts, setPollOpts] = useState(["","",""]);
+  // Exam/Test mode
+  const [examMode, setExamMode] = useState<"poll"|"test"|"exam">("poll");
+  const [examTitle, setExamTitle] = useState("");
+  const [examQuestions, setExamQuestions] = useState<{question:string;options:string[];correctOption:number|null;timeLimitSec:number}[]>([]);
+  const [examSaving, setExamSaving] = useState(false);
 
   // ===== POLL SERVER =====
   const pollServer = useCallback(async () => {
@@ -396,8 +401,34 @@ export default function VisualClassroom(props: Props) {
   const sendReaction = (emoji: string) => post("reaction",{from:isTeacher?"Teacher":studentName,emoji});
   const createPoll = () => {
     if (!pollQ.trim()) return;
-    post("create_poll",{question:pollQ,options:pollOpts.filter(o=>o.trim())});
+    post("create_poll",{question:pollQ,options:pollOpts.filter(o=>o.trim()),mode:"poll"});
     setPollQ(""); setPollOpts(["","",""]);
+  };
+  const addExamQuestion = () => {
+    setExamQuestions(q => [...q, { question: "", options: ["","","",""], correctOption: null, timeLimitSec: 60 }]);
+  };
+  const updateExamQ = (idx: number, field: string, val: any) => {
+    setExamQuestions(qs => qs.map((q,i) => i===idx ? {...q, [field]: val} : q));
+  };
+  const updateExamOpt = (qIdx: number, oIdx: number, val: string) => {
+    setExamQuestions(qs => qs.map((q,i) => {
+      if (i!==qIdx) return q;
+      const opts = [...q.options]; opts[oIdx]=val; return {...q, options: opts};
+    }));
+  };
+  const submitExam = () => {
+    const valid = examQuestions.filter(q => q.question.trim() && q.options.filter(o=>o.trim()).length >= 2);
+    if (valid.length === 0) { alert("Add at least 1 question with 2+ options"); return; }
+    post("create_exam", {
+      mode: examMode, title: examTitle || (examMode === "test" ? "Class Test" : "Examination"),
+      questions: valid.map(q => ({ ...q, options: q.options.filter(o=>o.trim()) })),
+    });
+    setExamTitle(""); setExamQuestions([]); setExamMode("poll");
+  };
+  const saveExamToGrades = async (examId: string) => {
+    setExamSaving(true);
+    try { await fetch(`/api/classroom/${sessionId}`, { method: "POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"save_exam_to_grades",examId}) }); } catch {}
+    setExamSaving(false);
   };
 
   const CHALK = ["#FFFFFF","#FFFF00","#FF6B6B","#4ECDC4","#45B7D1","#FF9F43","#A55EEA"];
@@ -537,11 +568,13 @@ export default function VisualClassroom(props: Props) {
               )}
             </div>
 
-            {/* Active Poll */}
-            {polls.filter((p:any) => p.active).map((p:any) => (
+            {/* Active Poll (simple) */}
+            {polls.filter((p:any) => p.active && !p.questions).map((p:any) => {
+              const myVoted = p.options.some((o:any) => (o.votes||[]).includes(studentId));
+              return (
               <div key={p.id} className="p-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-indigo-800 flex items-center gap-1"><BarChart3 className="w-3.5 h-3.5" /> Poll</h4>
+                  <h4 className="text-xs font-bold text-indigo-800 flex items-center gap-1"><BarChart3 className="w-3.5 h-3.5" /> Poll {myVoted && !isTeacher && <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">✓ Answered (locked)</span>}</h4>
                   {isTeacher && <button onClick={() => post("close_poll",{pollId:p.id})} className="text-[9px] bg-red-100 text-red-600 px-2 py-0.5 rounded">Close</button>}
                 </div>
                 <p className="text-sm font-medium text-gray-800 mb-2">{p.question}</p>
@@ -553,26 +586,23 @@ export default function VisualClassroom(props: Props) {
                     const isCorrect = p.correctOption === i;
                     return (
                       <div key={i}>
-                        <button onClick={() => !isTeacher && post("vote_poll",{pollId:p.id,optionIndex:i,studentId,studentName})}
-                          className={`w-full text-left p-2 rounded-lg border transition ${isCorrect ? "bg-emerald-100 border-emerald-400 ring-1 ring-emerald-300" : voted ? "bg-indigo-100 border-indigo-400 font-bold" : "bg-white border-gray-200 hover:border-indigo-300"}`}>
+                        <button onClick={() => !isTeacher && !myVoted && post("vote_poll",{pollId:p.id,optionIndex:i,studentId,studentName})}
+                          disabled={!isTeacher && myVoted}
+                          className={`w-full text-left p-2 rounded-lg border transition ${isCorrect ? "bg-emerald-100 border-emerald-400 ring-1 ring-emerald-300" : voted ? "bg-indigo-100 border-indigo-400 font-bold" : myVoted ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed" : "bg-white border-gray-200 hover:border-indigo-300"}`}>
                           <div className="flex items-center justify-between text-xs">
                             <span>{isCorrect && "✅ "}{o.text}</span>
-                            <span className="text-gray-500">{o.votes?.length || 0} votes ({pct}%)</span>
+                            {(isTeacher || myVoted) && <span className="text-gray-500">{o.votes?.length || 0} votes ({pct}%)</span>}
                           </div>
-                          <div className="w-full h-1.5 bg-gray-200 rounded-full mt-1"><div className={`h-full rounded-full transition-all ${isCorrect ? "bg-emerald-500" : "bg-indigo-500"}`} style={{width:`${pct}%`}} /></div>
+                          {(isTeacher || myVoted) && <div className="w-full h-1.5 bg-gray-200 rounded-full mt-1"><div className={`h-full rounded-full transition-all ${isCorrect ? "bg-emerald-500" : "bg-indigo-500"}`} style={{width:`${pct}%`}} /></div>}
                         </button>
-                        {/* Teacher sees voter names */}
-                        {isTeacher && (o.voterNames?.length > 0 || o.votes?.length > 0) && (
+                        {isTeacher && (o.voterNames?.length > 0) && (
                           <div className="ml-2 mt-0.5 flex flex-wrap gap-1">
                             {(o.voterNames || []).map((v:any, vi:number) => (
-                              <span key={vi} className={`text-[9px] px-1.5 py-0.5 rounded-full ${isCorrect ? "bg-emerald-200 text-emerald-800" : "bg-gray-200 text-gray-600"}`}>
-                                {v.name || v}
-                              </span>
+                              <span key={vi} className={`text-[9px] px-1.5 py-0.5 rounded-full ${isCorrect ? "bg-emerald-200 text-emerald-800" : "bg-gray-200 text-gray-600"}`}>{v.name || v}</span>
                             ))}
                           </div>
                         )}
-                        {/* Teacher mark correct */}
-                        {isTeacher && !p.correctOption && p.correctOption !== 0 && (
+                        {isTeacher && p.correctOption == null && (
                           <button onClick={() => post("mark_correct",{pollId:p.id,optionIndex:i})}
                             className="text-[8px] text-emerald-600 hover:text-emerald-800 ml-2 mt-0.5">✓ Mark correct</button>
                         )}
@@ -582,12 +612,126 @@ export default function VisualClassroom(props: Props) {
                 </div>
                 {isTeacher && (
                   <p className="text-[9px] text-gray-400 mt-2">
-                    {p.options.reduce((s:number,o:any) => s + (o.votes?.length||0), 0)} total votes
-                    {p.correctOption !== null && p.correctOption !== undefined && " • Correct answer marked ✅"}
+                    {p.options.reduce((s:number,o:any) => s + (o.votes?.length||0), 0)} total votes • Answers are locked after selection
+                    {p.correctOption != null && " • Correct answer marked ✅"}
                   </p>
                 )}
               </div>
-            ))}
+            );})}
+
+            {/* Active Exam/Test */}
+            {polls.filter((p:any) => p.questions && (p.active || p.finished)).map((exam:any) => {
+              const curQ = exam.questions?.[exam.currentQuestion];
+              const isFinished = exam.finished;
+              // Calculate student score
+              const myScore = isFinished ? exam.questions.reduce((s:number, q:any) => {
+                if (q.correctOption == null) return s;
+                const myOpt = q.options.findIndex((o:any) => (o.votes||[]).includes(studentId));
+                return myOpt === q.correctOption ? s+1 : s;
+              }, 0) : 0;
+              const myVotedCurrent = curQ ? curQ.options.some((o:any) => (o.votes||[]).includes(studentId)) : false;
+
+              return (
+                <div key={exam.id} className={`p-3 border-2 rounded-xl ${exam.mode==="exam" ? "bg-red-50 border-red-200" : "bg-purple-50 border-purple-200"}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className={`text-xs font-bold flex items-center gap-1 ${exam.mode==="exam"?"text-red-800":"text-purple-800"}`}>
+                      {exam.mode==="exam" ? "📝 EXAM" : "📋 TEST"}: {exam.title}
+                      <span className="text-[9px] bg-white/60 px-1.5 py-0.5 rounded">Q{(exam.currentQuestion||0)+1}/{exam.totalQuestions}</span>
+                    </h4>
+                    {isTeacher && !isFinished && (
+                      <div className="flex gap-1">
+                        {!exam.started && <button onClick={() => post("start_exam",{examId:exam.id})} className="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded">▶ Start</button>}
+                        {exam.started && <button onClick={() => post("advance_exam",{examId:exam.id})} className="text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded">Next Q →</button>}
+                        <button onClick={() => post("end_exam",{examId:exam.id})} className="text-[9px] bg-red-100 text-red-600 px-2 py-0.5 rounded">End</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Current question for students */}
+                  {curQ && curQ.active && !isFinished && (
+                    <div>
+                      <ExamTimer timeLimitSec={curQ.timeLimitSec} startedAt={curQ.startedAt} onExpire={() => {}} />
+                      <p className="text-sm font-medium text-gray-800 mb-2">Q{exam.currentQuestion+1}. {curQ.question}</p>
+                      <div className="space-y-1.5">
+                        {curQ.options.map((o:any, i:number) => {
+                          const voted = (o.votes||[]).includes(studentId);
+                          return (
+                            <button key={i}
+                              onClick={() => !isTeacher && !myVotedCurrent && post("vote_exam_question",{examId:exam.id,questionId:curQ.id,optionIndex:i,studentId,studentName})}
+                              disabled={!isTeacher && myVotedCurrent}
+                              className={`w-full text-left p-2.5 rounded-lg border transition text-xs ${voted ? "bg-indigo-100 border-indigo-400 font-bold" : myVotedCurrent ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed" : "bg-white border-gray-200 hover:border-indigo-300"}`}>
+                              <span className="font-medium mr-2 text-gray-400">{String.fromCharCode(65+i)}.</span> {o.text}
+                              {voted && <span className="float-right text-[9px] text-emerald-600">✓ Locked</span>}
+                              {isTeacher && <span className="float-right text-[9px] text-gray-400">{o.votes?.length||0} answered</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {!isTeacher && myVotedCurrent && <p className="text-[9px] text-amber-600 mt-2">🔒 Your answer is locked. Waiting for next question...</p>}
+                      {!isTeacher && !myVotedCurrent && <p className="text-[9px] text-red-600 mt-2 animate-pulse">⚡ Select your answer — you cannot change it once selected!</p>}
+                    </div>
+                  )}
+
+                  {/* Waiting for start */}
+                  {!exam.started && !isFinished && !isTeacher && (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-600 animate-pulse">⏳ Waiting for teacher to start the {exam.mode}...</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{exam.totalQuestions} questions total</p>
+                    </div>
+                  )}
+
+                  {/* Between questions */}
+                  {exam.started && !curQ?.active && !isFinished && !isTeacher && (
+                    <div className="text-center py-4"><p className="text-sm text-gray-500 animate-pulse">⏳ Waiting for next question...</p></div>
+                  )}
+
+                  {/* Finished — show results */}
+                  {isFinished && (
+                    <div className="space-y-2">
+                      {(!isTeacher && !exam.showResults) ? (
+                        <div className="text-center py-4">
+                          <p className="text-sm font-bold text-gray-700">✅ {exam.mode === "exam" ? "Exam" : "Test"} Complete!</p>
+                          <p className="text-xs text-gray-500 mt-1">Waiting for teacher to release results...</p>
+                        </div>
+                      ) : (
+                        <>
+                          {!isTeacher && <div className="text-center mb-3">
+                            <p className="text-lg font-bold">{myScore}/{exam.totalQuestions}</p>
+                            <p className="text-[10px] text-gray-500">Your Score ({Math.round(myScore/exam.totalQuestions*100)}%)</p>
+                          </div>}
+                          {exam.questions.map((q:any, qi:number) => {
+                            const myAns = q.options.findIndex((o:any) => (o.votes||[]).includes(studentId));
+                            const isRight = myAns === q.correctOption;
+                            return (
+                              <div key={qi} className="p-2 bg-white rounded-lg border text-xs">
+                                <p className="font-medium mb-1">Q{qi+1}. {q.question}</p>
+                                {q.options.map((o:any, oi:number) => (
+                                  <div key={oi} className={`ml-2 py-0.5 flex items-center gap-1 ${q.correctOption===oi ? "text-emerald-700 font-bold" : myAns===oi && !isRight ? "text-red-600 line-through" : "text-gray-600"}`}>
+                                    <span>{String.fromCharCode(65+oi)}. {o.text}</span>
+                                    {q.correctOption===oi && <span className="text-[9px]">✅</span>}
+                                    {myAns===oi && !isRight && <span className="text-[9px]">❌</span>}
+                                    {isTeacher && <span className="text-[9px] text-gray-400 ml-auto">{o.votes?.length||0}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                          {isTeacher && !exam.showResults && (
+                            <button onClick={() => post("show_exam_results",{examId:exam.id})} className="w-full text-xs py-2 rounded-lg bg-blue-600 text-white font-bold">📊 Release Results to Students</button>
+                          )}
+                          {isTeacher && (
+                            <button onClick={() => saveExamToGrades(exam.id)} disabled={examSaving}
+                              className="w-full text-xs py-2 rounded-lg bg-emerald-600 text-white font-bold">
+                              {examSaving ? "Saving..." : "💾 Save to Gradebook (Auto-creates Assessment + Scores)"}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {/* RAISED HANDS (teacher) */}
             {isTeacher && raisedHands.length > 0 && (
@@ -794,57 +938,163 @@ export default function VisualClassroom(props: Props) {
                 )}
               </>)}
 
-              {/* POLL (teacher create) */}
+              {/* POLL / TEST / EXAM (teacher create) */}
               {panel==="poll" && isTeacher && (<>
                 <div className="px-3 py-2 bg-indigo-50 border-b flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-800">📊 Polls</span>
+                  <span className="text-xs font-bold text-indigo-800">📊 Polls / Tests / Exams</span>
                   <button onClick={() => setPanel(null)}><X className="w-3.5 h-3.5 text-gray-400" /></button>
                 </div>
-                <div className="p-3 space-y-3">
-                  <div className="space-y-2">
-                    <input className="input-field text-sm" placeholder="Poll question..." value={pollQ} onChange={e => setPollQ(e.target.value)} />
-                    {pollOpts.map((o,i) => (
-                      <input key={i} className="input-field text-xs" placeholder={`Option ${i+1}`}
-                        value={o} onChange={e => { const n=[...pollOpts]; n[i]=e.target.value; setPollOpts(n); }} />
+                <div className="p-3 space-y-3 overflow-y-auto max-h-[70vh]">
+                  {/* Mode tabs */}
+                  <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+                    {(["poll","test","exam"] as const).map(m => (
+                      <button key={m} onClick={() => setExamMode(m)}
+                        className={`flex-1 text-[10px] py-1.5 rounded-md font-bold ${examMode===m ? m==="exam"?"bg-red-500 text-white":m==="test"?"bg-purple-500 text-white":"bg-indigo-500 text-white" : "text-gray-500"}`}>
+                        {m==="poll"?"📊 Quick Poll":m==="test"?"📋 Test":"📝 Exam"}
+                      </button>
                     ))}
-                    <div className="flex gap-2">
-                      <button onClick={() => setPollOpts([...pollOpts,""])} className="text-[9px] text-indigo-600">+ Add option</button>
-                      <button onClick={createPoll} className="btn-primary text-xs">Create Poll</button>
-                    </div>
                   </div>
-                  {polls.length>0 && <div className="border-t pt-2">
-                    <h5 className="text-[10px] font-bold text-gray-500 mb-1">All Polls ({polls.length})</h5>
-                    {polls.map((p:any) => (
-                      <div key={p.id} className={`text-[10px] p-2 rounded-lg mb-1.5 ${p.active?"bg-indigo-50 border border-indigo-200":"bg-gray-50"}`}>
-                        <p className="font-medium mb-1">{p.question} {p.active&&<span className="text-indigo-600">(Active)</span>}</p>
-                        {p.options.map((o:any,i:number) => (
-                          <div key={i} className="ml-1 mb-1">
+
+                  {/* Quick Poll (single question) */}
+                  {examMode === "poll" && (
+                    <div className="space-y-2">
+                      <input className="input-field text-sm" placeholder="Poll question..." value={pollQ} onChange={e => setPollQ(e.target.value)} />
+                      {pollOpts.map((o,i) => (
+                        <input key={i} className="input-field text-xs" placeholder={`Option ${i+1}`}
+                          value={o} onChange={e => { const n=[...pollOpts]; n[i]=e.target.value; setPollOpts(n); }} />
+                      ))}
+                      <div className="flex gap-2">
+                        <button onClick={() => setPollOpts([...pollOpts,""])} className="text-[9px] text-indigo-600">+ Add option</button>
+                        <button onClick={createPoll} className="btn-primary text-xs">Create Poll</button>
+                      </div>
+                      <p className="text-[9px] text-amber-600">🔒 Students cannot change answers once selected</p>
+                    </div>
+                  )}
+
+                  {/* Test / Exam (multi-question) */}
+                  {(examMode === "test" || examMode === "exam") && (
+                    <div className="space-y-3">
+                      <div className={`p-2 rounded-lg ${examMode==="exam"?"bg-red-50 border border-red-200":"bg-purple-50 border border-purple-200"}`}>
+                        <p className="text-[10px] font-bold">{examMode==="exam"?"📝 Exam Mode":"📋 Test Mode"}</p>
+                        <p className="text-[9px] text-gray-500">{examMode==="exam"?"Grouped as exam. Timed per question. Hidden results until you release.":"Grouped as test. Timed per question. Results auto-shown."}</p>
+                      </div>
+                      <input className="input-field text-xs" placeholder={examMode==="exam"?"Exam title...":"Test title..."} value={examTitle} onChange={e => setExamTitle(e.target.value)} />
+
+                      {examQuestions.map((q, qi) => (
+                        <div key={qi} className="p-2 bg-gray-50 rounded-lg border space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-gray-600">Q{qi+1}</span>
                             <div className="flex items-center gap-1">
-                              <span className={p.correctOption===i?"text-emerald-700 font-bold":"text-gray-600"}>
-                                {p.correctOption===i&&"✅ "}{o.text}: {o.votes?.length||0}
-                              </span>
-                              {p.correctOption===null && p.correctOption!==0 && !p.correctOption && (
-                                <button onClick={()=>post("mark_correct",{pollId:p.id,optionIndex:i})} className="text-[8px] text-emerald-500 hover:text-emerald-700">✓correct</button>
-                              )}
+                              <input type="number" className="input-field text-[10px] w-14 py-0.5 text-center" min={10} max={600}
+                                value={q.timeLimitSec} onChange={e => updateExamQ(qi,"timeLimitSec",+e.target.value)} />
+                              <span className="text-[9px] text-gray-400">sec</span>
+                              <button onClick={() => setExamQuestions(qs => qs.filter((_,i) => i!==qi))} className="text-red-400 hover:text-red-600 ml-1">✕</button>
                             </div>
-                            {(o.voterNames||[]).length>0 && (
-                              <div className="flex flex-wrap gap-0.5 ml-2">
-                                {(o.voterNames||[]).map((v:any,vi:number) => (
-                                  <span key={vi} className={`text-[8px] px-1 rounded ${p.correctOption===i?"bg-emerald-100 text-emerald-700":"bg-gray-200 text-gray-500"}`}>{v.name||v}</span>
-                                ))}
+                          </div>
+                          <input className="input-field text-xs" placeholder={`Question ${qi+1}...`} value={q.question} onChange={e => updateExamQ(qi,"question",e.target.value)} />
+                          {q.options.map((o, oi) => (
+                            <div key={oi} className="flex items-center gap-1">
+                              <button onClick={() => updateExamQ(qi,"correctOption",oi)}
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px] ${q.correctOption===oi ? "bg-emerald-500 border-emerald-600 text-white" : "border-gray-300"}`}>
+                                {q.correctOption===oi && "✓"}
+                              </button>
+                              <input className="input-field text-[10px] flex-1" placeholder={`${String.fromCharCode(65+oi)}. Option`}
+                                value={o} onChange={e => updateExamOpt(qi,oi,e.target.value)} />
+                            </div>
+                          ))}
+                          <button onClick={() => updateExamQ(qi,"options",[...q.options,""])} className="text-[9px] text-indigo-600">+ option</button>
+                        </div>
+                      ))}
+
+                      <div className="flex gap-2">
+                        <button onClick={addExamQuestion} className="flex-1 text-[10px] py-2 rounded-lg border-2 border-dashed border-gray-300 text-gray-500 hover:border-indigo-300 hover:text-indigo-600">
+                          + Add Question
+                        </button>
+                      </div>
+
+                      {examQuestions.length > 0 && (
+                        <button onClick={submitExam}
+                          className={`w-full text-xs py-2 rounded-lg text-white font-bold ${examMode==="exam"?"bg-red-600 hover:bg-red-700":"bg-purple-600 hover:bg-purple-700"}`}>
+                          📤 Create {examMode==="exam"?"Exam":"Test"} ({examQuestions.length} questions)
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Existing polls/exams list */}
+                  {polls.length>0 && <div className="border-t pt-2">
+                    <h5 className="text-[10px] font-bold text-gray-500 mb-1">All ({polls.length})</h5>
+                    {polls.map((p:any) => {
+                      if (p.questions) {
+                        // Exam/Test
+                        return (
+                          <div key={p.id} className={`text-[10px] p-2 rounded-lg mb-1.5 ${p.active?"bg-red-50 border border-red-200":"bg-gray-50"}`}>
+                            <p className="font-bold">{p.mode==="exam"?"📝":"📋"} {p.title} ({p.totalQuestions}Q) {p.active&&<span className="text-red-500">(Live)</span>} {p.finished&&<span className="text-emerald-600">(Done)</span>}</p>
+                            {p.finished && (
+                              <div className="flex gap-1 mt-1">
+                                {!p.showResults && <button onClick={() => post("show_exam_results",{examId:p.id})} className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Show Results</button>}
+                                <button onClick={() => saveExamToGrades(p.id)} disabled={examSaving} className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">{examSaving?"Saving...":"Save to Grades"}</button>
                               </div>
                             )}
                           </div>
-                        ))}
-                        <p className="text-[8px] text-gray-400">{p.options.reduce((s:number,o:any)=>s+(o.votes?.length||0),0)} total votes</p>
-                      </div>
-                    ))}
+                        );
+                      }
+                      // Regular poll
+                      return (
+                        <div key={p.id} className={`text-[10px] p-2 rounded-lg mb-1.5 ${p.active?"bg-indigo-50 border border-indigo-200":"bg-gray-50"}`}>
+                          <p className="font-medium mb-1">{p.question} {p.active&&<span className="text-indigo-600">(Active)</span>}</p>
+                          {p.options.map((o:any,i:number) => (
+                            <div key={i} className="ml-1 mb-0.5">
+                              <span className={p.correctOption===i?"text-emerald-700 font-bold":"text-gray-600"}>
+                                {p.correctOption===i&&"✅ "}{o.text}: {o.votes?.length||0}
+                              </span>
+                              {p.correctOption==null && (
+                                <button onClick={()=>post("mark_correct",{pollId:p.id,optionIndex:i})} className="text-[8px] text-emerald-500 ml-1">✓</button>
+                              )}
+                            </div>
+                          ))}
+                          <p className="text-[8px] text-gray-400">{p.options.reduce((s:number,o:any)=>s+(o.votes?.length||0),0)} votes • 🔒 locked</p>
+                        </div>
+                      );
+                    })}
                   </div>}
                 </div>
               </>)}
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Exam question countdown timer
+function ExamTimer({ timeLimitSec, startedAt, onExpire }: { timeLimitSec: number; startedAt: number; onExpire: () => void }) {
+  const [remaining, setRemaining] = useState(timeLimitSec);
+  useEffect(() => {
+    const calc = () => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const rem = Math.max(0, timeLimitSec - elapsed);
+      setRemaining(rem);
+      if (rem <= 0) onExpire();
+    };
+    calc();
+    const i = setInterval(calc, 1000);
+    return () => clearInterval(i);
+  }, [timeLimitSec, startedAt, onExpire]);
+
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const urgent = remaining <= 10;
+
+  return (
+    <div className={`flex items-center gap-2 mb-2 ${urgent ? "animate-pulse" : ""}`}>
+      <div className={`text-sm font-mono font-bold px-2 py-0.5 rounded ${urgent ? "bg-red-500 text-white" : "bg-gray-200 text-gray-800"}`}>
+        ⏱ {mins}:{String(secs).padStart(2, "0")}
+      </div>
+      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${urgent ? "bg-red-500" : "bg-indigo-500"}`}
+          style={{ width: `${(remaining / timeLimitSec) * 100}%` }} />
       </div>
     </div>
   );
