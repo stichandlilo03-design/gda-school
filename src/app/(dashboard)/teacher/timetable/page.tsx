@@ -37,6 +37,7 @@ export default async function TeacherTimetablePage() {
       subjectName: c.subject?.name || c.name,
       gradeName: c.schoolGrade?.gradeLevel || "",
       studentCount: c.enrollments.length,
+      sessionSlot: (c as any).session || "SESSION_A",
       colorClass: COLORS[idx % COLORS.length],
     }))
   );
@@ -99,7 +100,12 @@ export default async function TeacherTimetablePage() {
                 <div key={s.id} className={`p-3 rounded-xl border ${s.colorClass} min-w-[150px]`}>
                   <div className="text-xs font-bold">{s.subjectName}</div>
                   <div className="text-[10px] opacity-70 mt-0.5">Period {s.periodNumber} · {s.startTime} - {s.endTime}</div>
-                  <div className="text-[9px] opacity-60 mt-0.5">{s.gradeName} · {s.studentCount} students</div>
+                  <div className="text-[9px] opacity-60 mt-0.5">
+                    {s.gradeName} · {s.studentCount} students
+                    <span className={`ml-1 text-[7px] px-1 rounded ${(s as any).sessionSlot === "SESSION_B" ? "bg-blue-500 text-white" : (s as any).sessionSlot === "SESSION_C" ? "bg-purple-500 text-white" : "bg-amber-500 text-white"}`}>
+                      {(s as any).sessionSlot === "SESSION_B" ? "PM" : (s as any).sessionSlot === "SESSION_C" ? "Eve" : "AM"}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -143,7 +149,12 @@ export default async function TeacherTimetablePage() {
                             <div className={`p-2 rounded-lg border ${entry.colorClass}`}>
                               <p className="text-[11px] font-bold leading-tight">{entry.subjectName}</p>
                               <p className="text-[9px] opacity-60 mt-0.5">{entry.startTime}-{entry.endTime}</p>
-                              <p className="text-[8px] opacity-50">{entry.gradeName}</p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <p className="text-[8px] opacity-50">{entry.gradeName}</p>
+                                <span className={`text-[7px] px-1 rounded ${entry.sessionSlot === "SESSION_B" ? "bg-blue-500 text-white" : entry.sessionSlot === "SESSION_C" ? "bg-purple-500 text-white" : "bg-amber-500 text-white"}`}>
+                                  {entry.sessionSlot === "SESSION_B" ? "PM" : entry.sessionSlot === "SESSION_C" ? "Eve" : "AM"}
+                                </span>
+                              </div>
                             </div>
                           ) : (
                             <div className="h-[50px] rounded-lg bg-gray-50" />

@@ -212,7 +212,7 @@ export async function rejectSession(sessionId: string, reason: string) {
 // ============================================================
 // PRINCIPAL: Generate payroll from earned sessions
 // ============================================================
-export async function generatePayroll(month: number, year: number) {
+export async function generatePayroll(month: number, year: number, weekNumber?: number) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
 
@@ -234,6 +234,24 @@ export async function generatePayroll(month: number, year: number) {
     },
   });
 
+  // Get session credits (from live classes) for this month
+  const allTeacherIds = teachers.map(t => t.teacherId);
+  const monthCredits = await db.sessionCredit.findMany({
+    where: {
+      teacherId: { in: allTeacherIds },
+      schoolId: principal.schoolId,
+      createdAt: { gte: new Date(year, month - 1, 1), lt: new Date(year, month, 1) },
+    },
+  });
+
+  // Group credits by teacherId
+  const creditMap: Record<string, number> = {};
+  const creditCountMap: Record<string, number> = {};
+  monthCredits.forEach(c => {
+    creditMap[c.teacherId] = (creditMap[c.teacherId] || 0) + c.creditAmount;
+    creditCountMap[c.teacherId] = (creditCountMap[c.teacherId] || 0) + 1;
+  });
+
   let created = 0;
   for (const st of teachers) {
     if (!st.salary) continue;
@@ -242,13 +260,29 @@ export async function generatePayroll(month: number, year: number) {
     });
     if (existing) continue;
 
-    // Calculate from actual sessions
-    const totalEarned = st.sessions.reduce((s, sess) => s + sess.amountEarned, 0);
-    const daysWorked = st.sessions.length;
+    // Calculate from actual sessions (manual)
+    const manualEarned = st.sessions.reduce((s, sess) => s + sess.amountEarned, 0);
+    const manualDays = st.sessions.length;
+
+    // Add session credits (from live classes)
+    const liveCredits = creditMap[st.teacherId] || 0;
+    const liveSessions = creditCountMap[st.teacherId] || 0;
+    const totalEarned = manualEarned + liveCredits;
+
     const grossMonthly = st.salary.baseSalary + st.salary.housingAllowance + st.salary.transportAllowance + st.salary.otherAllowances;
 
-    // Earned amount is capped at full monthly salary
-    const earnedGross = Math.min(totalEarned, grossMonthly);
+    // For weekly pay, divide proportionally
+    let earnedGross = totalEarned;
+    const freq = st.salary.payFrequency || "MONTHLY";
+    if (freq === "WEEKLY") {
+      // Weekly: cap at 1/4 of monthly
+      earnedGross = Math.min(totalEarned, grossMonthly);
+    } else if (freq === "BI_WEEKLY") {
+      earnedGross = Math.min(totalEarned, grossMonthly);
+    } else {
+      earnedGross = Math.min(totalEarned, grossMonthly);
+    }
+
     const taxDeduction = earnedGross * (st.salary.taxRate / 100);
     const pensionDeduction = earnedGross * (st.salary.pensionRate / 100);
     const netPay = earnedGross - taxDeduction - pensionDeduction - st.salary.otherDeductions;
@@ -264,7 +298,7 @@ export async function generatePayroll(month: number, year: number) {
         netPay: Math.max(0, Math.round(netPay * 100) / 100),
         currency: st.salary.currency,
         status: "DRAFT",
-        notes: `${daysWorked} days worked of ${st.salary.workingDaysPerMonth}. Earned: ${Math.round(totalEarned)}`,
+        notes: `${manualDays} manual days + ${liveSessions} live sessions. Earned: ${Math.round(totalEarned)} (Manual: ${Math.round(manualEarned)}, Live: ${Math.round(liveCredits)}). Pay: ${freq}`,
       },
     });
     created++;
@@ -273,7 +307,7 @@ export async function generatePayroll(month: number, year: number) {
   revalidatePath("/principal/payroll");
   revalidatePath("/teacher");
   revalidatePath("/teacher/payroll");
-  return { success: true, message: `Generated payroll for ${created} teacher(s).` };
+  return { success: true, message: `Generated payroll for ${created} teacher(s) including live session credits.` };
 }
 
 // ============================================================
