@@ -12,7 +12,7 @@ const teacherLinks = [
   { href: "/teacher/gradebook", icon: "ClipboardList", label: "Gradebook" },
   { href: "/teacher/attendance", icon: "UserCheck", label: "Attendance" },
   { href: "/teacher/materials", icon: "FolderOpen", label: "Materials" },
-  { href: "/teacher/schedule", icon: "Clock", label: "Schedule" },
+  { href: "/teacher/timetable", icon: "Calendar", label: "Timetable" },
   { href: "/teacher/payroll", icon: "DollarSign", label: "My Payroll" },
   { href: "/teacher/vacancies", icon: "Briefcase", label: "Job Board" },
   { href: "/teacher/profile", icon: "User", label: "My Profile" },

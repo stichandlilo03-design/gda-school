@@ -9,7 +9,7 @@ const studentLinks = [
   { href: "/student/subjects", icon: "BookOpen", label: "My Subjects" },
   { href: "/student/teachers", icon: "Users", label: "Browse Teachers" },
   { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
-  { href: "/student/schedule", icon: "Clock", label: "My Schedule" },
+  { href: "/student/timetable", icon: "Calendar", label: "Timetable" },
   { href: "/student/grades", icon: "ClipboardList", label: "My Grades" },
   { href: "/student/attendance", icon: "UserCheck", label: "Attendance" },
   { href: "/student/materials", icon: "FolderOpen", label: "Materials" },

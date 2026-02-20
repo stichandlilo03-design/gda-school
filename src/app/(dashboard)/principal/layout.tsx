@@ -17,6 +17,7 @@ const principalLinks = [
   { href: "/principal/bank-accounts", icon: "Building2", label: "Bank Accounts" },
   { href: "/principal/payments", icon: "DollarSign", label: "Payment Review" },
   { href: "/principal/curriculum", icon: "BookOpen", label: "Curriculum" },
+  { href: "/principal/timetable", icon: "Calendar", label: "Timetable" },
   { href: "/principal/reports", icon: "BarChart3", label: "Reports" },
   { href: "/principal/settings", icon: "Settings", label: "School Settings" },
 ];
