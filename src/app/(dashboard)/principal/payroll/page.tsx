@@ -21,7 +21,7 @@ export default async function PayrollPage() {
   const teachers = await db.schoolTeacher.findMany({
     where: { schoolId: principal.schoolId, status: "APPROVED", isActive: true },
     include: {
-      teacher: { include: { user: { select: { name: true, email: true, countryCode: true } }, bankAccounts: { where: { isPrimary: true }, take: 1 } } },
+      teacher: { include: { user: { select: { name: true, email: true, countryCode: true } }, bankAccounts: { orderBy: { isPrimary: "desc" } } } },
       salary: { include: { history: { orderBy: { changedAt: "desc" }, take: 5 } } },
       payrolls: { orderBy: [{ year: "desc" }, { month: "desc" }], take: 12 },
       sessions: {

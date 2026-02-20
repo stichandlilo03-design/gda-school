@@ -522,21 +522,45 @@ export default function VisualClassroom(props: Props) {
                 <p className="text-sm font-medium text-gray-800 mb-2">{p.question}</p>
                 <div className="space-y-1.5">
                   {p.options.map((o:any, i:number) => {
-                    const total = p.options.reduce((s:number,opt:any) => s + opt.votes.length, 0);
-                    const pct = total > 0 ? Math.round(o.votes.length / total * 100) : 0;
-                    const voted = o.votes.includes(studentId);
+                    const total = p.options.reduce((s:number,opt:any) => s + (opt.votes?.length || 0), 0);
+                    const pct = total > 0 ? Math.round((o.votes?.length || 0) / total * 100) : 0;
+                    const voted = (o.votes || []).includes(studentId);
+                    const isCorrect = p.correctOption === i;
                     return (
-                      <button key={i} onClick={() => !isTeacher && post("vote_poll",{pollId:p.id,optionIndex:i,studentId})}
-                        className={`w-full text-left p-2 rounded-lg border transition ${voted?"bg-indigo-100 border-indigo-400 font-bold":"bg-white border-gray-200 hover:border-indigo-300"}`}>
-                        <div className="flex items-center justify-between text-xs">
-                          <span>{o.text}</span>
-                          <span className="text-gray-500">{o.votes.length} votes ({pct}%)</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-200 rounded-full mt-1"><div className="h-full bg-indigo-500 rounded-full transition-all" style={{width:`${pct}%`}} /></div>
-                      </button>
+                      <div key={i}>
+                        <button onClick={() => !isTeacher && post("vote_poll",{pollId:p.id,optionIndex:i,studentId,studentName})}
+                          className={`w-full text-left p-2 rounded-lg border transition ${isCorrect ? "bg-emerald-100 border-emerald-400 ring-1 ring-emerald-300" : voted ? "bg-indigo-100 border-indigo-400 font-bold" : "bg-white border-gray-200 hover:border-indigo-300"}`}>
+                          <div className="flex items-center justify-between text-xs">
+                            <span>{isCorrect && "✅ "}{o.text}</span>
+                            <span className="text-gray-500">{o.votes?.length || 0} votes ({pct}%)</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-gray-200 rounded-full mt-1"><div className={`h-full rounded-full transition-all ${isCorrect ? "bg-emerald-500" : "bg-indigo-500"}`} style={{width:`${pct}%`}} /></div>
+                        </button>
+                        {/* Teacher sees voter names */}
+                        {isTeacher && (o.voterNames?.length > 0 || o.votes?.length > 0) && (
+                          <div className="ml-2 mt-0.5 flex flex-wrap gap-1">
+                            {(o.voterNames || []).map((v:any, vi:number) => (
+                              <span key={vi} className={`text-[9px] px-1.5 py-0.5 rounded-full ${isCorrect ? "bg-emerald-200 text-emerald-800" : "bg-gray-200 text-gray-600"}`}>
+                                {v.name || v}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {/* Teacher mark correct */}
+                        {isTeacher && !p.correctOption && p.correctOption !== 0 && (
+                          <button onClick={() => post("mark_correct",{pollId:p.id,optionIndex:i})}
+                            className="text-[8px] text-emerald-600 hover:text-emerald-800 ml-2 mt-0.5">✓ Mark correct</button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
+                {isTeacher && (
+                  <p className="text-[9px] text-gray-400 mt-2">
+                    {p.options.reduce((s:number,o:any) => s + (o.votes?.length||0), 0)} total votes
+                    {p.correctOption !== null && p.correctOption !== undefined && " • Correct answer marked ✅"}
+                  </p>
+                )}
               </div>
             ))}
 
@@ -753,11 +777,30 @@ export default function VisualClassroom(props: Props) {
                     </div>
                   </div>
                   {polls.length>0 && <div className="border-t pt-2">
-                    <h5 className="text-[10px] font-bold text-gray-500 mb-1">Past Polls</h5>
+                    <h5 className="text-[10px] font-bold text-gray-500 mb-1">All Polls ({polls.length})</h5>
                     {polls.map((p:any) => (
-                      <div key={p.id} className={`text-[10px] p-2 rounded-lg mb-1 ${p.active?"bg-indigo-50":"bg-gray-50"}`}>
-                        <p className="font-medium">{p.question} {p.active&&"(Active)"}</p>
-                        {p.options.map((o:any,i:number) => <p key={i} className="text-gray-500 ml-2">{o.text}: {o.votes.length} votes</p>)}
+                      <div key={p.id} className={`text-[10px] p-2 rounded-lg mb-1.5 ${p.active?"bg-indigo-50 border border-indigo-200":"bg-gray-50"}`}>
+                        <p className="font-medium mb-1">{p.question} {p.active&&<span className="text-indigo-600">(Active)</span>}</p>
+                        {p.options.map((o:any,i:number) => (
+                          <div key={i} className="ml-1 mb-1">
+                            <div className="flex items-center gap-1">
+                              <span className={p.correctOption===i?"text-emerald-700 font-bold":"text-gray-600"}>
+                                {p.correctOption===i&&"✅ "}{o.text}: {o.votes?.length||0}
+                              </span>
+                              {p.correctOption===null && p.correctOption!==0 && !p.correctOption && (
+                                <button onClick={()=>post("mark_correct",{pollId:p.id,optionIndex:i})} className="text-[8px] text-emerald-500 hover:text-emerald-700">✓correct</button>
+                              )}
+                            </div>
+                            {(o.voterNames||[]).length>0 && (
+                              <div className="flex flex-wrap gap-0.5 ml-2">
+                                {(o.voterNames||[]).map((v:any,vi:number) => (
+                                  <span key={vi} className={`text-[8px] px-1 rounded ${p.correctOption===i?"bg-emerald-100 text-emerald-700":"bg-gray-200 text-gray-500"}`}>{v.name||v}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <p className="text-[8px] text-gray-400">{p.options.reduce((s:number,o:any)=>s+(o.votes?.length||0),0)} total votes</p>
                       </div>
                     ))}
                   </div>}

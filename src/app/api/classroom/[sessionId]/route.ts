@@ -136,8 +136,8 @@ export async function POST(
       let polls = arr(ls.polls);
       polls.push({
         id: uid(), question: body.question,
-        options: (body.options || []).map((o: string) => ({ text: o, votes: [] })),
-        createdAt: Date.now(), active: true,
+        options: (body.options || []).map((o: string) => ({ text: o, votes: [], voterNames: [] })),
+        createdAt: Date.now(), active: true, correctOption: null,
       });
       await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
       return NextResponse.json({ ok: true });
@@ -147,11 +147,20 @@ export async function POST(
       let polls = arr(ls.polls);
       polls = polls.map((p: any) => {
         if (p.id !== body.pollId) return p;
-        return { ...p, options: p.options.map((o: any, i: number) => {
+        // Remove previous votes from this student across all options
+        const cleaned = p.options.map((o: any) => ({
+          ...o,
+          votes: (o.votes || []).filter((v: string) => v !== body.studentId),
+          voterNames: (o.voterNames || []).filter((v: any) => v.id !== body.studentId),
+        }));
+        // Add vote to selected option
+        return { ...p, options: cleaned.map((o: any, i: number) => {
           if (i !== body.optionIndex) return o;
-          const votes = o.votes.filter((v: string) => v !== body.studentId);
-          votes.push(body.studentId);
-          return { ...o, votes };
+          return {
+            ...o,
+            votes: [...o.votes, body.studentId],
+            voterNames: [...o.voterNames, { id: body.studentId, name: body.studentName || "Student" }],
+          };
         })};
       });
       await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
@@ -161,6 +170,13 @@ export async function POST(
     if (action === "close_poll") {
       let polls = arr(ls.polls);
       polls = polls.map((p: any) => p.id === body.pollId ? { ...p, active: false } : p);
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "mark_correct") {
+      let polls = arr(ls.polls);
+      polls = polls.map((p: any) => p.id === body.pollId ? { ...p, correctOption: body.optionIndex } : p);
       await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
       return NextResponse.json({ ok: true });
     }

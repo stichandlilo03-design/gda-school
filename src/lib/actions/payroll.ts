@@ -5,6 +5,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
 // ============================================================
 // PRINCIPAL: Set/Update teacher salary
 // ============================================================
@@ -275,17 +277,31 @@ export async function generatePayroll(month: number, year: number) {
 // ============================================================
 // PRINCIPAL: Process payments
 // ============================================================
-export async function processPayroll(payrollId: string, transactionRef?: string) {
+export async function processPayroll(payrollId: string, transactionRef?: string, paymentProof?: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
 
-  await db.payrollRecord.update({
+  const payroll = await db.payrollRecord.update({
     where: { id: payrollId },
-    data: { status: "PAID", paidAt: new Date(), transactionRef: transactionRef || null },
+    data: { status: "PAID", paidAt: new Date(), transactionRef: transactionRef || null, paymentProof: paymentProof || null },
+    include: { schoolTeacher: { include: { teacher: { select: { userId: true, user: { select: { name: true } } } }, school: true } } },
   });
+
+  // Notify teacher
+  try {
+    const { notify } = await import("@/lib/notifications");
+    await notify(
+      payroll.schoolTeacher.teacher.userId,
+      "💰 Payment Processed!",
+      `Your salary for ${MONTH_NAMES[payroll.month - 1]} ${payroll.year} has been processed. Amount: ${payroll.currency} ${payroll.netPay.toLocaleString()}.${transactionRef ? ` Ref: ${transactionRef}` : ""}${paymentProof ? " Payment proof has been uploaded." : ""}`
+    );
+  } catch {}
+
   revalidatePath("/principal/payroll");
+  revalidatePath("/teacher");
   return { success: true };
 }
+
 
 export async function batchProcessPayroll(month: number, year: number) {
   const session = await getServerSession(authOptions);
@@ -377,6 +393,25 @@ export async function addBankAccount(data: {
   });
 
   revalidatePath("/teacher/payroll");
+  revalidatePath("/principal/payroll");
+
+  // Notify principal
+  try {
+    const { notify } = await import("@/lib/notifications");
+    const schools = await db.schoolTeacher.findMany({
+      where: { teacherId: teacher.id, isActive: true, status: "APPROVED" },
+      select: { school: { select: { id: true } } },
+    });
+    for (const st of schools) {
+      const prin = await db.principal.findFirst({ where: { schoolId: st.school.id }, select: { userId: true } });
+      if (prin) {
+        await notify(prin.userId, "💳 Teacher Bank Account Submitted",
+          `${session.user.name} has submitted bank details (${data.bankName || data.mobileProvider || data.methodType}). You can process their payments in Payroll.`
+        );
+      }
+    }
+  } catch {}
+
   return { success: true };
 }
 

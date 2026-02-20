@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { setTeacherSalary, generatePayroll, processPayroll, batchProcessPayroll, cancelPayroll, adjustPayroll, verifySession, bulkVerifySessions, rejectSession } from "@/lib/actions/payroll";
 import { useRouter } from "next/navigation";
-import { Loader2, DollarSign, Users, ChevronDown, ChevronUp, Plus, Check, X, TrendingUp, TrendingDown, CreditCard, Clock, Banknote, AlertCircle, CheckCircle, Calendar, Eye } from "lucide-react";
+import { Loader2, DollarSign, Users, ChevronDown, ChevronUp, Plus, Check, X, TrendingUp, TrendingDown, CreditCard, Clock, Banknote, AlertCircle, CheckCircle, Calendar, Eye, Upload, Building2 } from "lucide-react";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const STATUS_COLORS: Record<string, string> = { DRAFT: "bg-amber-100 text-amber-700", PENDING: "bg-blue-100 text-blue-700", PAID: "bg-emerald-100 text-emerald-700", FAILED: "bg-red-100 text-red-700", CANCELLED: "bg-gray-100 text-gray-500" };
@@ -17,6 +17,11 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
   const [adjustForm, setAdjustForm] = useState<{ id: string; amount: number; notes: string } | null>(null);
   const [rejectForm, setRejectForm] = useState<{ id: string; reason: string } | null>(null);
   const [message, setMessage] = useState("");
+  const [payModal, setPayModal] = useState<{ id: string; teacher: any; payroll: any } | null>(null);
+  const [payRef, setPayRef] = useState("");
+  const [payProof, setPayProof] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [viewBank, setViewBank] = useState<string | null>(null);
 
   const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -52,7 +57,12 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
 
   const handleGeneratePayroll = async () => { setLoading("gen"); const r = await generatePayroll(currentMonth, currentYear); setMessage(r.message || r.error || ""); router.refresh(); setLoading(""); };
   const handleBatchPay = async () => { if (!confirm("Pay all?")) return; setLoading("batch"); const r = await batchProcessPayroll(currentMonth, currentYear); setMessage(r.message || ""); router.refresh(); setLoading(""); };
-  const handlePay = async (id: string) => { setLoading(id); await processPayroll(id); router.refresh(); setLoading(""); };
+  const handlePay = async (id: string) => {
+    setLoading(id);
+    await processPayroll(id, payRef || undefined, payProof || undefined);
+    setPayModal(null); setPayRef(""); setPayProof("");
+    router.refresh(); setLoading("");
+  };
   const handleCancel = async (id: string) => { setLoading(id); await cancelPayroll(id); router.refresh(); setLoading(""); };
   const handleAdjust = async () => { if (!adjustForm) return; setLoading("adj"); await adjustPayroll(adjustForm.id, adjustForm.amount, adjustForm.notes); setAdjustForm(null); router.refresh(); setLoading(""); };
   const handleVerify = async (id: string) => { setLoading(id); await verifySession(id); router.refresh(); setLoading(""); };
@@ -111,7 +121,31 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
                       </div>
                     </div>
                     {!t.salary && <span className="text-[10px] text-amber-600 font-medium">No salary set</span>}
-                    {t.teacher.bankAccounts[0] && <CreditCard className="w-4 h-4 text-purple-400" />}
+                    {t.teacher.bankAccounts[0] ? (
+                      <button onClick={(e) => { e.stopPropagation(); setViewBank(viewBank === t.id ? null : t.id); }}
+                        className="flex items-center gap-1 text-[10px] text-purple-600 hover:text-purple-800 px-2 py-1 rounded-lg hover:bg-purple-50">
+                        <Building2 className="w-3 h-3" /> Bank
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-red-400">No bank</span>
+                    )}
+                  </div>
+                  {viewBank === t.id && t.teacher.bankAccounts[0] && (() => {
+                    const b = t.teacher.bankAccounts[0];
+                    return (
+                      <div className="mt-2 p-3 bg-purple-50 rounded-lg border border-purple-200 text-xs space-y-1">
+                        <p className="font-bold text-purple-800">💳 Bank Details ({b.label})</p>
+                        {b.bankName && <p className="text-gray-700">Bank: <span className="font-medium">{b.bankName}</span></p>}
+                        {b.accountName && <p className="text-gray-700">Name: <span className="font-medium">{b.accountName}</span></p>}
+                        {b.accountNumber && <p className="text-gray-700">Account: <span className="font-medium">{b.accountNumber}</span></p>}
+                        {b.routingNumber && <p className="text-gray-700">Routing: <span className="font-medium">{b.routingNumber}</span></p>}
+                        {b.mobileNumber && <p className="text-gray-700">Mobile: <span className="font-medium">{b.mobileProvider} {b.mobileNumber}</span></p>}
+                        {b.paypalEmail && <p className="text-gray-700">PayPal: <span className="font-medium">{b.paypalEmail}</span></p>}
+                        {b.cryptoAddress && <p className="text-gray-700">Crypto: <span className="font-medium">{b.cryptoNetwork} - {b.cryptoAddress}</span></p>}
+                        <p className="text-gray-500">Currency: {b.currency} • {b.isVerified ? "✅ Verified" : "⏳ Unverified"}</p>
+                      </div>
+                    );
+                  })()}
                   </div>
                 );
               })}
@@ -279,12 +313,18 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[cp.status]}`}>{cp.status}</span>
                   {cp.status === "DRAFT" && (
                     <div className="flex gap-1">
-                      <button onClick={() => handlePay(cp.id)} disabled={loading === cp.id} className="text-[10px] px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 font-medium">{loading === cp.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Pay"}</button>
+                      <button onClick={() => setPayModal({ id: cp.id, teacher: t, payroll: cp })} className="text-[10px] px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 font-medium">Pay</button>
                       <button onClick={() => setAdjustForm({ id: cp.id, amount: 0, notes: "" })} className="text-[10px] px-2 py-1.5 bg-blue-50 text-blue-600 rounded-lg">Adjust</button>
                       <button onClick={() => handleCancel(cp.id)} className="text-red-400 text-[10px] px-1.5"><X className="w-3 h-3" /></button>
                     </div>
                   )}
-                  {cp.status === "PAID" && <span className="text-[10px] text-gray-400">Paid {cp.paidAt && new Date(cp.paidAt).toLocaleDateString()}</span>}
+                  {cp.status === "PAID" && (
+                    <div className="text-right">
+                      <span className="text-[10px] text-gray-400 block">Paid {cp.paidAt && new Date(cp.paidAt).toLocaleDateString()}</span>
+                      {cp.transactionRef && <span className="text-[9px] text-gray-400 block">Ref: {cp.transactionRef}</span>}
+                      {cp.paymentProof && <a href={cp.paymentProof} target="_blank" className="text-[9px] text-blue-500 underline">View Proof</a>}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -303,6 +343,72 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
               </div>
             </div>
           )}
+        </div>
+      )}
+      {/* PAYMENT MODAL */}
+      {payModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPayModal(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b bg-emerald-50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-emerald-800">💰 Process Payment</h3>
+                <button onClick={() => setPayModal(null)}><X className="w-4 h-4 text-gray-400" /></button>
+              </div>
+              <p className="text-xs text-emerald-600 mt-1">{payModal.teacher.teacher.user.name}</p>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="bg-gray-50 p-3 rounded-xl space-y-1">
+                <div className="flex justify-between text-xs"><span className="text-gray-500">Gross Pay</span><span className="font-medium">{payModal.payroll.currency} {fmt(payModal.payroll.grossPay)}</span></div>
+                {payModal.payroll.taxDeduction > 0 && <div className="flex justify-between text-xs"><span className="text-gray-500">Tax</span><span className="text-red-500">-{fmt(payModal.payroll.taxDeduction)}</span></div>}
+                <div className="flex justify-between text-sm font-bold border-t pt-1 mt-1"><span>Net Pay</span><span className="text-emerald-600">{payModal.payroll.currency} {fmt(payModal.payroll.netPay)}</span></div>
+              </div>
+
+              {payModal.teacher.teacher.bankAccounts?.[0] ? (() => {
+                const b = payModal.teacher.teacher.bankAccounts[0];
+                return (
+                  <div className="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                    <p className="text-xs font-bold text-purple-800 mb-2">💳 Pay to ({b.label})</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {b.bankName && <div><span className="text-gray-500">Bank:</span> <span className="font-medium">{b.bankName}</span></div>}
+                      {b.accountName && <div><span className="text-gray-500">Name:</span> <span className="font-medium">{b.accountName}</span></div>}
+                      {b.accountNumber && <div><span className="text-gray-500">Account:</span> <span className="font-bold text-purple-700">{b.accountNumber}</span></div>}
+                      {b.routingNumber && <div><span className="text-gray-500">Routing:</span> <span className="font-medium">{b.routingNumber}</span></div>}
+                      {b.mobileNumber && <div><span className="text-gray-500">Mobile:</span> <span className="font-medium">{b.mobileProvider} {b.mobileNumber}</span></div>}
+                      {b.paypalEmail && <div><span className="text-gray-500">PayPal:</span> <span className="font-medium">{b.paypalEmail}</span></div>}
+                      {b.cryptoAddress && <div className="col-span-2"><span className="text-gray-500">Crypto:</span> <span className="font-medium">{b.cryptoNetwork}: {b.cryptoAddress}</span></div>}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">{b.currency} • {b.isVerified ? "✅ Verified" : "⏳ Unverified"}</p>
+                  </div>
+                );
+              })() : (
+                <div className="p-3 bg-red-50 rounded-xl border border-red-200"><p className="text-xs text-red-700">⚠️ Teacher has not submitted bank details yet</p></div>
+              )}
+
+              <div><label className="label">Transaction Reference</label><input className="input-field" placeholder="e.g. TXN-12345" value={payRef} onChange={e => setPayRef(e.target.value)} /></div>
+
+              <div>
+                <label className="label">Payment Proof (receipt/screenshot)</label>
+                <input className="input-field text-xs" type="file" accept="image/*,.pdf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    if (file.size > 5*1024*1024) { alert("Max 5MB"); return; }
+                    setUploading(true);
+                    const reader = new FileReader();
+                    reader.onloadend = () => { setPayProof(reader.result as string); setUploading(false); };
+                    reader.readAsDataURL(file);
+                  }} />
+                {uploading && <Loader2 className="w-4 h-4 animate-spin text-gray-400 mt-1" />}
+                {payProof && <p className="text-[10px] text-emerald-600 mt-1">✓ Proof attached</p>}
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={() => handlePay(payModal.id)} disabled={!!loading} className="btn-primary flex-1 text-sm py-2.5">
+                  {loading === payModal.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><CheckCircle className="w-4 h-4 mr-1" /> Mark as Paid</>}
+                </button>
+                <button onClick={() => setPayModal(null)} className="btn-ghost px-4">Cancel</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
