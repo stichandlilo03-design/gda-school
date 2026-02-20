@@ -36,19 +36,46 @@ export default function StudentClassroomClient({
 
   const today = DAYS[new Date().getDay()];
 
-  // Build alarm schedules ONLY from student's enrolled classes
-  const alarmSchedules = enrollments.flatMap((e: any) =>
-    (e.class.schedules || []).map((s: any) => ({
-      classId: e.class.id,
-      className: e.class.name,
-      subjectName: e.class.subject?.name || e.class.name,
-      teacherName: e.class.teacher?.user?.name || "",
-      dayOfWeek: s.dayOfWeek,
-      startTime: s.startTime,
-      endTime: s.endTime || "",
-      isLive: (e.class.liveSessions || []).length > 0,
-    }))
-  );
+  // Build alarm schedules from student's enrolled classes
+  const alarmSchedules: any[] = [];
+  const liveClassIds = new Set<string>();
+
+  enrollments.forEach((e: any) => {
+    const cls = e.class;
+    const isLive = (cls.liveSessions || []).length > 0;
+    const isPrep = cls.liveSessions?.[0]?.isPrep || false;
+    if (isLive) liveClassIds.add(cls.id);
+
+    // Add schedule-based entries
+    (cls.schedules || []).forEach((s: any) => {
+      alarmSchedules.push({
+        classId: cls.id,
+        className: cls.name,
+        subjectName: cls.subject?.name || cls.name,
+        teacherName: cls.teacher?.user?.name || "",
+        dayOfWeek: s.dayOfWeek,
+        startTime: s.startTime,
+        endTime: s.endTime || "",
+        isLive,
+        isPrep,
+      });
+    });
+
+    // If class is live but has NO schedule today, add a dummy entry so alarm still fires
+    if (isLive && !(cls.schedules || []).some((s: any) => s.dayOfWeek === today)) {
+      alarmSchedules.push({
+        classId: cls.id,
+        className: cls.name,
+        subjectName: cls.subject?.name || cls.name,
+        teacherName: cls.teacher?.user?.name || "",
+        dayOfWeek: "__LIVE__", // won't match any day, but isLive will trigger the alert
+        startTime: "00:00",
+        endTime: "23:59",
+        isLive: true,
+        isPrep,
+      });
+    }
+  });
 
   // Sort: live first
   const sorted = [...enrollments].sort((a, b) => {

@@ -5,7 +5,7 @@ import { BellRing, Clock, X, Volume2, VolumeX } from "lucide-react";
 
 interface Schedule {
   classId: string; className: string; subjectName: string; teacherName: string;
-  dayOfWeek: string; startTime: string; endTime: string; isLive: boolean;
+  dayOfWeek: string; startTime: string; endTime: string; isLive: boolean; isPrep?: boolean;
 }
 
 const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
@@ -92,8 +92,26 @@ export default function ClassAlarm({ schedules, isKG = false }: { schedules: Sch
     const today = DAYS[now.getDay()];
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const newAlerts: typeof alerts = [];
+    const seenLive = new Set<string>();
 
     schedules.forEach((s) => {
+      // Live/Prep class alert — fires regardless of schedule day
+      if (s.isLive && !seenLive.has(s.classId)) {
+        seenLive.add(s.classId);
+        const key = s.classId + "-live";
+        if (!dismissed.has(key)) {
+          const isPrep = s.isPrep;
+          newAlerts.push({
+            id: key,
+            msg: isKG
+              ? (isPrep ? `📋 ${s.subjectName} prep is open! 🎒` : `🔴 ${s.subjectName} is LIVE! 🎈`)
+              : (isPrep ? `📋 ${s.subjectName} — Prep session open. Join to prepare!` : `${s.subjectName} is LIVE — join now`),
+            type: "start",
+          });
+        }
+      }
+
+      // Schedule-based alerts — only for today
       if (s.dayOfWeek !== today) return;
       const startMin = timeToMin(s.startTime);
       const diff = startMin - nowMin;
@@ -116,17 +134,6 @@ export default function ClassAlarm({ schedules, isKG = false }: { schedules: Sch
           newAlerts.push({
             id: key,
             msg: isKG ? `🎉 ${s.subjectName} starting NOW! 🌟` : `${s.subjectName} starting NOW!`,
-            type: "start",
-          });
-        }
-      }
-      // Live class
-      if (s.isLive) {
-        const key = s.classId + "-live";
-        if (!dismissed.has(key)) {
-          newAlerts.push({
-            id: key,
-            msg: isKG ? `🔴 ${s.subjectName} is LIVE! 🎈` : `${s.subjectName} is LIVE — join now`,
             type: "start",
           });
         }

@@ -50,6 +50,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       teacherName: "You", dayOfWeek: s.dayOfWeek,
       startTime: s.startTime, endTime: s.endTime || "",
       isLive: (cls.liveSessions || []).length > 0,
+      isPrep: cls.liveSessions?.[0]?.isPrep || false,
     }))
   );
 
