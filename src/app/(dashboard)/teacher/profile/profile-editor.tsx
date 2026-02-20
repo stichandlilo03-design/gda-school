@@ -79,7 +79,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
       const base64 = reader.result as string;
       const result = await uploadProfilePicture(base64);
       if (result.error) setMessage("Error: " + result.error);
-      else { setProfilePic(result.url!); setMessage("Photo updated!"); }
+      else { setProfilePic(base64); setMessage("Photo updated!"); }
       router.refresh();
       setLoading("");
     };
