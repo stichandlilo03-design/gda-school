@@ -74,6 +74,13 @@ export default function StudentClassroomClient({
     return () => clearInterval(interval);
   }, [router]);
 
+  // Trigger auto-session check
+  useEffect(() => {
+    fetch("/api/auto-session").catch(() => {});
+    const i = setInterval(() => { fetch("/api/auto-session").catch(() => {}); }, 60000);
+    return () => clearInterval(i);
+  }, []);
+
   return (
     <div className="space-y-6">
       <ClassAlarm schedules={alarmSchedules} isKG={isKG} />

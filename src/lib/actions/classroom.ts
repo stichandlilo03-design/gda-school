@@ -34,20 +34,66 @@ export async function startLiveClass(classId: string, topic?: string) {
   return { success: true, sessionId: live.id };
 }
 
-// End a live class session
+// End a live class session + credit teacher
 export async function endLiveClass(sessionId: string) {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
 
+  const live = await db.liveClassSession.findUnique({
+    where: { id: sessionId },
+    include: { class: { include: { schoolGrade: { include: { school: true } } } } },
+  });
+  if (!live) return { error: "Session not found" };
+
+  // Calculate duration
+  const durationMin = live.startedAt
+    ? Math.round((Date.now() - live.startedAt.getTime()) / 60000)
+    : 0;
+
   await db.liveClassSession.update({
     where: { id: sessionId },
-    data: { status: "ENDED", endedAt: new Date(), raisedHands: [], chatMessages: [] },
+    data: { status: "ENDED", endedAt: new Date(), durationMin, raisedHands: [], },
   });
+
+  // Award session credit to teacher (if not already awarded)
+  if (!live.creditAwarded && durationMin >= 5) {
+    const school = live.class.schoolGrade?.school;
+    const schoolTeacher = await db.schoolTeacher.findFirst({
+      where: { teacherId: live.teacherId, schoolId: school?.id || "" },
+      include: { salary: true },
+    });
+
+    // Calculate per-session rate: monthlySalary / ~80 sessions per month (4 sessions/day * 20 days)
+    let creditAmount = 0;
+    if (schoolTeacher?.salary) {
+      const sessionsPerMonth = 80;
+      creditAmount = Math.round((schoolTeacher.salary.baseSalary / sessionsPerMonth) * (Math.min(durationMin, 45) / 40) * 100) / 100;
+    }
+
+    if (creditAmount > 0) {
+      await db.sessionCredit.create({
+        data: {
+          liveSessionId: sessionId,
+          teacherId: live.teacherId,
+          schoolId: school?.id || "",
+          durationMin,
+          creditAmount,
+          currency: school?.currency || "USD",
+          status: "CREDITED",
+        },
+      });
+
+      await db.liveClassSession.update({
+        where: { id: sessionId },
+        data: { creditAwarded: true },
+      });
+    }
+  }
 
   revalidatePath("/teacher/classroom");
   revalidatePath("/student/classroom");
   revalidatePath("/principal");
-  return { success: true };
+  return { success: true, durationMin };
 }
 
 // Mark attendance for a student

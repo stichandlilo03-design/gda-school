@@ -64,6 +64,13 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
     return () => clearInterval(interval);
   }, [router]);
 
+  // Trigger auto-session check
+  useEffect(() => {
+    fetch("/api/auto-session").catch(() => {});
+    const i = setInterval(() => { fetch("/api/auto-session").catch(() => {}); }, 60000);
+    return () => clearInterval(i);
+  }, []);
+
   const handleStartClass = async (classId: string) => {
     setLoading("start-" + classId);
     const result = await startLiveClass(classId, topicInput || undefined);

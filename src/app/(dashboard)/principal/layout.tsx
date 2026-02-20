@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 
 const principalLinks = [
   { href: "/principal", icon: "LayoutDashboard", label: "Dashboard" },
+  { href: "/principal/monitor", icon: "Monitor", label: "Classroom Monitor" },
   { href: "/principal/teachers", icon: "Users", label: "Teachers" },
   { href: "/principal/students", icon: "GraduationCap", label: "Students" },
   { href: "/principal/messages", icon: "MessageSquare", label: "Messages" },

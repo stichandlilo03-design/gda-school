@@ -1078,16 +1078,38 @@ model LiveClassSession {
   status      String   @default("WAITING")
   startedAt   DateTime?
   endedAt     DateTime?
+  durationMin Int      @default(0)
   boardContent Json    @default("[]")
   raisedHands  Json    @default("[]")
   chatMessages Json    @default("[]")
+  questions    Json    @default("[]")
   teachingMode String  @default("board")
+  autoStarted  Boolean @default(false)
+  creditAwarded Boolean @default(false)
   createdAt   DateTime @default(now())
 
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  sessionCredits SessionCredit[]
 
   @@index([classId, status])
+}
+
+model SessionCredit {
+  id            String   @id @default(cuid())
+  liveSessionId String
+  teacherId     String
+  schoolId      String
+  durationMin   Int
+  creditAmount  Float
+  currency      String   @default("USD")
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+
+  liveSession   LiveClassSession @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
+  @@index([schoolId])
 }
 
 // ============================================================

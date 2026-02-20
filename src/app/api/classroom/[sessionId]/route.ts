@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-// GET - Poll classroom state (students + teacher call every 2s)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
@@ -13,19 +12,24 @@ export async function GET(
       select: {
         id: true, status: true, topic: true, teachingMode: true,
         boardContent: true, raisedHands: true, chatMessages: true,
-        startedAt: true, teacherId: true,
+        questions: true, startedAt: true, teacherId: true, durationMin: true,
         class: { select: { name: true, id: true } },
         teacher: { select: { user: { select: { name: true } } } },
       },
     });
     if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(session);
+
+    // Calculate live duration
+    const liveMinutes = session.startedAt
+      ? Math.round((Date.now() - new Date(session.startedAt).getTime()) / 60000)
+      : 0;
+
+    return NextResponse.json({ ...session, liveMinutes });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
-// POST - Update classroom state (board, hands, chat, mode)
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
@@ -35,59 +39,74 @@ export async function POST(
     const body = await req.json();
     const { action } = body;
 
-    const liveSession = await db.liveClassSession.findUnique({ where: { id: sessionId } });
-    if (!liveSession || liveSession.status !== "IN_PROGRESS") {
+    const ls = await db.liveClassSession.findUnique({ where: { id: sessionId } });
+    if (!ls || ls.status !== "IN_PROGRESS") {
       return NextResponse.json({ error: "Session not active" }, { status: 400 });
     }
 
-    // TEACHER: Write text on board
+    // BOARD WRITE
     if (action === "board_write") {
-      const { text, color, type } = body;
-      let board = Array.isArray(liveSession.boardContent) ? [...(liveSession.boardContent as any[])] : [];
-      if (type === "clear") {
-        board = [];
-      } else if (text) {
-        board.push({ text, color: color || "#FFFFFF", time: Date.now(), id: Math.random().toString(36).slice(2) });
-      }
+      let board = Array.isArray(ls.boardContent) ? [...(ls.boardContent as any[])] : [];
+      if (body.type === "clear") board = [];
+      else if (body.text) board.push({ text: body.text, color: body.color || "#FFF", time: Date.now(), id: Math.random().toString(36).slice(2) });
       await db.liveClassSession.update({ where: { id: sessionId }, data: { boardContent: board } });
       return NextResponse.json({ ok: true });
     }
 
-    // TEACHER: Change teaching mode (board/voice)
+    // SET MODE (board/voice/video)
     if (action === "set_mode") {
       await db.liveClassSession.update({ where: { id: sessionId }, data: { teachingMode: body.mode || "board" } });
       return NextResponse.json({ ok: true });
     }
 
-    // STUDENT: Raise or lower hand
+    // RAISE HAND
     if (action === "raise_hand") {
-      const { studentId, studentName, raised } = body;
-      let hands = Array.isArray(liveSession.raisedHands) ? [...(liveSession.raisedHands as any[])] : [];
-      if (raised) {
-        if (!hands.find((h: any) => h.studentId === studentId)) {
-          hands.push({ studentId, studentName: studentName || "Student", time: Date.now() });
-        }
+      let hands = Array.isArray(ls.raisedHands) ? [...(ls.raisedHands as any[])] : [];
+      if (body.raised) {
+        if (!hands.find((h: any) => h.studentId === body.studentId))
+          hands.push({ studentId: body.studentId, studentName: body.studentName || "Student", time: Date.now() });
       } else {
-        hands = hands.filter((h: any) => h.studentId !== studentId);
+        hands = hands.filter((h: any) => h.studentId !== body.studentId);
       }
       await db.liveClassSession.update({ where: { id: sessionId }, data: { raisedHands: hands } });
       return NextResponse.json({ ok: true });
     }
 
-    // TEACHER: Acknowledge raised hand (lower it)
+    // ACK HAND (teacher allows student to speak)
     if (action === "ack_hand") {
-      const { studentId } = body;
-      let hands = Array.isArray(liveSession.raisedHands) ? [...(liveSession.raisedHands as any[])] : [];
-      hands = hands.filter((h: any) => h.studentId !== studentId);
+      let hands = Array.isArray(ls.raisedHands) ? [...(ls.raisedHands as any[])] : [];
+      hands = hands.filter((h: any) => h.studentId !== body.studentId);
       await db.liveClassSession.update({ where: { id: sessionId }, data: { raisedHands: hands } });
       return NextResponse.json({ ok: true });
     }
 
-    // ANYONE: Send chat message
+    // ASK QUESTION (student after hand accepted)
+    if (action === "ask_question") {
+      let qs = Array.isArray(ls.questions) ? [...(ls.questions as any[])] : [];
+      qs.push({
+        id: Math.random().toString(36).slice(2),
+        studentId: body.studentId, studentName: body.studentName || "Student",
+        question: body.question, time: Date.now(),
+        answer: null, answered: false,
+      });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { questions: qs } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ANSWER QUESTION (teacher)
+    if (action === "answer_question") {
+      let qs = Array.isArray(ls.questions) ? [...(ls.questions as any[])] : [];
+      qs = qs.map((q: any) =>
+        q.id === body.questionId ? { ...q, answer: body.answer, answered: true, answeredAt: Date.now() } : q
+      );
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { questions: qs } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // CHAT
     if (action === "chat") {
-      const { from, message } = body;
-      let chat = Array.isArray(liveSession.chatMessages) ? [...(liveSession.chatMessages as any[])] : [];
-      chat.push({ from: from || "Anonymous", message: message || "", time: Date.now(), id: Math.random().toString(36).slice(2) });
+      let chat = Array.isArray(ls.chatMessages) ? [...(ls.chatMessages as any[])] : [];
+      chat.push({ from: body.from || "Anon", message: body.message || "", time: Date.now(), id: Math.random().toString(36).slice(2) });
       if (chat.length > 100) chat = chat.slice(-100);
       await db.liveClassSession.update({ where: { id: sessionId }, data: { chatMessages: chat } });
       return NextResponse.json({ ok: true });
@@ -95,6 +114,6 @@ export async function POST(
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
