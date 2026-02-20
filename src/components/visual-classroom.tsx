@@ -319,17 +319,58 @@ export default function VisualClassroom(props: Props) {
     const c = canvasRef.current; if (!c) return;
     const ctx = c.getContext("2d"); if (!ctx) return;
     const theme = isTeacher ? BOARD_THEMES[0] : BOARD_THEMES[boardTheme];
+
+    // Word-wrap helper
+    const wrapText = (text: string, maxW: number, font: string): string[] => {
+      ctx.font = font;
+      const words = text.split(" ");
+      const lines: string[] = [];
+      let line = "";
+      for (const word of words) {
+        const test = line ? line + " " + word : word;
+        if (ctx.measureText(test).width > maxW && line) {
+          lines.push(line);
+          line = word;
+        } else { line = test; }
+      }
+      if (line) lines.push(line);
+      return lines;
+    };
+
+    // Calculate total lines needed
+    const font = isKG ? "bold 17px Comic Sans MS, cursive" : "15px Georgia, serif";
+    const maxTextW = c.width - 44;
+    let totalLines = 0;
+    const wrappedAll: { lines: string[]; color: string }[] = [];
+    boardLines.forEach((bl: any) => {
+      const wrapped = wrapText(bl.text || "", maxTextW, font);
+      wrappedAll.push({ lines: wrapped, color: bl.color || "#FFF" });
+      totalLines += wrapped.length;
+    });
+
+    // Resize canvas height dynamically
+    const minH = 200;
+    const neededH = 70 + totalLines * 28 + 20;
+    c.height = Math.max(minH, neededH);
+
+    // Draw board background
     ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, c.width, c.height);
     ctx.strokeStyle = theme.border; ctx.lineWidth = 6; ctx.strokeRect(3, 3, c.width-6, c.height-6);
     ctx.font = "bold 18px serif"; ctx.fillStyle = "#FFFFFFAA"; ctx.textAlign = "center";
     ctx.fillText(subjectName + (topic ? " — " + topic : ""), c.width/2, 34);
     ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(25,48); ctx.lineTo(c.width-25,48);
     ctx.strokeStyle = "#FFFFFF33"; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
-    boardLines.forEach((line: any, i: number) => {
-      const y = 70 + i * 28; if (y > c.height - 12) return;
-      ctx.font = isKG ? "bold 17px Comic Sans MS, cursive" : "15px Georgia, serif";
-      ctx.fillStyle = (!isTeacher && textColorOverride) ? textColorOverride : (line.color || "#FFF");
-      ctx.textAlign = "left"; ctx.fillText(line.text || "", 22, y);
+
+    // Draw wrapped text
+    let y = 70;
+    wrappedAll.forEach((entry) => {
+      ctx.font = font;
+      ctx.fillStyle = (!isTeacher && textColorOverride) ? textColorOverride : entry.color;
+      ctx.textAlign = "left";
+      entry.lines.forEach((line) => {
+        ctx.fillText(line, 22, y);
+        y += 28;
+      });
     });
   }, [boardLines, subjectName, topic, isKG, boardTheme, textColorOverride, isTeacher]);
 
@@ -484,7 +525,9 @@ export default function VisualClassroom(props: Props) {
                   </div>
                 )}
               </div>
-              <canvas ref={canvasRef} width={800} height={260} className="w-full rounded-b-lg shadow-inner" style={{maxHeight:fullscreen?"40vh":"220px"}} />
+              <div className="overflow-y-auto rounded-b-lg" style={{maxHeight: fullscreen ? "50vh" : "300px"}}>
+                <canvas ref={canvasRef} width={800} height={260} className="w-full shadow-inner" />
+              </div>
               {isTeacher && teachingMode==="board" && (
                 <div className="flex gap-2 mt-1.5">
                   <input className="flex-1 input-field text-sm" placeholder="Write on board..."
