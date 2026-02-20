@@ -6,6 +6,7 @@ import {
   CheckCircle, BookOpen, FileText, Calculator, Globe, Palette,
   BarChart3, Lock, Smile, Settings,
 } from "lucide-react";
+import StudentDesk from "@/components/student-desk";
 
 interface Props {
   sessionId: string; classId: string; subjectName: string; teacherName: string;
@@ -623,6 +624,16 @@ export default function VisualClassroom(props: Props) {
                 {liveMinutes >= 35 && <span className="text-[9px] text-red-500 font-bold animate-pulse ml-2">⏰ {40-liveMinutes}min left</span>}
               </div>
             </div>
+
+            {/* STUDENT DESK — download board, notebook, saved boards */}
+            {!isTeacher && (
+              <StudentDesk
+                studentName={studentName || "Student"}
+                subjectName={subjectName}
+                boardLines={boardLines}
+                isKG={isKG}
+              />
+            )}
           </div>
 
           {/* ===== SIDE PANELS ===== */}

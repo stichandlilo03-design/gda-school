@@ -25,7 +25,13 @@ export default function MonitorClient({
 
   const pollSessions = useCallback(async () => {
     for (const ls of liveSessions) {
-      try { const r = await fetch(`/api/classroom/${ls.id}`); if (r.ok) setLiveData(prev => ({...prev, [ls.id]: await r.json()})); } catch {}
+      try {
+        const r = await fetch(`/api/classroom/${ls.id}`);
+        if (r.ok) {
+          const data = await r.json();
+          setLiveData(prev => ({...prev, [ls.id]: data}));
+        }
+      } catch {}
     }
   }, [liveSessions]);
 
