@@ -319,7 +319,7 @@ export async function approveTermReport(reportId: string, remarks?: string, prom
     if (report) {
       await db.student.update({
         where: { id: report.studentId },
-        data: { gradeLevel: nextGrade },
+        data: { gradeLevel: nextGrade as any },
       });
     }
   }
