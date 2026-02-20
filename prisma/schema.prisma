@@ -1097,6 +1097,7 @@ model LiveClassSession {
   reactions    Json    @default("[]")
   polls        Json    @default("[]")
   videoFeeds   Json    @default("[]")
+  rtcSignals   Json    @default("[]")
   teachingMode String  @default("board")
   autoStarted  Boolean @default(false)
   creditAwarded Boolean @default(false)

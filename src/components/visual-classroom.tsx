@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Hand, Mic, MicOff, Video, VideoOff, Pencil, MessageSquare, Users,
+  Hand, Mic, Video, Pencil, MessageSquare, Users,
   Maximize2, Minimize2, Send, Eraser, Type, X, HelpCircle, Clock,
   CheckCircle, BookOpen, FileText, Calculator, Globe, Palette,
   BarChart3, Lock, Smile, Settings,
 } from "lucide-react";
 import StudentDesk from "@/components/student-desk";
+import ClassroomVideo from "@/components/classroom-video";
 
 interface Props {
   sessionId: string; classId: string; subjectName: string; teacherName: string;
@@ -227,7 +228,6 @@ export default function VisualClassroom(props: Props) {
     isTeacher, isLive, topic, isKG = false, studentId, studentName } = props;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Server state
@@ -253,11 +253,6 @@ export default function VisualClassroom(props: Props) {
   const [answerText, setAnswerText] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
   const [lastPoll, setLastPoll] = useState(0);
-  const [camOn, setCamOn] = useState(false);
-  const [micOn, setMicOn] = useState(false);
-  const streamRef = useRef<MediaStream | null>(null);
-  const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [videoFeeds, setVideoFeeds] = useState<any[]>([]);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const prevMsgCount = useRef(0);
@@ -288,7 +283,6 @@ export default function VisualClassroom(props: Props) {
       setQuestions(Array.isArray(d.questions) ? d.questions : []);
       setReactions(Array.isArray(d.reactions) ? d.reactions : []);
       setPolls(Array.isArray(d.polls) ? d.polls : []);
-      setVideoFeeds(Array.isArray(d.videoFeeds) ? d.videoFeeds : []);
       if (d.teachingMode) setTeachingMode(d.teachingMode);
       if (d.liveMinutes !== undefined) setLiveMinutes(d.liveMinutes);
       setLastPoll(Date.now());
@@ -299,11 +293,6 @@ export default function VisualClassroom(props: Props) {
   }, [sessionId, handRaised, studentId, isTeacher]);
 
   useEffect(() => { pollServer(); const i = setInterval(pollServer, 2000); return () => clearInterval(i); }, [pollServer]);
-
-  // Cleanup camera on unmount
-  useEffect(() => {
-    return () => { streamRef.current?.getTracks().forEach(t => t.stop()); };
-  }, []);
 
   // Auto-scroll chat only on new messages & user hasn't scrolled up
   useEffect(() => {
@@ -343,56 +332,6 @@ export default function VisualClassroom(props: Props) {
       ctx.textAlign = "left"; ctx.fillText(line.text || "", 22, y);
     });
   }, [boardLines, subjectName, topic, isKG, boardTheme, textColorOverride, isTeacher]);
-
-  // Camera - capture & share frames
-  const toggleCamera = async () => {
-    if (camOn) {
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-      setCamOn(false); setMicOn(false);
-      post("cam_off", { userId: myUserId });
-    } else {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, frameRate: 15 }, audio: true });
-        streamRef.current = s;
-        if (videoRef.current) videoRef.current.srcObject = s;
-        setCamOn(true); setMicOn(true);
-      } catch { alert("Camera/Mic not available"); }
-    }
-  };
-  const toggleMic = () => {
-    if (!streamRef.current) return;
-    streamRef.current.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
-    setMicOn(!micOn);
-  };
-
-  // Capture frame from video and post to server every 3s
-  useEffect(() => {
-    if (!camOn || !streamRef.current) return;
-    const captureAndSend = () => {
-      if (!videoRef.current || !camOn) return;
-      try {
-        if (!frameCanvasRef.current) frameCanvasRef.current = document.createElement("canvas");
-        const fc = frameCanvasRef.current;
-        fc.width = 160; fc.height = 120;
-        const ctx = fc.getContext("2d");
-        if (!ctx) return;
-        ctx.drawImage(videoRef.current, 0, 0, 160, 120);
-        const frame = fc.toDataURL("image/jpeg", 0.4);
-        post("cam_update", {
-          userId: myUserId,
-          userName: isTeacher ? teacherName : studentName,
-          isTeacher,
-          camOn: true,
-          micOn,
-          frame,
-        });
-      } catch {}
-    };
-    captureAndSend();
-    const iv = setInterval(captureAndSend, 3000);
-    return () => clearInterval(iv);
-  }, [camOn, micOn, myUserId, isTeacher, teacherName, studentName]);
 
   // Actions
   const post = async (action: string, data: any = {}) => {
@@ -466,12 +405,6 @@ export default function VisualClassroom(props: Props) {
               ))}
             </div>
           )}
-          <button onClick={toggleCamera} className={`p-1 rounded-lg ${camOn?"bg-red-500 text-white":"bg-gray-600 text-white/60"}`}>
-            {camOn?<VideoOff className="w-3 h-3" />:<Video className="w-3 h-3" />}
-          </button>
-          <button onClick={toggleMic} disabled={!camOn} className={`p-1 rounded-lg ${micOn?"bg-emerald-500 text-white":"bg-gray-600 text-white/60"}`}>
-            {micOn?<Mic className="w-3 h-3" />:<MicOff className="w-3 h-3" />}
-          </button>
           {/* Reaction button */}
           <div className="relative group">
             <button className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><Smile className="w-3 h-3" /></button>
@@ -530,66 +463,14 @@ export default function VisualClassroom(props: Props) {
               </div>
             )}
 
-            {/* Video / Camera Feeds */}
-            {(teachingMode==="video"||camOn||videoFeeds.length>0) && (
-              <div className="space-y-2">
-                {/* Camera controls bar */}
-                <div className="flex items-center gap-2 p-2 bg-gray-800 rounded-xl">
-                  <button onClick={toggleCamera} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition ${camOn?"bg-red-500 text-white":"bg-gray-600 text-white/70 hover:text-white"}`}>
-                    {camOn?<><VideoOff className="w-3.5 h-3.5" /> Turn Off Cam</>:<><Video className="w-3.5 h-3.5" /> Turn On Cam</>}
-                  </button>
-                  <button onClick={toggleMic} disabled={!camOn} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition ${!camOn?"bg-gray-700 text-gray-500 cursor-not-allowed":micOn?"bg-emerald-500 text-white":"bg-red-500 text-white"}`}>
-                    {micOn?<><Mic className="w-3.5 h-3.5" /> Mic On</>:<><MicOff className="w-3.5 h-3.5" /> Mic Off</>}
-                  </button>
-                  <span className="text-[9px] text-gray-400 ml-auto">{videoFeeds.length} camera(s) active</span>
-                </div>
-
-                {/* Video grid */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  {/* My own feed (large) */}
-                  {camOn && (
-                    <div className="relative col-span-2 row-span-2">
-                      <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-xl bg-black aspect-video object-cover" />
-                      <div className="absolute bottom-1 left-1 flex items-center gap-1">
-                        <span className="text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded">{isTeacher ? "You (Teacher)" : `You (${studentName})`}</span>
-                        {micOn && <span className="text-[8px] bg-emerald-500/80 text-white px-1 py-0.5 rounded animate-pulse">🎤</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Remote feeds from other users */}
-                  {videoFeeds.filter(f => f.odid !== myUserId).map(f => (
-                    <div key={f.odid} className={`relative rounded-lg overflow-hidden aspect-video bg-gray-900 ${f.isTeacher && !camOn ? "col-span-2 row-span-2" : ""}`}>
-                      {f.camOn && f.frame ? (
-                        <img src={f.frame} alt={f.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="w-10 h-10 rounded-full bg-brand-400 flex items-center justify-center text-white text-sm font-bold">{(f.name || "?")[0]}</div>
-                        </div>
-                      )}
-                      <div className="absolute bottom-0.5 left-0.5 flex items-center gap-1">
-                        <span className="text-[7px] bg-black/70 text-white px-1 py-0.5 rounded">
-                          {f.name}{f.isTeacher ? " 👨‍🏫" : ""}
-                        </span>
-                        {!f.camOn && <span className="text-[7px] bg-red-500/80 text-white px-1 py-0.5 rounded">📷 Off</span>}
-                        {f.micOn && <span className="text-[7px] bg-emerald-500/80 text-white px-1 py-0.5 rounded">🎤</span>}
-                        {!f.micOn && <span className="text-[7px] bg-red-500/80 text-white px-1 py-0.5 rounded">🔇</span>}
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Placeholder for students with no camera */}
-                  {students.filter(s => !videoFeeds.find(f => f.odid === s.id)).slice(0, 6).map(s => (
-                    <div key={s.id} className="rounded-lg bg-gray-800 aspect-video flex items-center justify-center relative">
-                      <div className="w-7 h-7 rounded-full bg-gray-600 flex items-center justify-center text-white text-[9px] font-bold">{s.name[0]}</div>
-                      <div className="absolute bottom-0.5 left-0.5">
-                        <span className="text-[6px] text-white/50">{s.name.split(" ")[0]}</span>
-                      </div>
-                      <span className="absolute top-0.5 right-0.5 text-[6px] bg-gray-700 text-gray-400 px-1 rounded">📷 Off</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* Video / Voice — WebRTC */}
+            {(teachingMode==="video"||teachingMode==="voice") && (
+              <ClassroomVideo
+                sessionId={sessionId}
+                userId={myUserId}
+                userName={isTeacher ? teacherName : (studentName || "Student")}
+                isTeacher={isTeacher}
+              />
             )}
 
             {/* BLACKBOARD */}
@@ -609,43 +490,6 @@ export default function VisualClassroom(props: Props) {
                   <input className="flex-1 input-field text-sm" placeholder="Write on board..."
                     value={boardText} onChange={e => setBoardText(e.target.value)} onKeyDown={e => e.key==="Enter"&&writeBoard()} />
                   <button onClick={writeBoard} className="btn-primary text-xs px-3"><Type className="w-3 h-3 mr-1" />Write</button>
-                </div>
-              )}
-              {teachingMode==="voice" && (
-                <div className="mt-1.5 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <div className="text-center mb-2">
-                    <Mic className={`w-6 h-6 mx-auto mb-1 ${camOn && micOn ? "text-emerald-500 animate-pulse" : "text-gray-400"}`} />
-                    <p className="text-xs font-medium text-emerald-800">Voice Mode Active</p>
-                    <p className="text-[10px] text-emerald-600">{isTeacher ? "Your students can hear you" : "Teacher is speaking"}</p>
-                  </div>
-                  {/* Mic controls */}
-                  <div className="flex justify-center gap-2 mb-2">
-                    {!camOn ? (
-                      <button onClick={async () => {
-                        try {
-                          const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-                          streamRef.current = s; setCamOn(false); setMicOn(true);
-                          post("cam_update", { userId: myUserId, userName: isTeacher ? teacherName : studentName, isTeacher, camOn: false, micOn: true, frame: null });
-                        } catch { alert("Microphone not available"); }
-                      }} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-1">
-                        <Mic className="w-3.5 h-3.5" /> Enable Mic
-                      </button>
-                    ) : (
-                      <button onClick={toggleMic} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 ${micOn ? "bg-red-500 text-white" : "bg-emerald-500 text-white"}`}>
-                        {micOn ? <><MicOff className="w-3.5 h-3.5" /> Mute</> : <><Mic className="w-3.5 h-3.5" /> Unmute</>}
-                      </button>
-                    )}
-                  </div>
-                  {/* Who has mic on */}
-                  {videoFeeds.filter(f => f.micOn).length > 0 && (
-                    <div className="flex flex-wrap gap-1 justify-center">
-                      {videoFeeds.filter(f => f.micOn).map(f => (
-                        <span key={f.odid} className="text-[9px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full animate-pulse">
-                          🎤 {f.name}{f.isTeacher ? " (Teacher)" : ""}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

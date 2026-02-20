@@ -13,7 +13,7 @@ export async function GET(
         id: true, status: true, topic: true, teachingMode: true,
         boardContent: true, boardHistory: true, raisedHands: true,
         chatMessages: true, whispers: true, questions: true,
-        reactions: true, polls: true, videoFeeds: true, startedAt: true, teacherId: true, durationMin: true,
+        reactions: true, polls: true, videoFeeds: true, rtcSignals: true, startedAt: true, teacherId: true, durationMin: true,
         class: { select: { name: true, id: true } },
         teacher: { select: { user: { select: { name: true } } } },
       },
@@ -181,31 +181,67 @@ export async function POST(
       return NextResponse.json({ ok: true });
     }
 
-    // VIDEO FEED (camera frame + status)
-    if (action === "cam_update") {
+    // ===== WEBRTC SIGNALING =====
+    // Join as RTC participant
+    if (action === "rtc_join") {
       let feeds = arr(ls.videoFeeds);
-      const existing = feeds.findIndex((f: any) => f.odid === body.userId);
-      const entry = {
+      feeds = feeds.filter((f: any) => f.odid !== body.userId);
+      feeds.push({
         odid: body.userId,
         name: body.userName || "User",
         isTeacher: body.isTeacher || false,
-        camOn: body.camOn,
-        micOn: body.micOn,
-        frame: body.frame || null, // small base64 jpeg
+        camOn: body.camOn ?? true,
+        micOn: body.micOn ?? true,
         ts: Date.now(),
-      };
-      if (existing >= 0) feeds[existing] = entry;
-      else feeds.push(entry);
-      // Remove stale feeds (>10s old)
-      feeds = feeds.filter((f: any) => Date.now() - f.ts < 10000);
+      });
       await db.liveClassSession.update({ where: { id: sessionId }, data: { videoFeeds: feeds } });
       return NextResponse.json({ ok: true });
     }
 
-    if (action === "cam_off") {
+    // Leave RTC
+    if (action === "rtc_leave") {
       let feeds = arr(ls.videoFeeds);
       feeds = feeds.filter((f: any) => f.odid !== body.userId);
+      // Also clean up their signals
+      let sigs = arr(ls.rtcSignals);
+      sigs = sigs.filter((s: any) => s.from !== body.userId && s.to !== body.userId);
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { videoFeeds: feeds, rtcSignals: sigs } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Update cam/mic status without full rejoin
+    if (action === "rtc_status") {
+      let feeds = arr(ls.videoFeeds);
+      feeds = feeds.map((f: any) => f.odid === body.userId ? { ...f, camOn: body.camOn, micOn: body.micOn, ts: Date.now() } : f);
       await db.liveClassSession.update({ where: { id: sessionId }, data: { videoFeeds: feeds } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Post a WebRTC signal (offer/answer/ice)
+    if (action === "rtc_signal") {
+      let sigs = arr(ls.rtcSignals);
+      // Prune signals older than 30s
+      sigs = sigs.filter((s: any) => Date.now() - s.ts < 30000);
+      sigs.push({
+        id: uid(),
+        from: body.from,
+        to: body.to,
+        type: body.type, // "offer" | "answer" | "ice"
+        data: body.data,
+        fromName: body.fromName,
+        fromIsTeacher: body.fromIsTeacher,
+        ts: Date.now(),
+      });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { rtcSignals: sigs } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Consume (delete) processed signals
+    if (action === "rtc_consume") {
+      let sigs = arr(ls.rtcSignals);
+      const ids = body.signalIds || [];
+      sigs = sigs.filter((s: any) => !ids.includes(s.id));
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { rtcSignals: sigs } });
       return NextResponse.json({ ok: true });
     }
 
