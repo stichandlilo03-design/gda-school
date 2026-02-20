@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { addMaterial, deleteMaterial, toggleMaterialPublished } from "@/lib/actions/materials";
+import { addMaterial, deleteMaterial, toggleMaterialPublished, editMaterial } from "@/lib/actions/materials";
 import { useRouter } from "next/navigation";
 import {
   Plus, Trash2, Loader2, FileText, Video, Link as LinkIcon, Image, FolderOpen,
-  Upload, Eye, EyeOff, Search, X, ExternalLink, Download, Film, FileImage
+  Upload, Eye, EyeOff, Search, X, ExternalLink, Download, Film, FileImage, Pencil
 } from "lucide-react";
 
 const TYPES = [
@@ -43,6 +43,8 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
   const [filterClass, setFilterClass] = useState("");
   const [filterType, setFilterType] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "", type: "", url: "", classId: "" });
 
   const [form, setForm] = useState({ classId: "", title: "", description: "", type: "DOCUMENT", url: "" });
   const [fileData, setFileData] = useState<{ base64: string; name: string; size: number } | null>(null);
@@ -117,6 +119,23 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
     await toggleMaterialPublished(id);
     router.refresh();
     setLoading("");
+  };
+
+  const handleEdit = async () => {
+    if (!editItem) return;
+    setLoading("edit");
+    const result = await editMaterial(editItem.id, {
+      title: editForm.title, description: editForm.description,
+      type: editForm.type, url: editForm.url, classId: editForm.classId,
+    });
+    if (result.error) alert(result.error);
+    else { setEditItem(null); router.refresh(); }
+    setLoading("");
+  };
+
+  const openEdit = (m: any) => {
+    setEditItem(m);
+    setEditForm({ title: m.title, description: m.description || "", type: m.type, url: m.url, classId: m.classId });
   };
 
   const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url) || url.startsWith("/uploads/materials/") && /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
@@ -369,6 +388,10 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
                       <Download className="w-3 h-3" />
                     </a>
                   )}
+                  <button onClick={() => openEdit(m)}
+                    className="text-[10px] px-2 py-1.5 rounded-lg hover:bg-blue-50 text-blue-500 flex items-center gap-1">
+                    <Pencil className="w-3 h-3" /> Edit
+                  </button>
                   <button onClick={() => handleToggle(m.id)} disabled={loading === "tog-" + m.id}
                     className="text-[10px] px-2 py-1.5 rounded-lg hover:bg-gray-100 text-gray-500 flex items-center gap-1">
                     {m.isPublished ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
@@ -382,6 +405,51 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Edit Material Modal */}
+      {editItem && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setEditItem(null)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-brand-500" /> Edit Material
+            </h3>
+            <div>
+              <label className="label">Title</label>
+              <input className="input-field" value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Description</label>
+              <textarea className="input-field" rows={2} value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Type</label>
+                <select className="input-field" value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}>
+                  {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Class</label>
+                <select className="input-field" value={editForm.classId} onChange={e => setEditForm(f => ({ ...f, classId: e.target.value }))}>
+                  {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+            {editForm.type === "LINK" && (
+              <div>
+                <label className="label">URL</label>
+                <input className="input-field" value={editForm.url} onChange={e => setEditForm(f => ({ ...f, url: e.target.value }))} />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={handleEdit} disabled={loading === "edit"} className="btn-primary text-sm flex-1">
+                {loading === "edit" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+              </button>
+              <button onClick={() => setEditItem(null)} className="btn-ghost text-sm">Cancel</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

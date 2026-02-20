@@ -68,6 +68,33 @@ export async function deleteMaterial(materialId: string) {
   }
 }
 
+// Edit material
+export async function editMaterial(materialId: string, data: { title?: string; description?: string; type?: string; url?: string; classId?: string }) {
+  try {
+    const sess = await getServerSession(authOptions);
+    if (!sess || sess.user.role !== "TEACHER") return { error: "Unauthorized" };
+
+    const material = await db.classMaterial.findUnique({ where: { id: materialId } });
+    if (!material) return { error: "Not found" };
+
+    await db.classMaterial.update({
+      where: { id: materialId },
+      data: {
+        ...(data.title && { title: data.title }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.type && { type: data.type as any }),
+        ...(data.url && { url: data.url }),
+        ...(data.classId && { classId: data.classId }),
+      },
+    });
+    revalidatePath("/teacher/materials");
+    revalidatePath("/student/materials");
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || "Failed to edit" };
+  }
+}
+
 // Toggle published state
 export async function toggleMaterialPublished(materialId: string) {
   try {
