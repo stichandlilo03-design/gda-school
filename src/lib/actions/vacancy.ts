@@ -298,9 +298,9 @@ export async function approveAndAssignToGrade(appId: string) {
 
   // Notify the teacher
   if (app.teacherId) {
+    const subjectList = Array.isArray(app.vacancy.subjects) ? (app.vacancy.subjects as string[]).join(", ") : "subjects";
     const teacher = await db.teacher.findUnique({ where: { id: app.teacherId }, select: { userId: true } });
     if (teacher) {
-      const subjectList = Array.isArray(app.vacancy.subjects) ? (app.vacancy.subjects as string[]).join(", ") : "subjects";
       await notify(
         teacher.userId,
         "🎉 Application Approved!",
