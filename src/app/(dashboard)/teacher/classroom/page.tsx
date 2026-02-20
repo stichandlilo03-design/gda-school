@@ -14,6 +14,7 @@ export default async function TeacherClassroomPage() {
       classes: {
         where: { isActive: true },
         include: {
+          subject: true,
           schoolGrade: true,
           schedules: true,
           enrollments: {

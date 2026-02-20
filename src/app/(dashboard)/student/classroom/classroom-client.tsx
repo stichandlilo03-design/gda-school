@@ -1,268 +1,248 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { studentJoinClass } from "@/lib/actions/classroom";
 import { useRouter } from "next/navigation";
 import {
   Play, Clock, CheckCircle, AlertCircle, Users, BookOpen, Bell,
-  Calendar, Loader2, Megaphone, ChevronDown, ChevronUp, FolderOpen
+  Calendar, Loader2, Megaphone, ChevronDown, ChevronUp, FolderOpen, BellRing
 } from "lucide-react";
 import Link from "next/link";
+import ClassAlarm from "@/components/class-alarm";
+import VisualClassroom from "@/components/visual-classroom";
 
-const DAYS = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
-const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 export default function StudentClassroomClient({
-  enrollments, todayAttendance, studentId,
+  enrollments, todayAttendance, studentId, isKG = false,
 }: {
-  enrollments: any[]; todayAttendance: any[]; studentId: string;
+  enrollments: any[]; todayAttendance: any[]; studentId: string; isKG?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
-  const [joinResult, setJoinResult] = useState<Record<string, string>>({});
+  const [joinResult, setJoinResult] = useState<Record<string,string>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [activeClassroom, setActiveClassroom] = useState<string | null>(null);
 
   const today = DAYS[new Date().getDay()];
   const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  // Sort classes: live first, then today's scheduled, then others
+  // Build alarm schedule
+  const alarmSchedules = enrollments.flatMap((e: any) =>
+    (e.class.schedules || []).map((s: any) => ({
+      classId: e.class.id,
+      className: e.class.name,
+      subjectName: e.class.subject?.name || e.class.name,
+      teacherName: e.class.teacher?.user?.name || "",
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime,
+      endTime: s.endTime || "",
+      isLive: (e.class.liveSessions || []).length > 0,
+    }))
+  );
+
+  // Sort: live first, today next
   const sorted = [...enrollments].sort((a, b) => {
-    const aLive = a.class.liveSessions.length > 0 ? -1 : 0;
-    const bLive = b.class.liveSessions.length > 0 ? -1 : 0;
+    const aLive = a.class.liveSessions?.length > 0 ? -1 : 0;
+    const bLive = b.class.liveSessions?.length > 0 ? -1 : 0;
     if (aLive !== bLive) return aLive - bLive;
-    const aToday = a.class.schedules.some((s: any) => s.dayOfWeek === today) ? -1 : 0;
-    const bToday = b.class.schedules.some((s: any) => s.dayOfWeek === today) ? -1 : 0;
+    const aToday = a.class.schedules?.some((s: any) => s.dayOfWeek === today) ? -1 : 0;
+    const bToday = b.class.schedules?.some((s: any) => s.dayOfWeek === today) ? -1 : 0;
     return aToday - bToday;
   });
 
   const handleJoin = async (classId: string) => {
     setLoading(classId);
     const result = await studentJoinClass(classId);
-    if (result.error) {
-      setJoinResult({ ...joinResult, [classId]: "error" });
-    } else {
-      setJoinResult({ ...joinResult, [classId]: result.status || "PRESENT" });
-      router.refresh();
-    }
+    if (result.error) setJoinResult({...joinResult, [classId]: "error"});
+    else { setJoinResult({...joinResult, [classId]: result.status || "PRESENT"}); router.refresh(); }
     setLoading("");
   };
 
-  const isAttendedToday = (classId: string) => todayAttendance.some((a: any) => a.classId === classId);
-  const getAttendanceStatus = (classId: string) => {
-    const att = todayAttendance.find((a: any) => a.classId === classId);
-    return att?.status || null;
-  };
+  const isAttended = (classId: string) => todayAttendance.some((a: any) => a.classId === classId);
+  const getStatus = (classId: string) => todayAttendance.find((a: any) => a.classId === classId)?.status || null;
 
-  // Upcoming classes today
-  const upcomingToday = enrollments.flatMap((e) =>
-    e.class.schedules
-      .filter((s: any) => s.dayOfWeek === today)
-      .map((s: any) => {
-        const [h, m] = s.startTime.split(":").map(Number);
-        const startMin = h * 60 + m;
-        const [eh, em] = s.endTime.split(":").map(Number);
-        const endMin = eh * 60 + em;
-        return { ...s, className: e.class.name, classId: e.classId, teacherName: e.class.teacher.user.name, startMin, endMin, isNow: nowMinutes >= startMin && nowMinutes <= endMin, isPast: nowMinutes > endMin, isLive: e.class.liveSessions.length > 0 };
-      })
-  ).sort((a, b) => a.startMin - b.startMin);
-
-  // All announcements flattened
-  const allAnnouncements = enrollments.flatMap((e) =>
-    e.class.announcements.map((a: any) => ({ ...a, className: e.class.name }))
-  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 15);
+  // Auto-open first live class
+  useEffect(() => {
+    const live = sorted.find((e) => e.class.liveSessions?.length > 0);
+    if (live && !activeClassroom) setActiveClassroom(live.class.id);
+  }, [sorted]);
 
   return (
     <div className="space-y-6">
-      {/* Today's Schedule Bar */}
-      <div className="card bg-gradient-to-r from-brand-600 to-brand-700 text-white border-0">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar className="w-5 h-5" />
-          <h2 className="text-sm font-bold">Today&apos;s Classes — {DAY_SHORT[new Date().getDay()]}, {now.toLocaleDateString(undefined, { month: "long", day: "numeric" })}</h2>
-        </div>
-        {upcomingToday.length === 0 ? (
-          <p className="text-brand-200 text-xs">No classes scheduled today. Enjoy your free time!</p>
-        ) : (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {upcomingToday.map((cls, i) => (
-              <div key={i} className={`flex-shrink-0 p-3 rounded-xl min-w-[160px] ${
-                cls.isLive ? "bg-red-500/30 border border-red-300" :
-                cls.isNow ? "bg-white/20 border border-white/30" :
-                cls.isPast ? "bg-white/10 opacity-60" :
-                "bg-white/10"
-              }`}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  {cls.isLive && <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />}
-                  <p className="text-[10px] text-brand-200">{cls.startTime} — {cls.endTime}</p>
-                </div>
-                <p className="text-xs font-semibold truncate">{cls.className}</p>
-                <p className="text-[10px] text-brand-300">{cls.teacherName}</p>
-                {cls.isLive && <span className="text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-full mt-1 inline-block">🔴 LIVE NOW</span>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Alarm System */}
+      <ClassAlarm schedules={alarmSchedules} isKG={isKG} />
 
-      {/* Live Classes — Prominent */}
-      {enrollments.filter(e => e.class.liveSessions.length > 0).map((e) => {
-        const live = e.class.liveSessions[0];
-        const attended = isAttendedToday(e.classId);
-        const attStatus = getAttendanceStatus(e.classId);
-        const result = joinResult[e.classId];
-
+      {/* Active Visual Classroom */}
+      {activeClassroom && (() => {
+        const enrollment = enrollments.find((e: any) => e.class.id === activeClassroom);
+        if (!enrollment) return null;
+        const cls = enrollment.class;
+        const isLive = cls.liveSessions?.length > 0;
+        const students = (cls.enrollments || []).map((en: any) => ({
+          id: en.student?.id || en.studentId,
+          name: en.student?.user?.name || "Student",
+          image: en.student?.user?.image,
+        }));
         return (
-          <div key={e.classId} className="card border-2 border-red-300 bg-red-50/50 animate-pulse-slow">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-red-500 text-white flex items-center justify-center flex-shrink-0">
-                <Play className="w-7 h-7" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                  <h3 className="text-base font-bold text-gray-800">{e.class.name} — LIVE</h3>
-                </div>
-                <p className="text-xs text-gray-500">Teacher: {e.class.teacher.user.name}{live.topic ? ` • Topic: ${live.topic}` : ""}</p>
-                {live.startedAt && <p className="text-[10px] text-gray-400">Started: {new Date(live.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>}
-              </div>
-              <div className="flex flex-col gap-1">
-                {attended || result ? (
-                  <div className={`text-xs px-3 py-2 rounded-xl font-medium flex items-center gap-1.5 ${
-                    (attStatus === "PRESENT" || result === "PRESENT") ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                  }`}>
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    {attStatus === "PRESENT" || result === "PRESENT" ? "Joined ✓" : "Joined (Late)"}
-                  </div>
-                ) : (
-                  <button onClick={() => handleJoin(e.classId)} disabled={loading === e.classId}
-                    className="text-sm px-5 py-2.5 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-200 flex items-center gap-2">
-                    {loading === e.classId ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Play className="w-4 h-4" /> Join Class</>}
-                  </button>
-                )}
-              </div>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className={`font-bold ${isKG ? "text-xl text-amber-800" : "text-sm text-gray-700"}`}>
+                {isKG ? "🏫 " : ""}Active Classroom
+              </h2>
+              <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">
+                Leave Classroom
+              </button>
             </div>
+            <VisualClassroom
+              classId={cls.id}
+              className={cls.name}
+              subjectName={cls.subject?.name || cls.name}
+              teacherName={cls.teacher?.user?.name || "Teacher"}
+              teacherImage={cls.teacher?.user?.image}
+              students={students}
+              isTeacher={false}
+              isLive={isLive}
+              topic={cls.liveSessions?.[0]?.topic}
+              isKG={isKG}
+            />
           </div>
         );
-      })}
+      })()}
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* My Classes */}
-        <div className="lg:col-span-2 space-y-3">
-          <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2"><BookOpen className="w-4 h-4 text-brand-600" /> My Classes</h2>
-          {sorted.map((e) => {
-            const isLive = e.class.liveSessions.length > 0;
-            const todaySchedule = e.class.schedules.filter((s: any) => s.dayOfWeek === today);
-            const isExp = expanded === e.classId;
-            const attended = isAttendedToday(e.classId);
-            const attStatus = getAttendanceStatus(e.classId);
+      {/* Class List */}
+      <div>
+        <h2 className={`font-bold mb-3 ${isKG ? "text-xl text-gray-800" : "text-sm text-gray-700"}`}>
+          {isKG ? "📚 My Classes" : "My Classes"}
+        </h2>
+        {sorted.length === 0 ? (
+          <div className={`card text-center py-12 ${isKG ? "bg-yellow-50 border-yellow-200" : ""}`}>
+            <BookOpen className={`w-12 h-12 mx-auto mb-3 ${isKG ? "text-yellow-400" : "text-gray-300"}`} />
+            <p className={isKG ? "text-lg font-bold text-gray-600" : "text-gray-500"}>
+              {isKG ? "No classes yet! Ask your teacher 🙋" : "No enrolled classes yet."}
+            </p>
+            <Link href="/student/subjects" className={`mt-4 inline-block ${isKG ? "bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full font-bold text-lg" : "btn-primary text-sm"}`}>
+              {isKG ? "Find Classes 🔍" : "Browse Subjects"}
+            </Link>
+          </div>
+        ) : (
+          <div className={`${isKG ? "grid md:grid-cols-2 gap-4" : "space-y-3"}`}>
+            {sorted.map((e: any) => {
+              const cls = e.class;
+              const isLive = cls.liveSessions?.length > 0;
+              const todaySchedules = cls.schedules?.filter((s: any) => s.dayOfWeek === today) || [];
+              const attended = isAttended(cls.id);
+              const status = getStatus(cls.id);
+              const joined = joinResult[cls.id];
 
-            return (
-              <div key={e.id} className={`card ${isLive ? "border-red-200" : ""}`}>
-                <div className="flex items-center gap-3">
-                  {e.class.teacher.user.image ? (
-                    <img src={e.class.teacher.user.image} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-gray-200" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white flex items-center justify-center text-xs font-bold">
-                      {e.class.teacher.user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+              if (isKG) {
+                // Big colorful KG cards
+                const subjectEmojis: Record<string, string> = {
+                  Mathematics: "🔢", English: "📖", Science: "🔬", Art: "🎨",
+                  Music: "🎵", "Physical Education": "⚽", default: "📚",
+                };
+                const emoji = Object.entries(subjectEmojis).find(([k]) =>
+                  (cls.subject?.name || cls.name).toLowerCase().includes(k.toLowerCase())
+                )?.[1] || subjectEmojis.default;
+
+                return (
+                  <div key={e.id} onClick={() => setActiveClassroom(cls.id)}
+                    className={`rounded-2xl p-5 border-2 shadow-md cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] ${
+                      isLive ? "bg-red-50 border-red-300 ring-2 ring-red-400 animate-pulse" :
+                      todaySchedules.length > 0 ? "bg-white border-blue-300" : "bg-gray-50 border-gray-200"
+                    }`}>
+                    <div className="flex items-center gap-4">
+                      <div className="text-5xl">{emoji}</div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-extrabold text-gray-800">{cls.subject?.name || cls.name}</h3>
+                        <p className="text-sm text-gray-500">Teacher {cls.teacher?.user?.name?.split(" ")[0]}</p>
+                        {isLive && (
+                          <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">
+                            🔴 LIVE NOW
+                          </span>
+                        )}
+                        {attended && <span className="text-xs text-emerald-600 font-bold mt-1 block">✅ Attended!</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Regular card
+              const isExp = expanded === cls.id;
+              return (
+                <div key={e.id} className={`card transition-all ${isLive ? "ring-2 ring-red-400 border-red-200" : ""}`}>
+                  <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpanded(isExp ? null : cls.id)}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      isLive ? "bg-red-100 text-red-600" : todaySchedules.length > 0 ? "bg-brand-100 text-brand-600" : "bg-gray-100 text-gray-500"
+                    }`}>
+                      {isLive ? <Play className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
+                        {isLive && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
+                        {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
+                      </div>
+                      <p className="text-[10px] text-gray-500">{cls.teacher?.user?.name} • {cls._count?.enrollments || 0} students</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isLive && !attended && (
+                        <button onClick={(ev) => { ev.stopPropagation(); handleJoin(cls.id); setActiveClassroom(cls.id); }}
+                          disabled={!!loading} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 animate-pulse">
+                          {loading === cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
+                        </button>
+                      )}
+                      <button onClick={(ev) => { ev.stopPropagation(); setActiveClassroom(cls.id); }}
+                        className="text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-brand-50">
+                        Enter
+                      </button>
+                      {isExp ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                    </div>
+                  </div>
+
+                  {isExp && (
+                    <div className="mt-3 pt-3 border-t space-y-3">
+                      {/* Schedule */}
+                      {cls.schedules?.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {cls.schedules.sort((a:any,b:any) => DAYS.indexOf(a.dayOfWeek) - DAYS.indexOf(b.dayOfWeek)).map((s:any, i:number) => (
+                            <span key={i} className={`text-[10px] px-2 py-1 rounded-lg ${s.dayOfWeek === today ? "bg-brand-100 text-brand-700 font-bold" : "bg-gray-100 text-gray-600"}`}>
+                              {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {s.startTime}-{s.endTime}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* Announcements */}
+                      {cls.announcements?.length > 0 && (
+                        <div className="space-y-1">
+                          <h5 className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1"><Megaphone className="w-3 h-3" /> Announcements</h5>
+                          {cls.announcements.slice(0, 3).map((a: any) => (
+                            <div key={a.id} className="text-xs bg-amber-50 p-2 rounded-lg">
+                              <span className="font-medium text-amber-800">{a.title}</span>
+                              <span className="text-gray-500 ml-1">— {a.content?.slice(0, 80)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Quick links */}
+                      <div className="flex gap-2">
+                        <Link href="/student/materials" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
+                          <FolderOpen className="w-3 h-3" /> Materials ({cls._count?.materials || 0})
+                        </Link>
+                        <Link href="/student/grades" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
+                          <BookOpen className="w-3 h-3" /> Grades
+                        </Link>
+                      </div>
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-800 truncate">{e.class.name}</p>
-                      {isLive && <span className="text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">LIVE</span>}
-                      {attended && <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${attStatus === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{attStatus}</span>}
-                    </div>
-                    <p className="text-[10px] text-gray-500">{e.class.teacher.user.name} • {e.class.schoolGrade.gradeLevel} • {e.class._count.enrollments} students</p>
-                    {todaySchedule.length > 0 && (
-                      <p className="text-[10px] text-brand-600 font-medium">
-                        Today: {todaySchedule.map((s: any) => `${s.startTime}–${s.endTime}`).join(", ")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Link href={`/student/materials?classId=${e.classId}`} className="text-[10px] px-2 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200">
-                      <FolderOpen className="w-3 h-3" />
-                    </Link>
-                    <button onClick={() => setExpanded(isExp ? null : e.classId)} className="text-gray-400 p-1">
-                      {isExp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  </div>
                 </div>
-
-                {isExp && (
-                  <div className="mt-3 pt-3 border-t space-y-3">
-                    {/* Schedule */}
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Weekly Schedule</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {e.class.schedules.sort((a: any, b: any) => DAYS.indexOf(a.dayOfWeek) - DAYS.indexOf(b.dayOfWeek)).map((s: any) => (
-                          <span key={s.id} className={`text-[10px] px-2 py-1 rounded-lg ${s.dayOfWeek === today ? "bg-brand-100 text-brand-700 font-bold" : "bg-gray-100 text-gray-600"}`}>
-                            {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {s.startTime}–{s.endTime}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Recent announcements */}
-                    {e.class.announcements.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Recent Announcements</p>
-                        {e.class.announcements.slice(0, 3).map((a: any) => (
-                          <div key={a.id} className="p-2 bg-amber-50 rounded-lg mb-1 border border-amber-100">
-                            <p className="text-xs font-medium text-gray-800">{a.title}</p>
-                            <p className="text-[10px] text-gray-600 mt-0.5">{a.content}</p>
-                            <p className="text-[9px] text-gray-400 mt-0.5">{a.teacher.user.name} • {new Date(a.createdAt).toLocaleDateString()}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Stats */}
-                    <div className="flex gap-3 text-[10px] text-gray-500">
-                      <span>{e.class._count.materials} materials</span>
-                      <span>{e.class._count.enrollments} classmates</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {enrollments.length === 0 && (
-            <div className="card text-center py-10">
-              <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">No enrolled classes yet.</p>
-              <Link href="/student/teachers" className="text-xs text-brand-600 hover:underline mt-1 inline-block">Browse & join classes →</Link>
-            </div>
-          )}
-        </div>
-
-        {/* Announcements Feed */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2"><Bell className="w-4 h-4 text-amber-600" /> Announcements</h2>
-          {allAnnouncements.length === 0 ? (
-            <div className="card text-center py-8">
-              <Megaphone className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-xs text-gray-400">No announcements yet.</p>
-            </div>
-          ) : (
-            allAnnouncements.map((a) => (
-              <div key={a.id} className={`card border-l-4 ${
-                a.type === "URGENT" ? "border-l-red-500 bg-red-50/30" :
-                a.type === "CLASS_REMINDER" ? "border-l-blue-500 bg-blue-50/30" :
-                "border-l-amber-400"
-              }`}>
-                <div className="flex items-start gap-2">
-                  {a.type === "URGENT" ? <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" /> :
-                   a.type === "CLASS_REMINDER" ? <Clock className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" /> :
-                   <Megaphone className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />}
-                  <div>
-                    <p className="text-xs font-semibold text-gray-800">{a.title}</p>
-                    <p className="text-[10px] text-gray-600 mt-0.5">{a.content}</p>
-                    <p className="text-[9px] text-gray-400 mt-1">{a.className} • {new Date(a.createdAt).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

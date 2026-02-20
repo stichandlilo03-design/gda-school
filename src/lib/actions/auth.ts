@@ -1,189 +1,134 @@
 "use server";
 
-import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { db } from "@/lib/db";
 import { generateSlug } from "@/lib/utils";
+import {
+  studentRegisterSchema,
+  teacherRegisterSchema,
+  principalRegisterSchema,
+  type StudentRegisterInput,
+  type TeacherRegisterInput,
+  type PrincipalRegisterInput,
+} from "@/lib/validations";
 
 // ============================================================
-// REGISTER STUDENT — picks school, status = PENDING
+// STUDENT REGISTRATION
 // ============================================================
-export async function registerStudent(data: {
-  name: string;
-  email: string;
-  password: string;
-  phone?: string;
-  countryCode: string;
-  gradeLevel: string;
-  preferredSession: string;
-  dateOfBirth?: string;
-  parentName?: string;
-  parentEmail?: string;
-  parentPhone?: string;
-  schoolId: string;
-}) {
-  try {
-    const existing = await db.user.findUnique({ where: { email: data.email.toLowerCase() } });
-    if (existing) return { error: "Email already registered" };
+export async function registerStudent(input: StudentRegisterInput) {
+  const validated = studentRegisterSchema.parse(input);
 
-    const school = await db.school.findUnique({ where: { id: data.schoolId } });
-    if (!school) return { error: "Selected school not found" };
-
-    const hashedPassword = await bcrypt.hash(data.password, 12);
-
-    const user = await db.user.create({
-      data: {
-        name: data.name,
-        email: data.email.toLowerCase(),
-        password: hashedPassword,
-        phone: data.phone || null,
-        role: "STUDENT",
-        countryCode: data.countryCode,
-      },
-    });
-
-    await db.student.create({
-      data: {
-        userId: user.id,
-        schoolId: data.schoolId,
-        gradeLevel: data.gradeLevel as any,
-        preferredSession: (data.preferredSession as any) || "SESSION_A",
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-        parentName: data.parentName || null,
-        parentEmail: data.parentEmail || null,
-        parentPhone: data.parentPhone || null,
-        approvalStatus: "PENDING",
-      },
-    });
-
-    return { success: true, message: "Registration submitted! Your application is pending approval by the school principal." };
-  } catch (error: any) {
-    return { error: error.message || "Registration failed" };
+  const existing = await db.user.findUnique({ where: { email: validated.email.toLowerCase() } });
+  if (existing) {
+    return { error: "An account with this email already exists" };
   }
+
+  const school = await db.school.findUnique({ where: { id: validated.schoolId } });
+  if (!school) {
+    return { error: "School not found" };
+  }
+
+  const hashedPassword = await bcrypt.hash(validated.password, 12);
+
+  const user = await db.user.create({
+    data: {
+      name: validated.name,
+      email: validated.email.toLowerCase(),
+      password: hashedPassword,
+      phone: validated.phone,
+      role: "STUDENT",
+      countryCode: validated.countryCode,
+      student: {
+        create: {
+          schoolId: validated.schoolId,
+          gradeLevel: validated.gradeLevel as any,
+          parentName: validated.parentName,
+          parentEmail: validated.parentEmail || null,
+          parentPhone: validated.parentPhone,
+          dateOfBirth: validated.dateOfBirth ? new Date(validated.dateOfBirth) : null,
+          preferredSession: validated.preferredSession as any,
+        },
+      },
+    },
+  });
+
+  return { success: true, userId: user.id };
 }
 
 // ============================================================
-// REGISTER TEACHER — subjects, grades, optional school
+// TEACHER REGISTRATION
 // ============================================================
-export async function registerTeacher(data: {
-  name: string;
-  email: string;
-  password: string;
-  countryCode: string;
-  bio: string;
-  yearsExperience: number;
-  teachingStyle: string;
-  qualifications: string[];
-  subjects?: string[];
-  preferredGrades?: string[];
-  schoolId?: string;
-}) {
-  try {
-    const existing = await db.user.findUnique({ where: { email: data.email.toLowerCase() } });
-    if (existing) return { error: "Email already registered" };
+export async function registerTeacher(input: TeacherRegisterInput) {
+  const validated = teacherRegisterSchema.parse(input);
 
-    const hashedPassword = await bcrypt.hash(data.password, 12);
-
-    const user = await db.user.create({
-      data: {
-        name: data.name,
-        email: data.email.toLowerCase(),
-        password: hashedPassword,
-        role: "TEACHER",
-        countryCode: data.countryCode,
-      },
-    });
-
-    const teacher = await db.teacher.create({
-      data: {
-        userId: user.id,
-        bio: data.bio,
-        yearsExperience: data.yearsExperience,
-        teachingStyle: data.teachingStyle,
-        qualifications: data.qualifications,
-        subjects: data.subjects || [],
-        preferredGrades: data.preferredGrades || [],
-      },
-    });
-
-    if (data.schoolId) {
-      const school = await db.school.findUnique({ where: { id: data.schoolId } });
-      if (school) {
-        await db.schoolTeacher.create({
-          data: {
-            teacherId: teacher.id,
-            schoolId: data.schoolId,
-            status: "PENDING",
-            requestedBy: "TEACHER",
-            subjectsAppliedFor: data.subjects || [],
-          },
-        });
-      }
-    }
-
-    return {
-      success: true,
-      message: data.schoolId
-        ? "Registration complete! Your request to join the school is pending principal approval."
-        : "Registration complete! You can now request to join a school from your dashboard.",
-    };
-  } catch (error: any) {
-    return { error: error.message || "Registration failed" };
+  const existing = await db.user.findUnique({ where: { email: validated.email.toLowerCase() } });
+  if (existing) {
+    return { error: "An account with this email already exists" };
   }
+
+  const hashedPassword = await bcrypt.hash(validated.password, 12);
+
+  const user = await db.user.create({
+    data: {
+      name: validated.name,
+      email: validated.email.toLowerCase(),
+      password: hashedPassword,
+      phone: validated.phone,
+      role: "TEACHER",
+      countryCode: validated.countryCode,
+      teacher: {
+        create: {
+          bio: validated.bio,
+          yearsExperience: validated.yearsExperience,
+          teachingStyle: validated.teachingStyle,
+          qualifications: validated.qualifications,
+        },
+      },
+    },
+  });
+
+  return { success: true, userId: user.id };
 }
 
 // ============================================================
-// REGISTER PRINCIPAL — creates school
+// PRINCIPAL REGISTRATION (creates school + principal)
 // ============================================================
-export async function registerPrincipal(data: {
-  name: string;
-  email: string;
-  password: string;
-  phone?: string;
-  countryCode: string;
-  schoolName: string;
-  schoolMotto?: string;
-}) {
-  try {
-    const existing = await db.user.findUnique({ where: { email: data.email.toLowerCase() } });
-    if (existing) return { error: "Email already registered" };
+export async function registerPrincipal(input: PrincipalRegisterInput) {
+  const validated = principalRegisterSchema.parse(input);
 
-    const hashedPassword = await bcrypt.hash(data.password, 12);
-
-    const currencyMap: Record<string, string> = {
-      NG: "NGN", GH: "GHS", KE: "KES", ZA: "ZAR", US: "USD", GB: "GBP",
-      CA: "CAD", AU: "AUD", IN: "INR", EG: "EGP", TZ: "TZS", UG: "UGX",
-      ET: "ETB", CM: "XAF", SN: "XOF", RW: "RWF", ZM: "ZMW",
-    };
-
-    const user = await db.user.create({
-      data: {
-        name: data.name,
-        email: data.email.toLowerCase(),
-        password: hashedPassword,
-        phone: data.phone || null,
-        role: "PRINCIPAL",
-        countryCode: data.countryCode,
-      },
-    });
-
-    const slug = generateSlug(data.schoolName);
-
-    const school = await db.school.create({
-      data: {
-        name: data.schoolName,
-        slug,
-        motto: data.schoolMotto || null,
-        countryCode: data.countryCode,
-        currency: currencyMap[data.countryCode] || "USD",
-      },
-    });
-
-    await db.principal.create({
-      data: { userId: user.id, schoolId: school.id },
-    });
-
-    return { success: true };
-  } catch (error: any) {
-    return { error: error.message || "Registration failed" };
+  const existing = await db.user.findUnique({ where: { email: validated.email.toLowerCase() } });
+  if (existing) {
+    return { error: "An account with this email already exists" };
   }
+
+  const hashedPassword = await bcrypt.hash(validated.password, 12);
+  const slug = generateSlug(validated.schoolName) + "-" + Date.now().toString(36);
+
+  const user = await db.user.create({
+    data: {
+      name: validated.name,
+      email: validated.email.toLowerCase(),
+      password: hashedPassword,
+      phone: validated.phone,
+      role: "PRINCIPAL",
+      countryCode: validated.countryCode,
+    },
+  });
+
+  const school = await db.school.create({
+    data: {
+      name: validated.schoolName,
+      slug,
+      countryCode: validated.countryCode,
+      currency: validated.currency,
+      motto: validated.schoolMotto,
+      principal: {
+        create: {
+          userId: user.id,
+        },
+      },
+    },
+  });
+
+  return { success: true, userId: user.id, schoolId: school.id };
 }

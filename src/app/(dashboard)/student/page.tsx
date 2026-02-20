@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
+import KGDashboard from "@/components/kg-dashboard";
 import Link from "next/link";
 import {
   BookOpen, Users, Calendar, Award, Clock, TrendingUp,
@@ -22,6 +23,7 @@ export default async function StudentDashboard() {
         include: {
           class: {
             include: {
+              subject: true,
               teacher: { include: { user: { select: { name: true, image: true } } } },
               schedules: true,
               requirements: { orderBy: { createdAt: "asc" } },
@@ -114,6 +116,68 @@ export default async function StudentDashboard() {
       todaySchedule: e.class.schedules.find((s: any) => s.dayOfWeek === today),
     }))
     .sort((a: any, b: any) => (a.todaySchedule?.startTime || "").localeCompare(b.todaySchedule?.startTime || ""));
+
+  // KG Detection — ages 1-5 / Kindergarten grades
+  const isKG = ["K1", "K2", "K3"].includes(student.gradeLevel);
+
+  if (isKG) {
+    // Get live sessions for KG dashboard
+    const liveSessions = await db.liveClassSession.findMany({
+      where: {
+        status: "IN_PROGRESS",
+        classId: { in: student.enrollments.map((e) => e.classId) },
+      },
+      include: {
+        class: {
+          include: {
+            subject: true,
+            teacher: { include: { user: { select: { name: true } } } },
+          },
+        },
+      },
+    });
+
+    // Attendance streak
+    const recentAtt = await db.attendanceRecord.findMany({
+      where: { studentId: student.id, status: "PRESENT" },
+      orderBy: { date: "desc" },
+      take: 30,
+    });
+    let streak = 0;
+    const dates = new Set(recentAtt.map((a) => a.date.toISOString().split("T")[0]));
+    const d = new Date();
+    for (let i = 0; i < 30; i++) {
+      const key = d.toISOString().split("T")[0];
+      if (dates.has(key)) streak++;
+      else if (i > 0) break;
+      d.setDate(d.getDate() - 1);
+    }
+
+    const recentGrades = await db.assessment.findMany({
+      where: { classId: { in: student.enrollments.map((e) => e.classId) } },
+      take: 5,
+      orderBy: { createdAt: "desc" },
+    });
+
+    const todayScheduleItems = todaysClasses.map((c: any) => ({
+      classId: c.id,
+      subjectName: c.subject?.name || c.name,
+      teacherName: c.teacher?.user?.name || "Teacher",
+      startTime: c.todaySchedule?.startTime || "",
+      endTime: c.todaySchedule?.endTime || "",
+    }));
+
+    return (
+      <KGDashboard
+        studentName={session.user.name}
+        enrollments={JSON.parse(JSON.stringify(student.enrollments))}
+        liveSessions={JSON.parse(JSON.stringify(liveSessions))}
+        todaySchedule={JSON.parse(JSON.stringify(todayScheduleItems))}
+        recentGrades={JSON.parse(JSON.stringify(recentGrades))}
+        attendanceStreak={streak}
+      />
+    );
+  }
 
   return (
     <>
