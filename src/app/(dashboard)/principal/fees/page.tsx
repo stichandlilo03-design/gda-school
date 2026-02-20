@@ -68,6 +68,7 @@ export default async function FeesPage() {
           currency={principal.school.currency}
           studentDebts={JSON.parse(JSON.stringify(studentDebts))}
           pendingPaymentsCount={pendingPayments.length}
+          countryCode={principal.school.countryCode}
         />
       </div>
     </>

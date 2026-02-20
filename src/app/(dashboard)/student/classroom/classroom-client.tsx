@@ -10,16 +10,18 @@ import {
 import Link from "next/link";
 import ClassAlarm from "@/components/class-alarm";
 import VisualClassroom from "@/components/visual-classroom";
+import { getGradeLabelForCountry } from "@/lib/education-systems";
 
 const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
 const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 export default function StudentClassroomClient({
   enrollments, todayAttendance, studentId, studentName, studentGrade, isKG = false,
-  sessionDurationMin, breakDurationMin,
+  sessionDurationMin, breakDurationMin, countryCode,
 }: {
   enrollments: any[]; todayAttendance: any[]; studentId: string; studentName: string;
   studentGrade: string; isKG?: boolean; sessionDurationMin: number; breakDurationMin: number;
+  countryCode: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
@@ -132,8 +134,8 @@ export default function StudentClassroomClient({
         if (cls.schoolGrade?.gradeLevel !== studentGrade) {
           return (
             <div className="card text-center py-8 border-red-200 bg-red-50">
-              <p className="text-red-600 font-bold">⚠️ This class is for Grade {cls.schoolGrade?.gradeLevel}</p>
-              <p className="text-xs text-red-400 mt-1">You are in Grade {studentGrade}. You cannot join this class.</p>
+              <p className="text-red-600 font-bold">⚠️ This class is for {getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</p>
+              <p className="text-xs text-red-400 mt-1">You are in {getGradeLabelForCountry(studentGrade, countryCode)}. You cannot join this class.</p>
               <button onClick={() => setActiveClassroom(null)} className="mt-3 btn-ghost text-xs">Close</button>
             </div>
           );
@@ -150,7 +152,7 @@ export default function StudentClassroomClient({
             <div className="flex items-center justify-between mb-3">
               <h2 className={`font-bold ${isKG ? "text-xl text-amber-800" : "text-sm text-gray-700"}`}>
                 {isKG ? "🏫 " : ""}Active Classroom
-                <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{cls.schoolGrade?.gradeLevel}</span>
+                <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
                 {isLive && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
               </h2>
               <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">Leave</button>
@@ -178,7 +180,7 @@ export default function StudentClassroomClient({
       {/* Class List */}
       <div>
         <h2 className={`font-bold mb-3 ${isKG ? "text-xl text-gray-800" : "text-sm text-gray-700"}`}>
-          {isKG ? "📚 My Classes" : `My Classes (Grade ${studentGrade})`}
+          {isKG ? "📚 My Classes" : `My Classes (${getGradeLabelForCountry(studentGrade, countryCode)})`}
         </h2>
         {sorted.length === 0 ? (
           <div className={`card text-center py-12 ${isKG ? "bg-yellow-50 border-yellow-200" : ""}`}>
@@ -210,7 +212,7 @@ export default function StudentClassroomClient({
                       <div className="flex-1">
                         <h3 className="text-lg font-extrabold text-gray-800">{cls.subject?.name || cls.name}</h3>
                         <p className="text-sm text-gray-500">Teacher {cls.teacher?.user?.name?.split(" ")[0]}</p>
-                        {!isMyGrade && <span className="text-xs text-red-500 font-bold">Not your grade ({cls.schoolGrade?.gradeLevel})</span>}
+                        {!isMyGrade && <span className="text-xs text-red-500 font-bold">Not your level ({getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)})</span>}
                         {isLive && isMyGrade && <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">🔴 LIVE NOW</span>}
                         {attended && <span className="text-xs text-emerald-600 font-bold mt-1 block">✅ Attended!</span>}
                       </div>
@@ -229,7 +231,7 @@ export default function StudentClassroomClient({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
-                        <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{cls.schoolGrade?.gradeLevel}</span>
+                        <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
                         {isLive && isMyGrade && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
                         {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
                         {!isMyGrade && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Wrong Grade</span>}

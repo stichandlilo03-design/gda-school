@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, Loader2, ChevronRight, ChevronLeft, Plus, X } from "lucide-react";
 import { registerTeacher } from "@/lib/actions/auth";
+import { getAllCountries } from "@/lib/education-systems";
 
-const COUNTRIES = [
-  { code: "NG", name: "Nigeria" }, { code: "KE", name: "Kenya" }, { code: "GH", name: "Ghana" },
-  { code: "ZA", name: "South Africa" }, { code: "GB", name: "United Kingdom" }, { code: "US", name: "United States" },
-  { code: "IN", name: "India" }, { code: "CA", name: "Canada" }, { code: "AU", name: "Australia" },
-];
+const COUNTRIES = getAllCountries();
 
 export default function TeacherRegisterPage() {
   const router = useRouter();
@@ -110,7 +107,7 @@ export default function TeacherRegisterPage() {
                   <label className="label">Country *</label>
                   <select className="input-field" value={form.countryCode} onChange={(e) => update("countryCode", e.target.value)} required>
                     <option value="">Select country</option>
-                    {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                    {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
                   </select>
                 </div>
                 <button type="button" onClick={nextStep} className="btn-primary w-full mt-2" style={{ background: "#059669" }}>

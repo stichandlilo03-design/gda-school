@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import StudentClassroomClient from "./classroom-client";
+import { getGradeLabelForCountry } from "@/lib/education-systems";
 
 export default async function StudentClassroomPage() {
   const session = await getServerSession(authOptions);
@@ -11,7 +12,7 @@ export default async function StudentClassroomPage() {
   const student = await db.student.findUnique({
     where: { userId: session.user.id },
     include: {
-      school: { select: { sessionDurationMin: true, breakDurationMin: true, sessionsPerDay: true } },
+      school: { select: { sessionDurationMin: true, breakDurationMin: true, sessionsPerDay: true, countryCode: true } },
       enrollments: {
         where: { status: "ACTIVE" },
         include: {
@@ -51,7 +52,7 @@ export default async function StudentClassroomPage() {
     <>
       <DashboardHeader
         title={isKG ? "🏫 My Classroom" : "My Classroom"}
-        subtitle={isKG ? "Join your class and learn!" : `Grade ${student.gradeLevel} — Join live classes & view announcements`}
+        subtitle={isKG ? "Join your class and learn!" : `${getGradeLabelForCountry(student.gradeLevel, student.school?.countryCode || "")} — Join live classes & view announcements`}
       />
       <div className="p-6 lg:p-8">
         <StudentClassroomClient
@@ -63,6 +64,7 @@ export default async function StudentClassroomPage() {
           isKG={isKG}
           sessionDurationMin={student.school?.sessionDurationMin || 40}
           breakDurationMin={student.school?.breakDurationMin || 10}
+          countryCode={student.school?.countryCode || "NG"}
         />
       </div>
     </>

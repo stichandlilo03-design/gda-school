@@ -5,20 +5,14 @@ import { setFeeStructure } from "@/lib/actions/school";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, DollarSign, Save, Edit3, AlertTriangle, Users, TrendingDown, CreditCard, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { getGradeLabelForCountry } from "@/lib/education-systems";
 
 const TERMS = [{ value: "TERM_1", label: "Term 1" }, { value: "TERM_2", label: "Term 2" }, { value: "TERM_3", label: "Term 3" }];
 
-const GL: Record<string,string> = {
-  K1:"Kindergarten 1",K2:"Kindergarten 2",K3:"Kindergarten 3",
-  G1:"Grade 1",G2:"Grade 2",G3:"Grade 3",G4:"Grade 4",G5:"Grade 5",G6:"Grade 6",
-  G7:"Grade 7 (JSS1)",G8:"Grade 8 (JSS2)",G9:"Grade 9 (JSS3)",
-  G10:"Grade 10 (SS1)",G11:"Grade 11 (SS2)",G12:"Grade 12 (SS3)",
-};
-
 export default function FeeManager({
-  grades, fees, currency, studentDebts, pendingPaymentsCount,
+  grades, fees, currency, studentDebts, pendingPaymentsCount, countryCode = "NG",
 }: {
-  grades: any[]; fees: any[]; currency: string; studentDebts?: any[]; pendingPaymentsCount?: number;
+  grades: any[]; fees: any[]; currency: string; studentDebts?: any[]; pendingPaymentsCount?: number; countryCode?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
@@ -112,7 +106,7 @@ export default function FeeManager({
               <div>
                 <label className="label">Grade Level</label>
                 <select className="input-field" value={selectedGrade} onChange={(e) => { setSelectedGrade(e.target.value); loadExisting(e.target.value, selectedTerm); }}>
-                  {grades.map((g: any) => <option key={g.id} value={g.id}>{GL[g.gradeLevel] || g.gradeLevel}</option>)}
+                  {grades.map((g: any) => <option key={g.id} value={g.id}>{getGradeLabelForCountry(g.gradeLevel, countryCode)}</option>)}
                 </select>
               </div>
               <div>
@@ -169,7 +163,7 @@ export default function FeeManager({
                       const isEditing = editingFee === f.id;
                       return (
                         <tr key={f.id} className={`border-b border-gray-50 ${isEditing ? "bg-brand-50" : "hover:bg-gray-50"}`}>
-                          <td className="px-4 py-3 text-sm font-medium">{GL[f.schoolGrade.gradeLevel] || f.schoolGrade.gradeLevel}</td>
+                          <td className="px-4 py-3 text-sm font-medium">{getGradeLabelForCountry(f.schoolGrade.gradeLevel, countryCode)}</td>
                           <td className="px-4 py-3 text-sm">{f.term.replace("_", " ")}</td>
                           <td className="px-4 py-3 text-sm">{f.tuitionFee.toLocaleString()}</td>
                           <td className="px-4 py-3 text-sm">{f.registrationFee.toLocaleString()}</td>

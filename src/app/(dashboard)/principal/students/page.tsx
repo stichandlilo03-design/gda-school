@@ -8,7 +8,10 @@ export default async function StudentsPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
+  const principal = await db.principal.findUnique({
+    where: { userId: session.user.id },
+    include: { school: { select: { countryCode: true } } },
+  });
   if (!principal) return null;
 
   const students = await db.student.findMany({
@@ -24,7 +27,7 @@ export default async function StudentsPage() {
     <>
       <DashboardHeader title="Student Management" subtitle={`${students.length} students enrolled`} />
       <div className="p-6 lg:p-8">
-        <StudentManager students={JSON.parse(JSON.stringify(students))} />
+        <StudentManager students={JSON.parse(JSON.stringify(students))} countryCode={principal.school?.countryCode || "NG"} />
       </div>
     </>
   );

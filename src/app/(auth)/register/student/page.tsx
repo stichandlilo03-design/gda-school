@@ -5,36 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 import { registerStudent } from "@/lib/actions/auth";
+import { getEducationSystem, getAllCountries } from "@/lib/education-systems";
 
-const GRADE_LEVELS = [
-  { value: "K1", label: "Kindergarten 1" },
-  { value: "K2", label: "Kindergarten 2" },
-  { value: "K3", label: "Kindergarten 3" },
-  { value: "G1", label: "Grade 1 (Primary 1)" },
-  { value: "G2", label: "Grade 2 (Primary 2)" },
-  { value: "G3", label: "Grade 3 (Primary 3)" },
-  { value: "G4", label: "Grade 4 (Primary 4)" },
-  { value: "G5", label: "Grade 5 (Primary 5)" },
-  { value: "G6", label: "Grade 6 (Primary 6)" },
-  { value: "G7", label: "Grade 7 (JSS 1)" },
-  { value: "G8", label: "Grade 8 (JSS 2)" },
-  { value: "G9", label: "Grade 9 (JSS 3)" },
-  { value: "G10", label: "Grade 10 (SSS 1)" },
-  { value: "G11", label: "Grade 11 (SSS 2)" },
-  { value: "G12", label: "Grade 12 (SSS 3)" },
-];
-
-const COUNTRIES = [
-  { code: "NG", name: "Nigeria", currency: "NGN" },
-  { code: "KE", name: "Kenya", currency: "KES" },
-  { code: "GH", name: "Ghana", currency: "GHS" },
-  { code: "ZA", name: "South Africa", currency: "ZAR" },
-  { code: "GB", name: "United Kingdom", currency: "GBP" },
-  { code: "US", name: "United States", currency: "USD" },
-  { code: "IN", name: "India", currency: "INR" },
-  { code: "CA", name: "Canada", currency: "CAD" },
-  { code: "AU", name: "Australia", currency: "AUD" },
-];
+const COUNTRIES = getAllCountries();
 
 const SESSIONS = [
   { value: "SESSION_A", label: "Morning Session (06:00–10:00 UTC)", desc: "Best for Africa, Europe, Middle East" },
@@ -169,20 +142,37 @@ export default function StudentRegisterPage() {
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">School Information</h3>
                 <div>
                   <label className="label">Country *</label>
-                  <select className="input-field" value={form.countryCode} onChange={(e) => update("countryCode", e.target.value)} required>
+                  <select className="input-field" value={form.countryCode} onChange={(e) => { update("countryCode", e.target.value); update("gradeLevel", ""); }} required>
                     <option value="">Select your country</option>
                     {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code}>{c.name}</option>
+                      <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="label">Grade Level *</label>
-                  <select className="input-field" value={form.gradeLevel} onChange={(e) => update("gradeLevel", e.target.value)} required>
-                    <option value="">Select grade level</option>
-                    {GRADE_LEVELS.map((g) => (
-                      <option key={g.value} value={g.value}>{g.label}</option>
-                    ))}
+                  {form.countryCode ? (() => {
+                    const sys = getEducationSystem(form.countryCode);
+                    return (
+                      <>
+                        <p className="text-[10px] text-brand-600 mb-1">{sys.flag} {sys.systemName}</p>
+                        <select className="input-field" value={form.gradeLevel} onChange={(e) => update("gradeLevel", e.target.value)} required>
+                          <option value="">Select your level</option>
+                          {sys.levels.map((level) => (
+                            <optgroup key={level.section} label={level.section}>
+                              {level.grades.map((g) => (
+                                <option key={g.value} value={g.value}>{g.label} (Ages {g.ageRange})</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </>
+                    );
+                  })() : (
+                    <select className="input-field" disabled>
+                      <option>Select country first</option>
+                    </select>
+                  )}
                   </select>
                 </div>
                 <div>

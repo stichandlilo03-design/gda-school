@@ -5,13 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, Loader2, Building2 } from "lucide-react";
 import { registerPrincipal } from "@/lib/actions/auth";
+import { getAllCountries } from "@/lib/education-systems";
 
-const COUNTRIES = [
-  { code: "NG", name: "Nigeria", currency: "NGN" }, { code: "KE", name: "Kenya", currency: "KES" },
-  { code: "GH", name: "Ghana", currency: "GHS" }, { code: "ZA", name: "South Africa", currency: "ZAR" },
-  { code: "GB", name: "United Kingdom", currency: "GBP" }, { code: "US", name: "United States", currency: "USD" },
-  { code: "IN", name: "India", currency: "INR" }, { code: "CA", name: "Canada", currency: "CAD" },
-];
+const COUNTRIES = getAllCountries();
 
 export default function PrincipalRegisterPage() {
   const router = useRouter();
@@ -104,7 +100,7 @@ export default function PrincipalRegisterPage() {
               <label className="label">Country *</label>
               <select className="input-field" value={form.countryCode} onChange={(e) => update("countryCode", e.target.value)} required>
                 <option value="">Select country</option>
-                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.currency})</option>)}
+                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.name} ({c.currency})</option>)}
               </select>
             </div>
 

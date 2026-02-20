@@ -8,7 +8,10 @@ export default async function CurriculumPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
+  const principal = await db.principal.findUnique({
+    where: { userId: session.user.id },
+    include: { school: { select: { countryCode: true } } },
+  });
   if (!principal) return null;
 
   const grades = await db.schoolGrade.findMany({
@@ -23,7 +26,7 @@ export default async function CurriculumPage() {
     <>
       <DashboardHeader title="Curriculum" subtitle="Manage grade levels and subjects" />
       <div className="p-6 lg:p-8">
-        <CurriculumManager grades={JSON.parse(JSON.stringify(grades))} />
+        <CurriculumManager grades={JSON.parse(JSON.stringify(grades))} countryCode={principal.school?.countryCode || "NG"} />
       </div>
     </>
   );

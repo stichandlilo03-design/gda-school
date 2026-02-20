@@ -4,13 +4,9 @@ import { useState } from "react";
 import { suspendStudent, reinstateStudent } from "@/lib/actions/school";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Search, UserX, UserCheck, Loader2 } from "lucide-react";
+import { getGradeLabelForCountry } from "@/lib/education-systems";
 
-const GRADE_LABELS: Record<string,string> = {
-  K1:"K1",K2:"K2",K3:"K3",G1:"G1",G2:"G2",G3:"G3",G4:"G4",G5:"G5",G6:"G6",
-  G7:"G7",G8:"G8",G9:"G9",G10:"G10",G11:"G11",G12:"G12",
-};
-
-export default function StudentManager({ students }: { students: any[] }) {
+export default function StudentManager({ students, countryCode = "NG" }: { students: any[]; countryCode?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
   const [search, setSearch] = useState("");
@@ -87,7 +83,7 @@ export default function StudentManager({ students }: { students: any[] }) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3"><span className="badge-info">{s.gradeLevel}</span></td>
+                  <td className="px-4 py-3"><span className="badge-info">{getGradeLabelForCountry(s.gradeLevel, countryCode)}</span></td>
                   <td className="px-4 py-3 text-sm text-gray-600">{s.enrollments.length}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{s.preferredSession.replace("SESSION_", "")}</td>
                   <td className="px-4 py-3">

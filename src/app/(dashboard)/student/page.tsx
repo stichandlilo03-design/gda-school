@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import KGDashboard from "@/components/kg-dashboard";
 import Link from "next/link";
+import { getGradeLabelForCountry } from "@/lib/education-systems";
 import {
   BookOpen, Users, Calendar, Award, Clock, TrendingUp,
   ChevronRight, Play, CheckCircle, AlertCircle, CreditCard,
@@ -243,7 +244,7 @@ export default async function StudentDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: "Enrolled Classes", value: enrollmentCount, icon: BookOpen, color: "text-blue-600 bg-blue-100" },
-            { label: "Grade Level", value: student.gradeLevel, icon: TrendingUp, color: "text-emerald-600 bg-emerald-100" },
+            { label: "Grade Level", value: getGradeLabelForCountry(student.gradeLevel, student.school.countryCode), icon: TrendingUp, color: "text-emerald-600 bg-emerald-100" },
             { label: "Classmates", value: classmates.length, icon: Users, color: "text-purple-600 bg-purple-100" },
             { label: "Fees", value: student.feePaid ? "Paid ✓" : `${feePercent}%`, icon: CreditCard, color: student.feePaid ? "text-emerald-600 bg-emerald-100" : "text-amber-600 bg-amber-100" },
           ].map((stat, i) => (
@@ -589,7 +590,7 @@ export default async function StudentDashboard() {
                 )}
                 <div className="text-[10px] text-brand-300 space-y-0.5">
                   <p>Country: {student.school.countryCode} • Currency: {student.school.currency}</p>
-                  <p>Grade: {student.gradeLevel} • Session: {student.enrollments[0]?.class.session.replace("SESSION_", "Session ") || "—"}</p>
+                  <p>Grade: {getGradeLabelForCountry(student.gradeLevel, student.school.countryCode)} • Session: {student.enrollments[0]?.class.session.replace("SESSION_", "Session ") || "—"}</p>
                 </div>
               </div>
             )}
