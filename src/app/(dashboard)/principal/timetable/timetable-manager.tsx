@@ -58,9 +58,9 @@ const SESSION_SLOTS = [
   },
 ];
 
-interface Props { school: any; grades: any[] }
+interface Props { school: any; grades: any[]; schoolTeachers: any[] }
 
-export default function TimetableManager({ school, grades }: Props) {
+export default function TimetableManager({ school, grades, schoolTeachers }: Props) {
   const router = useRouter();
   const [selectedGrade, setSelectedGrade] = useState(grades[0]?.id || "");
   const [loading, setLoading] = useState("");
@@ -95,19 +95,36 @@ export default function TimetableManager({ school, grades }: Props) {
     classesBySession[slot].push(c);
   });
 
-  // Active session data
+  // Build schedule entries for ALL classes in this grade (not just active session)
+  const allGradeSchedules = allClasses.flatMap((c: any) =>
+    (c.schedules || []).map((s: any) => ({
+      ...s, className: c.name, subjectName: c.subject?.name || "",
+      teacherName: c.teacher?.user?.name || "", classId: c.id,
+      sessionSlot: c.session || "SESSION_A",
+      colorClass: subjectColorMap[c.id],
+    }))
+  );
+
+  // Active session schedules (for stats)
+  const activeSchedules = allGradeSchedules.filter((s: any) => s.sessionSlot === activeSession);
   const activeClasses = classesBySession[activeSession] || [];
   const slotInfo = SESSION_SLOTS.find(s => s.key === activeSession)!;
   const SlotIcon = slotInfo.icon;
 
-  // Build schedule entries for active session only
-  const activeSchedules = activeClasses.flatMap((c: any) =>
-    (c.schedules || []).map((s: any) => ({
-      ...s, className: c.name, subjectName: c.subject?.name || "",
-      teacherName: c.teacher?.user?.name || "", classId: c.id,
-      colorClass: subjectColorMap[c.id],
-    }))
-  );
+  // Build teacher overview: each teacher with ALL their classes/subjects across all grades
+  const teacherOverview = schoolTeachers.map((st: any) => ({
+    id: st.teacher.id,
+    name: st.teacher.user.name,
+    image: st.teacher.user.image,
+    classes: st.teacher.classes || [],
+    subjects: [...new Set((st.teacher.classes || []).map((c: any) => c.subject?.name || c.name))],
+    grades: [...new Set((st.teacher.classes || []).map((c: any) => c.schoolGrade?.gradeLevel))],
+    totalSchedules: (st.teacher.classes || []).reduce((s: number, c: any) => s + (c.schedules?.length || 0), 0),
+    assignedSubjects: st.assignedSubjects || [],
+  }));
+
+  // ALL classes for the selected grade (across all sessions) for Add Slot
+  const allGradeClasses = grade?.classes || [];
 
   // Count all schedules per session (for the boxes)
   const countSchedules = (key: string) => {
@@ -268,6 +285,51 @@ export default function TimetableManager({ school, grades }: Props) {
         )}
       </div>
 
+      {/* ════════════════════ TEACHER OVERVIEW ════════════════════ */}
+      {teacherOverview.length > 0 && (
+        <div className="card">
+          <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+            👩‍🏫 Your Teachers — {teacherOverview.length} teacher{teacherOverview.length !== 1 ? "s" : ""} across {allClasses.length} class{allClasses.length !== 1 ? "es" : ""}
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {teacherOverview.map((t: any) => (
+              <div key={t.id} className="p-3 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-white transition">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
+                    {t.name?.charAt(0) || "?"}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800">{t.name}</p>
+                    <p className="text-[9px] text-gray-400">{t.classes.length} class{t.classes.length !== 1 ? "es" : ""} · {t.totalSchedules} slots</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {t.classes.map((c: any) => {
+                    const sessLabel = c.session === "SESSION_B" ? "B" : c.session === "SESSION_C" ? "C" : "A";
+                    const sessColor = c.session === "SESSION_B" ? "bg-blue-100 text-blue-700" : c.session === "SESSION_C" ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700";
+                    return (
+                      <span key={c.id} className="text-[8px] px-1.5 py-0.5 rounded bg-white border border-gray-200">
+                        {c.subject?.name || c.name}
+                        <span className="text-gray-400"> · {c.schoolGrade?.gradeLevel}</span>
+                        <span className={`ml-0.5 text-[7px] px-1 rounded ${sessColor}`}>{sessLabel}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+                {t.classes.length === 0 && t.assignedSubjects.length > 0 && (
+                  <p className="text-[9px] text-amber-600 mt-1">📋 Applied for: {(t.assignedSubjects as string[]).join(", ")}</p>
+                )}
+              </div>
+            ))}
+          </div>
+          {teacherOverview.some((t: any) => t.classes.length >= 3) && (
+            <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-[10px] text-blue-700">
+              💡 <strong>Tip:</strong> Teachers with many subjects will have their classes automatically spread across different periods so they&apos;re never double-booked. The auto-generator handles this for you.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ════════════════════ SCHOOL HOURS ════════════════════ */}
       <div className="card">
         <button onClick={() => setShowSettings(!showSettings)} className="flex items-center justify-between w-full">
@@ -334,11 +396,12 @@ export default function TimetableManager({ school, grades }: Props) {
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {grades.map((g: any) => {
+            const totalCount = (g.classes || []).length;
             const sessCount = (g.classes || []).filter((c: any) => (c.session || "SESSION_A") === activeSession).length;
             return (
               <button key={g.id} onClick={() => setSelectedGrade(g.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${selectedGrade === g.id ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                {g.gradeLevel} <span className="text-[9px] opacity-70">({sessCount})</span>
+                {g.gradeLevel} <span className="text-[9px] opacity-70">({totalCount} · {sessCount} {slotInfo.shortLabel.split(" ")[0]})</span>
               </button>
             );
           })}
@@ -350,35 +413,41 @@ export default function TimetableManager({ school, grades }: Props) {
         </div>
       </div>
 
-      {/* Subjects legend for active session */}
-      {activeClasses.length > 0 && (
+      {/* Subjects legend for grade — all sessions */}
+      {allClasses.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {activeClasses.map((c: any) => (
-            <span key={c.id} className={`text-[10px] px-2.5 py-1 rounded-full border font-medium ${subjectColorMap[c.id]}`}>
-              {c.subject?.name || c.name} — {c.teacher?.user?.name?.split(" ")[0] || "?"}
-            </span>
-          ))}
+          {allClasses.map((c: any) => {
+            const sessLabel = (c.session || "SESSION_A") === "SESSION_B" ? "B" : (c.session || "SESSION_A") === "SESSION_C" ? "C" : "A";
+            const sessBg = (c.session || "SESSION_A") === "SESSION_B" ? "bg-blue-500" : (c.session || "SESSION_A") === "SESSION_C" ? "bg-purple-500" : "bg-amber-500";
+            const isActive = (c.session || "SESSION_A") === activeSession;
+            return (
+              <span key={c.id} className={`text-[10px] px-2.5 py-1 rounded-full border font-medium ${subjectColorMap[c.id]} ${!isActive ? "opacity-50" : ""}`}>
+                <span className={`inline-block w-3 text-center text-[7px] text-white rounded mr-1 ${sessBg}`}>{sessLabel}</span>
+                {c.subject?.name || c.name} — {c.teacher?.user?.name?.split(" ")[0] || "?"}
+              </span>
+            );
+          })}
         </div>
       )}
 
       {/* Empty states */}
       {!grade && <div className="card text-center py-12 text-gray-400">Select a grade above to view/edit its timetable.</div>}
-      {grade && activeClasses.length === 0 && (
+      {grade && allClasses.length === 0 && (
         <div className="card text-center py-12">
           <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-500 text-sm">No classes assigned to <strong>{slotInfo.label}</strong> for {grade.gradeLevel}.</p>
-          <p className="text-xs text-gray-400 mt-1">Classes are assigned to sessions (A/B/C) when created in Curriculum. Try clicking another session box above.</p>
+          <p className="text-gray-500 text-sm">No classes assigned for {grade.gradeLevel} yet.</p>
+          <p className="text-xs text-gray-400 mt-1">Go to Curriculum to assign teachers to subjects for this grade.</p>
         </div>
       )}
 
       {/* ════════════════════ TIMETABLE GRID ════════════════════ */}
-      {grade && activeClasses.length > 0 && (
+      {grade && allClasses.length > 0 && (
         <div className={`overflow-x-auto rounded-2xl border-2 ${slotInfo.border}`}>
           {/* Session header bar */}
           <div className={`${slotInfo.headerBg} px-4 py-2 flex items-center gap-2`}>
             <SlotIcon className={`w-4 h-4 ${slotInfo.headerText}`} />
             <span className={`text-xs font-bold ${slotInfo.headerText}`}>{slotInfo.label} — {grade.gradeLevel}</span>
-            <span className={`ml-auto text-[9px] ${slotInfo.headerText} opacity-80`}>{activeSchedules.length} slots · {activeClasses.length} subjects</span>
+            <span className={`ml-auto text-[9px] ${slotInfo.headerText} opacity-80`}>{allGradeSchedules.length} total slots · {activeSchedules.length} in this session · {allClasses.length} subjects</span>
           </div>
 
           <table className="w-full border-collapse min-w-[700px]">
@@ -401,14 +470,21 @@ export default function TimetableManager({ school, grades }: Props) {
                     )}
                   </td>
                   {!slot.isBreak && DAYS.slice(0, hours.sessionsPerDay >= 6 ? 6 : 5).map(day => {
-                    const entry = activeSchedules.find((s: any) => s.dayOfWeek === day && s.periodNumber === slot.period);
+                    const entry = allGradeSchedules.find((s: any) => s.dayOfWeek === day && s.periodNumber === slot.period);
+                    const isOtherSession = entry && entry.sessionSlot !== activeSession;
                     return (
                       <td key={day} className="p-1 border border-gray-200 align-top min-w-[120px]">
                         {entry ? (
-                          <div className={`p-2 rounded-lg border ${entry.colorClass} relative group`}>
+                          <div className={`p-2 rounded-lg border ${entry.colorClass} relative group ${isOtherSession ? "opacity-50" : ""}`}>
                             <p className="text-[11px] font-bold leading-tight">{entry.subjectName}</p>
                             <p className="text-[9px] opacity-70 mt-0.5">{entry.teacherName}</p>
                             <p className="text-[8px] opacity-50">{entry.startTime}–{entry.endTime}</p>
+                            {entry.sessionSlot && (
+                              <span className={`absolute top-0.5 left-0.5 text-[7px] px-1 rounded ${
+                                entry.sessionSlot === "SESSION_B" ? "bg-blue-500 text-white" :
+                                entry.sessionSlot === "SESSION_C" ? "bg-purple-500 text-white" : "bg-amber-500 text-white"
+                              }`}>{entry.sessionSlot === "SESSION_B" ? "B" : entry.sessionSlot === "SESSION_C" ? "C" : "A"}</span>
+                            )}
                             <button onClick={() => handleDeleteSlot(entry.classId, day, slot.period)}
                               className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center">
                               {loading === `del-${day}-${slot.period}` ? <Loader2 className="w-2 h-2 animate-spin" /> : <X className="w-2.5 h-2.5" />}
@@ -444,13 +520,44 @@ export default function TimetableManager({ school, grades }: Props) {
               <span className={`text-[9px] px-2 py-0.5 rounded-full ${slotInfo.badge}`}>{slotInfo.shortLabel}</span>
             </h3>
             <div>
-              <label className="label">Subject *</label>
+              <label className="label">Subject / Teacher *</label>
               <select className="input-field" value={slotForm.classId} onChange={e => setSlotForm(f => ({ ...f, classId: e.target.value }))}>
                 <option value="">Select subject...</option>
-                {activeClasses.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.subject?.name || c.name} — {c.teacher?.user?.name || "?"}</option>
-                ))}
+                {/* Group by teacher */}
+                {(() => {
+                  const teacherGroups: Record<string, any[]> = {};
+                  allGradeClasses.forEach((c: any) => {
+                    const tName = c.teacher?.user?.name || "Unassigned";
+                    if (!teacherGroups[tName]) teacherGroups[tName] = [];
+                    teacherGroups[tName].push(c);
+                  });
+                  return Object.entries(teacherGroups).map(([tName, cls]) => (
+                    <optgroup key={tName} label={`👩‍🏫 ${tName} (${cls.length} subject${cls.length !== 1 ? "s" : ""})`}>
+                      {cls.map((c: any) => {
+                        const sessLabel = c.session === "SESSION_B" ? " [B-PM]" : c.session === "SESSION_C" ? " [C-Eve]" : " [A-AM]";
+                        const isActive = (c.session || "SESSION_A") === activeSession;
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {c.subject?.name || c.name}{sessLabel}{!isActive ? " ⚠️ different session" : ""}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  ));
+                })()}
               </select>
+              {slotForm.classId && (() => {
+                const sel = allGradeClasses.find((c: any) => c.id === slotForm.classId);
+                if (sel && (sel.session || "SESSION_A") !== activeSession) {
+                  return (
+                    <p className="text-[10px] text-amber-600 mt-1">
+                      ⚠️ This class is in {sel.session === "SESSION_B" ? "Afternoon (B)" : sel.session === "SESSION_C" ? "Evening (C)" : "Morning (A)"} session.
+                      You&apos;re viewing {slotInfo.shortLabel}. It will still be added to the timetable.
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="label">Start Time</label><input type="time" className="input-field" value={slotForm.startTime} onChange={e => setSlotForm(f => ({ ...f, startTime: e.target.value }))} /></div>

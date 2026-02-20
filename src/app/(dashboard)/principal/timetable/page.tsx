@@ -33,6 +33,26 @@ export default async function TimetablePage() {
 
   if (!principal) return <div className="p-8">Not found.</div>;
 
+  // Fetch all teachers in the school with their classes across ALL grades
+  const schoolTeachers = await db.schoolTeacher.findMany({
+    where: { schoolId: principal.schoolId, isActive: true, status: "APPROVED" },
+    include: {
+      teacher: {
+        include: {
+          user: { select: { name: true, image: true } },
+          classes: {
+            where: { isActive: true, schoolGrade: { schoolId: principal.schoolId } },
+            include: {
+              subject: true,
+              schoolGrade: { select: { gradeLevel: true, id: true } },
+              schedules: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
   return (
     <>
       <DashboardHeader title="School Timetable" subtitle="Create and manage weekly timetables for each grade" />
@@ -40,6 +60,7 @@ export default async function TimetablePage() {
         <TimetableManager
           school={JSON.parse(JSON.stringify(principal.school))}
           grades={JSON.parse(JSON.stringify(principal.school.grades))}
+          schoolTeachers={JSON.parse(JSON.stringify(schoolTeachers))}
         />
       </div>
     </>
