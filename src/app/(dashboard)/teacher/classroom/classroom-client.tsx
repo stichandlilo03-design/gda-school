@@ -10,7 +10,7 @@ import { to12h } from "@/lib/time-utils";
 import {
   Play, Square, Users, Clock, CheckCircle, XCircle, AlertTriangle,
   Loader2, Megaphone, Bell, ChevronDown, ChevronUp, Send, Trash2,
-  BookOpen, UserCheck, FolderOpen, Monitor, Coffee, UserX
+  BookOpen, UserCheck, FolderOpen, Monitor, Coffee, UserX, Settings
 } from "lucide-react";
 import Link from "next/link";
 import VisualClassroom from "@/components/visual-classroom";
@@ -107,6 +107,22 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     setLoading("");
   };
 
+  const handleStartPrep = async (classId: string) => {
+    setLoading("prep-" + classId);
+    setClassMessage("");
+    const result = await startLiveClass(classId, topicInput || "Class Preparation", true);
+    setTopicInput("");
+    if (result.error) {
+      setClassMessage(result.error);
+    } else if (result.sessionId) {
+      setActiveVisual(classId);
+      setActiveSessionId(result.sessionId);
+      setClassMessage("📋 Prep session started — no payment will be generated. Students can join to prepare.");
+    }
+    router.refresh();
+    setLoading("");
+  };
+
   const handleEndClass = async (sessionId: string) => {
     if (!confirm("End this live session?")) return;
     setLoading("end-" + sessionId);
@@ -195,8 +211,8 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                <Monitor className="w-4 h-4" /> Teaching — {cls.subject?.name || cls.name}
-                <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
+                <Monitor className="w-4 h-4" /> {cls.liveSessions?.[0]?.isPrep ? "Prep —" : "Teaching —"} {cls.subject?.name || cls.name}
+                <span className={`text-[10px] text-white px-2 py-0.5 rounded-full ${cls.liveSessions?.[0]?.isPrep ? "bg-amber-500" : "bg-red-500 animate-pulse"}`}>{cls.liveSessions?.[0]?.isPrep ? "PREP" : "LIVE"}</span>
               </h2>
               <button onClick={() => { setActiveVisual(null); setActiveSessionId(null); }} className="text-xs text-gray-500 hover:text-red-500">Close Board</button>
             </div>
@@ -233,7 +249,8 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
                   <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{cls.schoolGrade?.gradeLevel}</span>
-                  {isLive && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
+                  {isLive && liveSession?.isPrep && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">PREP</span>}
+                  {isLive && !liveSession?.isPrep && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
                   {isKG && <span className="text-[10px] bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded-full">🧒 KG</span>}
                 </div>
                 <p className="text-[10px] text-gray-500">{cls.enrollments.length} students • {cls._count?.materials || 0} materials</p>
@@ -245,6 +262,10 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
                     <button onClick={() => handleStartClass(cls.id)} disabled={loading === "start-" + cls.id}
                       className="text-[10px] px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1">
                       {loading === "start-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Start
+                    </button>
+                    <button onClick={() => handleStartPrep(cls.id)} disabled={loading === "prep-" + cls.id}
+                      className="text-[10px] px-2 py-1.5 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 flex items-center gap-1" title="Open a prep session (no payment). Set up materials, board, etc.">
+                      {loading === "prep-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Settings className="w-3 h-3" />} Prep
                     </button>
                   </div>
                 ) : (

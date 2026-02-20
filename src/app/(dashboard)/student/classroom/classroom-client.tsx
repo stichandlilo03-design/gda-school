@@ -174,7 +174,8 @@ export default function StudentClassroomClient({
               <h2 className={`font-bold ${isKG ? "text-xl text-amber-800" : "text-sm text-gray-700"}`}>
                 {isKG ? "🏫 " : ""}Active Classroom
                 <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
-                {isLive && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
+                {isLive && liveSession?.isPrep && <span className="ml-2 text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full">PREP</span>}
+                {isLive && !liveSession?.isPrep && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
               </h2>
               <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">Leave</button>
             </div>
@@ -244,7 +245,8 @@ export default function StudentClassroomClient({
                         <h3 className="text-lg font-extrabold text-gray-800">{cls.subject?.name || cls.name}</h3>
                         <p className="text-sm text-gray-500">Teacher {cls.teacher?.user?.name?.split(" ")[0]}</p>
                         {!isMyGrade && <span className="text-xs text-red-500 font-bold">Not your level ({getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)})</span>}
-                        {isLive && isMyGrade && <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">🔴 LIVE NOW</span>}
+                        {isLive && isMyGrade && cls.liveSessions?.[0]?.isPrep && <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1">📋 PREP SESSION</span>}
+                        {isLive && isMyGrade && !cls.liveSessions?.[0]?.isPrep && <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">🔴 LIVE NOW</span>}
                         {attended && <span className="text-xs text-emerald-600 font-bold mt-1 block">✅ Attended!</span>}
                       </div>
                     </div>
@@ -263,7 +265,8 @@ export default function StudentClassroomClient({
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
                         <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
-                        {isLive && isMyGrade && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
+                        {isLive && isMyGrade && cls.liveSessions?.[0]?.isPrep && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">PREP</span>}
+                        {isLive && isMyGrade && !cls.liveSessions?.[0]?.isPrep && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
                         {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
                         {!isMyGrade && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Wrong Grade</span>}
                       </div>

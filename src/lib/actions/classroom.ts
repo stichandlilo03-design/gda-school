@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 // ============ TEACHER ACTIONS ============
 
 // Start a live class session
-export async function startLiveClass(classId: string, topic?: string) {
+export async function startLiveClass(classId: string, topic?: string, isPrep?: boolean) {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
 
@@ -69,8 +69,8 @@ export async function startLiveClass(classId: string, topic?: string) {
 
   const live = await db.liveClassSession.create({
     data: {
-      classId, teacherId: teacher.id, topic, status: "IN_PROGRESS", startedAt: new Date(),
-      teacherJoinedAt: new Date(), lateMinutes,
+      classId, teacherId: teacher.id, topic: isPrep ? `[PREP] ${topic || "Class Setup"}` : topic, status: "IN_PROGRESS", startedAt: new Date(),
+      teacherJoinedAt: new Date(), lateMinutes: isPrep ? 0 : lateMinutes, isPrep: isPrep || false,
       boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
       whispers: [], questions: [], reactions: [], polls: [], teachingMode: "board",
     },
@@ -106,8 +106,8 @@ export async function endLiveClass(sessionId: string) {
     data: { status: "ENDED", endedAt: new Date(), durationMin, raisedHands: [] },
   });
 
-  // Award session credit + auto payroll (min 1 min for network issues)
-  if (!live.creditAwarded && durationMin >= 1) {
+  // Award session credit + auto payroll (min 1 min for network issues) — SKIP for prep sessions
+  if (!live.creditAwarded && durationMin >= 1 && !live.isPrep) {
     const schoolTeacher = await db.schoolTeacher.findFirst({
       where: { teacherId: live.teacherId, schoolId: school?.id || "" },
       include: { salary: true },
