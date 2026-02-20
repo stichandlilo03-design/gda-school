@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import {
   startLiveClass, endLiveClass, bulkMarkAttendance, postClassAnnouncement, deleteAnnouncement,
 } from "@/lib/actions/classroom";
+import { removeStudentFromClass } from "@/lib/actions/student-management";
 import { useRouter } from "next/navigation";
 import {
   Play, Square, Users, Clock, CheckCircle, XCircle, AlertTriangle,
   Loader2, Megaphone, Bell, ChevronDown, ChevronUp, Send, Trash2,
-  BookOpen, UserCheck, FolderOpen, Monitor, Coffee
+  BookOpen, UserCheck, FolderOpen, Monitor, Coffee, UserX
 } from "lucide-react";
 import Link from "next/link";
 import VisualClassroom from "@/components/visual-classroom";
@@ -292,6 +293,15 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
                               {en.student.user.image ? <img src={en.student.user.image} alt="" className="w-7 h-7 rounded-full" /> : en.student.user.name[0]}
                             </div>
                             <span className="text-xs flex-1">{en.student.user.name}</span>
+                            <button onClick={async () => {
+                              const reason = prompt(`Remove ${en.student.user.name} from this class? Enter reason:`);
+                              if (reason !== null) {
+                                await removeStudentFromClass(en.id, reason || "Removed by teacher");
+                                router.refresh();
+                              }
+                            }} className="text-red-300 hover:text-red-600 p-0.5" title="Remove from class">
+                              <UserX className="w-3 h-3" />
+                            </button>
                             {existing ? (
                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${existing.status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : existing.status === "LATE" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{existing.status}</span>
                             ) : (

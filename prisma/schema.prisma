@@ -347,6 +347,7 @@ model Teacher {
   materials       ClassMaterial[]
   vacancyApplications VacancyApplication[]
   bankAccounts    TeacherBankAccount[]
+  ratings         TeacherRating[]
   classAnnouncements ClassAnnouncement[]
   liveSessions    LiveClassSession[]
 
@@ -431,6 +432,7 @@ model Student {
   seatAssignments  SeatAssignment[]
   interviews       Interview[]      @relation("StudentInterviews")
   enrollmentRequests EnrollmentRequest[]
+  teacherRatings   TeacherRating[]
 
   @@index([userId])
   @@index([schoolId])
@@ -1138,4 +1140,22 @@ model ClassRequirement {
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@index([classId])
+}
+
+model TeacherRating {
+  id          String   @id @default(cuid())
+  teacherId   String
+  studentId   String
+  sessionId   String?
+  classId     String?
+  rating      Int      // 1-5
+  comment     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  teacher     Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, studentId, sessionId])
+  @@index([teacherId])
+  @@index([studentId])
 }

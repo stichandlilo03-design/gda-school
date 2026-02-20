@@ -154,7 +154,12 @@ export async function reinstateTeacher(schoolTeacherId: string) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
 
-  await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: true } });
+  const st = await db.schoolTeacher.update({ where: { id: schoolTeacherId }, data: { isActive: true, status: "APPROVED" }, include: { teacher: true, school: true } });
+  // Send notification
+  try {
+    const { notify } = await import("@/lib/notifications");
+    await notify(st.teacher.userId, "🎉 Reinstated!", `You have been reinstated at ${st.school.name}. Welcome back!`);
+  } catch {}
   revalidatePath("/principal/teachers");
   return { success: true };
 }

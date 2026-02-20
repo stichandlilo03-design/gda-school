@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { notify, notifyMany } from "@/lib/notifications";
 
 // Create a vacancy
 export async function createVacancy(data: {
@@ -212,6 +213,25 @@ export async function approveAndAssignToGrade(appId: string) {
 
     // Parse subjects from vacancy
     const subjects = Array.isArray(app.vacancy.subjects) ? app.vacancy.subjects as string[] : [];
+    
+    // If no subjects specified, create a general class from vacancy title
+    if (subjects.length === 0) {
+      const existingClass = await db.class.findFirst({
+        where: { teacherId: app.teacherId!, schoolGradeId: schoolGrade.id },
+      });
+      if (!existingClass) {
+        await db.class.create({
+          data: {
+            teacherId: app.teacherId!,
+            schoolGradeId: schoolGrade.id,
+            name: `${app.vacancy.title} - ${app.vacancy.gradeLevel}`,
+            session: app.vacancy.session || "SESSION_A",
+            maxStudents: 40,
+          },
+        });
+      }
+    }
+    
     for (const subjectName of subjects) {
       if (!subjectName) continue;
       // Find or create subject
@@ -262,5 +282,39 @@ export async function approveAndAssignToGrade(appId: string) {
   revalidatePath("/principal/vacancies");
   revalidatePath("/principal/teachers");
   revalidatePath("/principal/curriculum");
+  revalidatePath("/teacher");
+  revalidatePath("/student/classroom");
+  revalidatePath("/student/subjects");
+
+  // Notify the teacher
+  if (app.teacherId) {
+    const teacher = await db.teacher.findUnique({ where: { id: app.teacherId }, select: { userId: true } });
+    if (teacher) {
+      const subjectList = Array.isArray(app.vacancy.subjects) ? (app.vacancy.subjects as string[]).join(", ") : "subjects";
+      await notify(
+        teacher.userId,
+        "🎉 Application Approved!",
+        `Congratulations! Your application for "${app.vacancy.title}" has been approved by ${principal.school.name}. ` +
+        `You have been assigned to teach ${subjectList}${app.vacancy.gradeLevel ? ` for ${app.vacancy.gradeLevel}` : ""}. ` +
+        `Your classes have been created automatically. Go to your Classroom to start teaching!`
+      );
+    }
+
+    // Notify students in that grade about new teacher
+    if (app.vacancy.gradeLevel) {
+      const studentsInGrade = await db.student.findMany({
+        where: { schoolId: app.vacancy.schoolId, gradeLevel: app.vacancy.gradeLevel as any, approvalStatus: "APPROVED" },
+        select: { userId: true },
+      });
+      if (studentsInGrade.length > 0) {
+        await notifyMany(
+          studentsInGrade.map(s => s.userId),
+          "📚 New Teacher Assigned!",
+          `A new teacher has been assigned to your grade (${app.vacancy.gradeLevel}) for ${subjectList}. Check your Subjects page to enroll!`
+        );
+      }
+    }
+  }
+
   return { success: true, message: "Teacher approved, assigned to school, and classes created!" };
 }

@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { studentJoinClass } from "@/lib/actions/classroom";
 import { useRouter } from "next/navigation";
 import {
-  Play, Clock, CheckCircle, BookOpen, Bell,
+  Play, Clock, CheckCircle, BookOpen, Bell, Star,
   Loader2, Megaphone, ChevronDown, ChevronUp, FolderOpen, Coffee
 } from "lucide-react";
 import Link from "next/link";
 import ClassAlarm from "@/components/class-alarm";
 import VisualClassroom from "@/components/visual-classroom";
+import TeacherRating from "@/components/teacher-rating";
 import { getGradeLabelForCountry } from "@/lib/education-systems";
 
 const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
@@ -30,6 +31,7 @@ export default function StudentClassroomClient({
   const [activeClassroom, setActiveClassroom] = useState<string | null>(null);
   const [onBreak, setOnBreak] = useState(false);
   const [breakCountdown, setBreakCountdown] = useState(0);
+  const [showRating, setShowRating] = useState<{ teacherId: string; teacherName: string; sessionId?: string; classId?: string } | null>(null);
 
   const today = DAYS[new Date().getDay()];
 
@@ -118,7 +120,25 @@ export default function StudentClassroomClient({
           </div>
           <p className="text-xs text-gray-500 mt-2">{breakDurationMin} minute break</p>
           <button onClick={() => setOnBreak(false)} className="mt-3 text-xs text-gray-400 hover:text-gray-600">Skip break</button>
+          {/* Rate teacher button during break */}
+          {!showRating && (
+            <button onClick={() => {
+              const enrollment = enrollments.find((e: any) => e.class.liveSession?.isActive || e.class.schedules?.length > 0);
+              if (enrollment) setShowRating({ teacherId: enrollment.class.teacherId, teacherName: enrollment.class.teacher?.user?.name || "Teacher", classId: enrollment.class.id });
+            }} className="mt-2 block mx-auto text-xs text-amber-600 hover:text-amber-800 font-medium">⭐ Rate this session</button>
+          )}
         </div>
+      )}
+
+      {/* Teacher Rating Popup */}
+      {showRating && (
+        <TeacherRating
+          teacherId={showRating.teacherId}
+          teacherName={showRating.teacherName}
+          classId={showRating.classId}
+          sessionId={showRating.sessionId}
+          onClose={() => setShowRating(null)}
+        />
       )}
 
       {/* Active Visual Classroom */}
@@ -236,7 +256,15 @@ export default function StudentClassroomClient({
                         {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
                         {!isMyGrade && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Wrong Grade</span>}
                       </div>
-                      <p className="text-[10px] text-gray-500">{cls.teacher?.user?.name} • {cls._count?.enrollments || 0} students</p>
+                      <p className="text-[10px] text-gray-500">
+                        {cls.teacher?.user?.name}
+                        {cls.teacher?.rating > 0 && (
+                          <span className="ml-1 text-amber-500 inline-flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400 inline" /> {cls.teacher.rating.toFixed(1)}
+                          </span>
+                        )}
+                        {' '}• {cls._count?.enrollments || 0} students
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {isLive && !attended && isMyGrade && (

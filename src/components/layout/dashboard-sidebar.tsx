@@ -6,8 +6,9 @@ import { useState } from "react";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
   ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase,
-  Monitor, CreditCard, MessageSquare, Building2, Play, User, Shield
+  Monitor, CreditCard, MessageSquare, Building2, Play, User, Shield, Bell
 } from "lucide-react";
+import NotificationBell from "@/components/notification-bell";
 
 const iconMap: Record<string, any> = {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
@@ -58,7 +59,10 @@ export default function DashboardSidebar({ user, links, schoolName }: SidebarPro
                   {schoolName && <p className="text-[10px] text-gray-400 leading-tight">{schoolName}</p>}
                 </div>
               </Link>
-              <button onClick={() => setOpen(false)} className="lg:hidden p-1"><X className="w-4 h-4" /></button>
+              <div className="flex items-center gap-1">
+                <NotificationBell messagesPath={`/${user.role.toLowerCase()}/messages`} />
+                <button onClick={() => setOpen(false)} className="lg:hidden p-1"><X className="w-4 h-4" /></button>
+              </div>
             </div>
           </div>
 

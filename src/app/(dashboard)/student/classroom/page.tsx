@@ -19,7 +19,7 @@ export default async function StudentClassroomPage() {
           class: {
             include: {
               subject: true,
-              teacher: { include: { user: { select: { name: true, image: true } } } },
+              teacher: { select: { id: true, rating: true, totalRatings: true, user: { select: { name: true, image: true } } } },
               schoolGrade: true,
               schedules: true,
               announcements: { orderBy: { createdAt: "desc" }, take: 10, include: { teacher: { include: { user: { select: { name: true } } } } } },
