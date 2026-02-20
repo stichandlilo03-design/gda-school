@@ -20,6 +20,7 @@ const principalLinks = [
   { href: "/principal/timetable", icon: "Calendar", label: "Timetable" },
   { href: "/principal/reports", icon: "BarChart3", label: "Reports" },
   { href: "/principal/settings", icon: "Settings", label: "School Settings" },
+  { href: "/principal/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
 
 export default async function PrincipalLayout({ children }: { children: React.ReactNode }) {

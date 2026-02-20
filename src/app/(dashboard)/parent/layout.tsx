@@ -13,6 +13,7 @@ const parentLinks = [
   { href: "/parent/timetable", icon: "Calendar", label: "Timetable" },
   { href: "/parent/messages", icon: "MessageSquare", label: "Messages" },
   { href: "/parent/profile", icon: "User", label: "My Profile" },
+  { href: "/parent/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
 
 export default async function ParentLayout({ children }: { children: React.ReactNode }) {

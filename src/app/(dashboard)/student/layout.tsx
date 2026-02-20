@@ -16,6 +16,7 @@ const studentLinks = [
   { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
   { href: "/student/profile", icon: "User", label: "Profile & ID Card" },
   { href: "/student/certificates", icon: "Award", label: "Certificates" },
+  { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
