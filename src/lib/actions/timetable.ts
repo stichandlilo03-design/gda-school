@@ -10,6 +10,22 @@ export async function saveTimetableSlot(data: {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
 
+  // Check for teacher conflict — same teacher shouldn't be in two classes at same time
+  const cls = await db.class.findUnique({ where: { id: data.classId }, select: { teacherId: true, name: true } });
+  if (cls) {
+    const conflict = await db.classSchedule.findFirst({
+      where: {
+        dayOfWeek: data.dayOfWeek as any,
+        periodNumber: data.periodNumber,
+        class: { teacherId: cls.teacherId, id: { not: data.classId } },
+      },
+      include: { class: { select: { name: true } } },
+    });
+    if (conflict) {
+      return { error: `Teacher conflict! This teacher already has "${conflict.class.name}" at Period ${data.periodNumber} on ${data.dayOfWeek}. Choose a different period.` };
+    }
+  }
+
   await db.classSchedule.upsert({
     where: { classId_dayOfWeek_periodNumber: { classId: data.classId, dayOfWeek: data.dayOfWeek as any, periodNumber: data.periodNumber } },
     update: { startTime: data.startTime, endTime: data.endTime },
@@ -51,7 +67,24 @@ export async function autoGenerateTimetable(gradeId: string) {
 
   if (classes.length === 0) return { error: "No classes found for this grade" };
 
-  // Delete existing schedules for these classes
+  // Get ALL existing schedules in the school to check teacher conflicts across grades
+  const allExistingSchedules = await db.classSchedule.findMany({
+    where: {
+      class: { schoolGrade: { schoolId: school.id }, id: { notIn: classes.map(c => c.id) } },
+    },
+    include: { class: { select: { teacherId: true, name: true } } },
+  });
+
+  // Build teacher busy map: teacherId -> day -> Set of periods
+  const teacherBusy: Record<string, Record<string, Set<number>>> = {};
+  for (const sched of allExistingSchedules) {
+    const tid = sched.class.teacherId;
+    if (!teacherBusy[tid]) teacherBusy[tid] = {};
+    if (!teacherBusy[tid][sched.dayOfWeek]) teacherBusy[tid][sched.dayOfWeek] = new Set();
+    teacherBusy[tid][sched.dayOfWeek].add(sched.periodNumber);
+  }
+
+  // Delete existing schedules for THIS grade's classes
   await db.classSchedule.deleteMany({ where: { classId: { in: classes.map(c => c.id) } } });
 
   const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
@@ -59,43 +92,60 @@ export async function autoGenerateTimetable(gradeId: string) {
   const dur = school.sessionDurationMin;
   const brk = school.breakDurationMin;
   const perDay = school.sessionsPerDay;
+  const breakAfter = Math.floor(perDay / 2);
 
   let created = 0;
+  let skipped = 0;
+
   for (const day of DAYS) {
-    // Rotate subjects so each day has different order
     const dayIdx = DAYS.indexOf(day);
     const rotated = [...classes.slice(dayIdx % classes.length), ...classes.slice(0, dayIdx % classes.length)];
 
-    for (let p = 0; p < Math.min(perDay, rotated.length); p++) {
-      const cls = rotated[p];
-      // Insert break after half the periods
-      const breakAfter = Math.floor(perDay / 2);
-      let offsetMin = openMin + p * (dur + brk);
-      if (p >= breakAfter) offsetMin += brk; // extra long break in middle
+    let periodSlot = 0;
+    for (const cls of rotated) {
+      if (periodSlot >= perDay) break;
 
-      const startH = Math.floor(offsetMin / 60);
-      const startM = offsetMin % 60;
+      // Check if this teacher is busy at this period (from other grades)
+      const tid = cls.teacherId;
+      while (periodSlot < perDay) {
+        const period = periodSlot + 1;
+        const isBusy = teacherBusy[tid]?.[day]?.has(period);
+        if (!isBusy) break;
+        periodSlot++; // Skip to next period
+        skipped++;
+      }
+      if (periodSlot >= perDay) break;
+
+      const period = periodSlot + 1;
+      let offsetMin = openMin + periodSlot * (dur + brk);
+      if (periodSlot >= breakAfter) offsetMin += brk;
+
+      const startH = Math.floor(offsetMin / 60), startM = offsetMin % 60;
       const endOffset = offsetMin + dur;
-      const endH = Math.floor(endOffset / 60);
-      const endM = endOffset % 60;
+      const endH = Math.floor(endOffset / 60), endM = endOffset % 60;
 
       await db.classSchedule.create({
         data: {
-          classId: cls.id,
-          dayOfWeek: day as any,
-          periodNumber: p + 1,
+          classId: cls.id, dayOfWeek: day as any, periodNumber: period,
           startTime: `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`,
           endTime: `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`,
         },
       });
+
+      // Mark this teacher as busy for this period
+      if (!teacherBusy[tid]) teacherBusy[tid] = {};
+      if (!teacherBusy[tid][day]) teacherBusy[tid][day] = new Set();
+      teacherBusy[tid][day].add(period);
+
       created++;
+      periodSlot++;
     }
   }
 
   revalidatePath("/principal/timetable");
   revalidatePath("/teacher/timetable");
   revalidatePath("/student/timetable");
-  return { success: true, message: `Generated ${created} slots across ${DAYS.length} days` };
+  return { success: true, message: `Generated ${created} slots across ${DAYS.length} days${skipped > 0 ? ` (${skipped} conflicts avoided)` : ""}` };
 }
 
 export async function updateSchoolHours(data: { schoolOpenTime: string; schoolCloseTime: string; sessionDurationMin: number; breakDurationMin: number; sessionsPerDay: number }) {

@@ -86,13 +86,21 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     return () => clearInterval(i);
   }, [onBreak, breakCountdown]);
 
+  const [classMessage, setClassMessage] = useState("");
+
   const handleStartClass = async (classId: string) => {
     setLoading("start-" + classId);
+    setClassMessage("");
     const result = await startLiveClass(classId, topicInput || undefined);
     setTopicInput("");
-    if (result.sessionId) {
+    if (result.error) {
+      setClassMessage(result.error);
+    } else if (result.sessionId) {
       setActiveVisual(classId);
       setActiveSessionId(result.sessionId);
+      if ((result as any).lateMinutes > 0) {
+        setClassMessage(`⏰ You joined ${(result as any).lateMinutes} minutes late. This has been recorded. You'll still be credited for the time you teach.`);
+      }
     }
     router.refresh();
     setLoading("");
@@ -145,6 +153,12 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       <ClassAlarm schedules={alarmSchedules} />
 
       {message && <div className={`p-3 rounded-lg text-sm ${message.includes("Error") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{message}</div>}
+      {classMessage && (
+        <div className={`p-3 rounded-lg text-sm flex items-center justify-between ${classMessage.includes("Error") || classMessage.includes("Another") ? "bg-red-50 text-red-700" : classMessage.includes("late") ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"}`}>
+          <span>{classMessage}</span>
+          <button onClick={() => setClassMessage("")} className="text-xs opacity-60 ml-2">✕</button>
+        </div>
+      )}
 
       {/* Session info */}
       <div className="flex items-center gap-4 text-[10px] text-gray-500">

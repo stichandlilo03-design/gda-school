@@ -126,6 +126,9 @@ export default function MonitorClient({
                           {mode==="board"&&<Pencil className="w-3 h-3 text-amber-500" />}
                         </div>
                         <p className="text-[10px] text-gray-500">Teacher: {ls.teacher?.user?.name} • {ls.class?.enrollments?.length||0} students</p>
+                        {ls.autoStarted && !ls.teacherJoinedAt && <p className="text-[9px] text-amber-600 font-medium animate-pulse">⚠️ Auto-started — teacher hasn&apos;t joined yet</p>}
+                        {ls.lateMinutes > 0 && <p className="text-[9px] text-red-500 font-medium">⏰ Teacher joined {ls.lateMinutes} min late</p>}
+                        {ls.autoStarted && ls.teacherJoinedAt && ls.lateMinutes === 0 && <p className="text-[9px] text-emerald-500">✅ Teacher joined on time</p>}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${mins>=35?"bg-red-100 text-red-700":"bg-gray-100"}`}>{mins}min</span>
@@ -318,7 +321,9 @@ export default function MonitorClient({
                       <tr key={s.id} className="border-b hover:bg-gray-50">
                         <td className="py-2 px-3 font-medium">{s.class?.subject?.name || s.class?.name}</td>
                         <td className="py-2 px-3">{s.class?.schoolGrade?.gradeLevel}</td>
-                        <td className="py-2 px-3">{s.class?.teacher?.user?.name}</td>
+                        <td className="py-2 px-3">{s.class?.teacher?.user?.name}
+                          {s.lateMinutes > 0 && <span className="ml-1 text-[9px] text-red-500">({s.lateMinutes}min late)</span>}
+                        </td>
                         <td className="py-2 px-3">
                           <span className={`px-2 py-0.5 rounded-full ${s.durationMin>=35?"bg-emerald-100 text-emerald-700":s.durationMin>=20?"bg-amber-100 text-amber-700":"bg-red-100 text-red-700"}`}>
                             {s.durationMin||0}min

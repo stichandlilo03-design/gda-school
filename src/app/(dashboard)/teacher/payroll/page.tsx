@@ -33,7 +33,7 @@ export default async function TeacherPayrollPage() {
     where: { teacherId: teacher.id },
     orderBy: { createdAt: "desc" },
     take: 50,
-    include: { liveSession: { select: { topic: true, classId: true, durationMin: true, startedAt: true, endedAt: true, class: { select: { name: true } } } } },
+    include: { liveSession: { select: { topic: true, classId: true, durationMin: true, startedAt: true, endedAt: true, lateMinutes: true, teacherJoinedAt: true, autoStarted: true, class: { select: { name: true } } } } },
   });
 
   return (

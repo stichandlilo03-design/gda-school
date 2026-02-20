@@ -24,15 +24,53 @@ export async function startLiveClass(classId: string, topic?: string) {
     return { error: `Another teacher (${existingSession.teacher.user.name}) already has an active session in this class. Please wait until they end their session.` };
   }
 
+  // Check if there's an auto-started session for this class by THIS teacher - just join it
+  const autoSession = await db.liveClassSession.findFirst({
+    where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] }, autoStarted: true, teacherJoinedAt: null },
+  });
+  if (autoSession) {
+    // Teacher is joining their auto-started session — track join time + late minutes
+    const nowJ = new Date();
+    let lateMins = 0;
+    if (autoSession.startedAt) {
+      lateMins = Math.max(0, Math.round((nowJ.getTime() - autoSession.startedAt.getTime()) / 60000));
+    }
+    await db.liveClassSession.update({
+      where: { id: autoSession.id },
+      data: { teacherJoinedAt: nowJ, lateMinutes: lateMins, topic: topic || autoSession.topic },
+    });
+    revalidatePath("/teacher/classroom");
+    revalidatePath("/student/classroom");
+    return { success: true, sessionId: autoSession.id, lateMinutes: lateMins };
+  }
+
   // Close any existing open session for this class by THIS teacher
   await db.liveClassSession.updateMany({
     where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] } },
     data: { status: "ENDED", endedAt: new Date() },
   });
 
+  // Check if this is a timetable-scheduled class and calculate late minutes
+  const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const today = DAYS[now.getDay()];
+  let lateMinutes = 0;
+
+  const schedule = await db.classSchedule.findFirst({
+    where: { classId, dayOfWeek: today as any },
+  });
+  if (schedule) {
+    const schedStart = parseInt(schedule.startTime.split(":")[0]) * 60 + parseInt(schedule.startTime.split(":")[1] || "0");
+    if (nowMin > schedStart + 2) {
+      lateMinutes = nowMin - schedStart;
+    }
+  }
+
   const live = await db.liveClassSession.create({
     data: {
       classId, teacherId: teacher.id, topic, status: "IN_PROGRESS", startedAt: new Date(),
+      teacherJoinedAt: new Date(), lateMinutes,
       boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
       whispers: [], questions: [], reactions: [], polls: [], teachingMode: "board",
     },
@@ -68,8 +106,8 @@ export async function endLiveClass(sessionId: string) {
     data: { status: "ENDED", endedAt: new Date(), durationMin, raisedHands: [] },
   });
 
-  // Award session credit + auto payroll
-  if (!live.creditAwarded && durationMin >= 5) {
+  // Award session credit + auto payroll (min 1 min for network issues)
+  if (!live.creditAwarded && durationMin >= 1) {
     const schoolTeacher = await db.schoolTeacher.findFirst({
       where: { teacherId: live.teacherId, schoolId: school?.id || "" },
       include: { salary: true },

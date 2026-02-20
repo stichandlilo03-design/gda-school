@@ -331,6 +331,12 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
                         {c.liveSession?.startedAt && (
                           <span> • {new Date(c.liveSession.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                         )}
+                        {c.liveSession?.lateMinutes > 0 && (
+                          <span className="text-amber-600 font-medium"> • {c.liveSession.lateMinutes}min late</span>
+                        )}
+                        {c.liveSession?.autoStarted && !c.liveSession?.lateMinutes && (
+                          <span className="text-emerald-600"> • On time</span>
+                        )}
                       </p>
                     </div>
                     <div className="text-right">

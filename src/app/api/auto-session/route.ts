@@ -71,6 +71,7 @@ export async function GET() {
               classId: cls.id, teacherId: cls.teacherId,
               topic: `${cls.name} — Period ${sched.periodNumber}`, status: "IN_PROGRESS",
               startedAt: now, autoStarted: true,
+              teacherJoinedAt: null, lateMinutes: 0,
               boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
               whispers: [], questions: [], reactions: [], polls: [],
             },
@@ -126,7 +127,7 @@ export async function GET() {
 }
 
 async function creditTeacher(session: any, schoolId: string, durationMin: number, now: Date, school: any) {
-  if (session.creditAwarded || durationMin < 5) return;
+  if (session.creditAwarded || durationMin < 1) return;
 
   const st = await db.schoolTeacher.findFirst({
     where: { teacherId: session.teacherId, schoolId },

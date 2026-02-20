@@ -1103,6 +1103,8 @@ model LiveClassSession {
   teachingMode String  @default("board")
   autoStarted  Boolean @default(false)
   creditAwarded Boolean @default(false)
+  teacherJoinedAt DateTime?
+  lateMinutes    Int      @default(0)
   createdAt   DateTime @default(now())
 
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
