@@ -22,6 +22,7 @@ export async function sendMessage(data: { receiverId: string; subject?: string; 
   revalidatePath("/teacher/messages");
   revalidatePath("/principal/messages");
   revalidatePath("/student/messages");
+  revalidatePath("/parent/messages");
   return { success: true };
 }
 
@@ -106,5 +107,7 @@ export async function markAllRead(senderId: string) {
 
   revalidatePath("/teacher/messages");
   revalidatePath("/principal/messages");
+  revalidatePath("/parent/messages");
+  revalidatePath("/student/messages");
   return { success: true };
 }

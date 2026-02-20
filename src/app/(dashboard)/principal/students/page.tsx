@@ -18,7 +18,9 @@ export default async function StudentsPage() {
     where: { schoolId: principal.schoolId },
     include: {
       user: { select: { name: true, email: true, image: true, isActive: true, createdAt: true } },
-      enrollments: { where: { status: "ACTIVE" } },
+      enrollments: { where: { status: "ACTIVE" }, include: { class: { include: { subject: true } } } },
+      payments: { orderBy: { createdAt: "desc" }, take: 5 },
+      parentLinks: { include: { parent: { include: { user: { select: { name: true, email: true, phone: true } } } } } },
     },
     orderBy: { enrolledAt: "desc" },
   });

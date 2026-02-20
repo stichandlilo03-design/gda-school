@@ -18,7 +18,7 @@ export default function DashboardHeader({ title, subtitle }: DashboardHeaderProp
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Determine which portal user is in
-  const portal = pathname.startsWith("/principal") ? "principal" : pathname.startsWith("/teacher") ? "teacher" : "student";
+  const portal = pathname.startsWith("/principal") ? "principal" : pathname.startsWith("/teacher") ? "teacher" : pathname.startsWith("/parent") ? "parent" : "student";
   const messagesLink = `/${portal}/messages`;
 
   // Fetch unread count

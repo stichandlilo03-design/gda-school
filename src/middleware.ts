@@ -16,6 +16,9 @@ export default withAuth(
     if (path.startsWith("/principal") && token?.role !== "PRINCIPAL") {
       return NextResponse.redirect(new URL("/login", req.url));
     }
+    if (path.startsWith("/parent") && token?.role !== "PARENT") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
 
     return NextResponse.next();
   },
@@ -27,5 +30,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/student/:path*", "/teacher/:path*", "/principal/:path*"],
+  matcher: ["/student/:path*", "/teacher/:path*", "/principal/:path*", "/parent/:path*"],
 };

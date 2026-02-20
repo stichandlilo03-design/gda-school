@@ -177,7 +177,7 @@ export async function registerParent(input: ParentRegisterInput) {
     
     // Search by name (case-insensitive) and optionally by email
     const students = await db.student.findMany({
-    where: {
+      where: {
         OR: [
           { user: { name: { equals: child.childName, mode: "insensitive" as const } } },
           ...(child.childEmail ? [{ user: { email: { equals: child.childEmail.toLowerCase(), mode: "insensitive" as const } } }] : []),
@@ -207,7 +207,7 @@ export async function registerParent(input: ParentRegisterInput) {
 
   // Also auto-link any students whose parentEmail matches this parent's email
   const emailMatches = await db.student.findMany({
-    where: { parentEmail: { equals: validated.email.toLowerCase(), mode: "insensitive" as const } },
+    where: { parentEmail: { equals: validated.email.toLowerCase(), mode: "insensitive" } },
     include: { user: { select: { name: true } } },
   });
   for (const student of emailMatches) {

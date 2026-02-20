@@ -171,3 +171,49 @@ export async function rejectPayment(paymentId: string, reason: string) {
     return { error: err.message || "Failed to reject" };
   }
 }
+
+// Parent submits payment on behalf of child
+export async function parentSubmitPayment(data: {
+  studentId: string; amount: number; currency: string; paymentMethod: string;
+  transactionRef?: string; proofBase64?: string; proofNote?: string; description: string;
+}) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "PARENT") return { error: "Unauthorized" };
+
+    const parent = await db.parent.findUnique({
+      where: { userId: session.user.id },
+      include: { children: true },
+    });
+    if (!parent) return { error: "Parent not found" };
+
+    // Verify this child is linked to the parent
+    const isLinked = parent.children.some(c => c.studentId === data.studentId);
+    if (!isLinked) return { error: "This child is not linked to your account" };
+
+    if (data.proofBase64 && data.proofBase64.length > 10 * 1024 * 1024) {
+      return { error: "File too large (max 5MB)" };
+    }
+
+    await db.payment.create({
+      data: {
+        studentId: data.studentId,
+        amount: data.amount,
+        currency: data.currency,
+        description: data.description + " (Paid by parent/guardian)",
+        paymentMethod: data.paymentMethod,
+        transactionRef: data.transactionRef || null,
+        proofUrl: data.proofBase64 || null,
+        proofNote: data.proofNote || null,
+        status: "UNDER_REVIEW",
+        paidAt: new Date(),
+      },
+    });
+
+    revalidatePath("/parent/fees");
+    revalidatePath("/principal/payments");
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || "Failed to submit payment" };
+  }
+}

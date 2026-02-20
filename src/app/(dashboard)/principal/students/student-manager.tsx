@@ -124,9 +124,13 @@ export default function StudentManager({ students, countryCode = "NG" }: { stude
           return (
             <div key={s.id} className="card">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpanded(isExp ? null : s.id)}>
-                <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm">
-                  {s.user.name?.charAt(0) || "?"}
-                </div>
+                {s.profilePicture || s.user.image ? (
+                  <img src={s.profilePicture || s.user.image} alt="" className="w-10 h-10 rounded-full object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm">
+                    {s.user.name?.charAt(0) || "?"}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h4 className="text-sm font-bold text-gray-800">{s.user.name}</h4>
@@ -178,13 +182,69 @@ export default function StudentManager({ students, countryCode = "NG" }: { stude
                     )}
                   </div>
 
-                  {/* Info */}
-                  <div className="text-[10px] text-gray-500 grid grid-cols-2 gap-2">
-                    <span>Joined: {new Date(s.user.createdAt).toLocaleDateString()}</span>
-                    <span>Parent: {s.parentName || "—"}</span>
-                    <span>Phone: {s.parentPhone || "—"}</span>
-                    <span>Email: {s.parentEmail || "—"}</span>
+                  {/* Info Grid */}
+                  <div className="text-[10px] text-gray-500 grid grid-cols-2 sm:grid-cols-3 gap-2 bg-gray-50 p-3 rounded-xl">
+                    <span>📅 Joined: {new Date(s.user.createdAt).toLocaleDateString()}</span>
+                    <span>🪪 ID: <strong className="text-gray-700 font-mono">{s.idNumber || "Not generated"}</strong></span>
+                    <span>🎓 Grade: <strong className="text-gray-700">{getGradeLabelForCountry(s.gradeLevel, countryCode)}</strong></span>
+                    <span>📸 Photo: {s.profilePicture ? "✅ Uploaded" : "❌ None"}</span>
+                    <span>💰 Fees: <strong className={s.feePaid ? "text-emerald-600" : "text-amber-600"}>{s.feePaid ? "✅ Paid" : "⏳ Due"}</strong></span>
+                    <span>📚 Classes: {s.enrollments?.length || 0}</span>
                   </div>
+
+                  {/* Enrolled Subjects */}
+                  {(s.enrollments?.length > 0) && (
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-500 mb-1">📚 Enrolled Subjects</p>
+                      <div className="flex flex-wrap gap-1">
+                        {s.enrollments.map((en: any) => (
+                          <span key={en.id} className="text-[9px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{en.class?.subject?.name || en.class?.name || "Class"}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Parent/Guardian Info */}
+                  <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+                    <p className="text-[10px] font-bold text-rose-700 mb-2">👨‍👩‍👧 Parent / Guardian Details</p>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <span className="text-gray-400">From Registration:</span>
+                        <p className="text-gray-700">Name: <strong>{s.parentName || "—"}</strong></p>
+                        <p className="text-gray-700">Phone: <strong>{s.parentPhone || "—"}</strong></p>
+                        <p className="text-gray-700">Email: <strong>{s.parentEmail || "—"}</strong></p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Linked Parent Accounts:</span>
+                        {(s.parentLinks?.length > 0) ? s.parentLinks.map((pl: any) => (
+                          <div key={pl.id} className="mt-1 p-1.5 bg-white rounded-lg">
+                            <p className="font-bold text-gray-700">{pl.parent?.user?.name}</p>
+                            <p className="text-gray-500">{pl.relation} · {pl.parent?.user?.email} · {pl.parent?.user?.phone || "—"}</p>
+                          </div>
+                        )) : (
+                          <p className="text-gray-400 mt-1">No parent account linked</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Payments */}
+                  {(s.payments?.length > 0) && (
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-500 mb-1">💰 Recent Payments</p>
+                      <div className="space-y-1">
+                        {s.payments.map((p: any) => (
+                          <div key={p.id} className="flex items-center justify-between py-1 px-2 bg-gray-50 rounded text-[10px]">
+                            <span>{p.description}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">{p.currency} {p.amount?.toLocaleString()}</span>
+                              <span className={`px-1 py-0.5 rounded text-[8px] font-medium ${p.status === "COMPLETED" ? "bg-emerald-100 text-emerald-700" : p.status === "UNDER_REVIEW" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{p.status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
