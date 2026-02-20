@@ -15,7 +15,16 @@ export async function startLiveClass(classId: string, topic?: string) {
   const teacher = await db.teacher.findUnique({ where: { userId: session.user.id } });
   if (!teacher) return { error: "Teacher not found" };
 
-  // Close any existing open session for this class
+  // Check if ANOTHER teacher already has an active session in this class
+  const existingSession = await db.liveClassSession.findFirst({
+    where: { classId, status: { in: ["WAITING", "IN_PROGRESS"] }, teacherId: { not: teacher.id } },
+    include: { teacher: { include: { user: { select: { name: true } } } } },
+  });
+  if (existingSession) {
+    return { error: `Another teacher (${existingSession.teacher.user.name}) already has an active session in this class. Please wait until they end their session.` };
+  }
+
+  // Close any existing open session for this class by THIS teacher
   await db.liveClassSession.updateMany({
     where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] } },
     data: { status: "ENDED", endedAt: new Date() },

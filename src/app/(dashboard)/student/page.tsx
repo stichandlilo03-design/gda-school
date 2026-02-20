@@ -309,6 +309,7 @@ export default async function StudentDashboard() {
             <div className="flex items-center gap-2 mb-3">
               <Clock className="w-5 h-5 text-brand-600" />
               <h3 className="text-sm font-bold text-gray-800">Today&apos;s Schedule — {DAY_SHORT[new Date().getDay()]}</h3>
+              <Link href="/student/timetable" className="ml-auto text-[10px] text-brand-600 hover:underline">Full timetable →</Link>
             </div>
             {todaysClasses.length === 0 ? (
               <div className="text-center py-6">
@@ -317,22 +318,45 @@ export default async function StudentDashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                {todaysClasses.map((cls: any) => (
-                  <div key={cls.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                    <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-xs">
-                      {cls.name.slice(0, 2).toUpperCase()}
+                {todaysClasses.map((cls: any) => {
+                  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+                  const startMin = parseInt(cls.todaySchedule.startTime.split(":")[0]) * 60 + parseInt(cls.todaySchedule.startTime.split(":")[1] || "0");
+                  const endMin = parseInt(cls.todaySchedule.endTime.split(":")[0]) * 60 + parseInt(cls.todaySchedule.endTime.split(":")[1] || "0");
+                  const isCurrent = nowMinutes >= startMin && nowMinutes <= endMin;
+                  const isPast = nowMinutes > endMin;
+                  const isUpcoming = nowMinutes < startMin;
+                  return (
+                  <div key={cls.id} className={`flex items-center gap-3 p-3 rounded-lg ${isCurrent ? "bg-emerald-50 border-2 border-emerald-300 ring-1 ring-emerald-200" : isPast ? "bg-gray-50 opacity-60" : "bg-brand-50/30 border border-brand-100"}`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs ${isCurrent ? "bg-emerald-500 text-white" : isPast ? "bg-gray-200 text-gray-500" : "bg-brand-100 text-brand-600"}`}>
+                      {isCurrent ? "🟢" : isPast ? "✓" : cls.todaySchedule.startTime}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800 truncate">{cls.name}</p>
                       <p className="text-[10px] text-gray-500">
                         {cls.todaySchedule.startTime} – {cls.todaySchedule.endTime} • {cls.teacher.user.name}
                       </p>
+                      {isCurrent && <span className="text-[9px] text-emerald-600 font-bold animate-pulse">● LIVE NOW</span>}
+                      {isPast && <span className="text-[9px] text-gray-400">Completed</span>}
+                      {isUpcoming && <span className="text-[9px] text-brand-500">Upcoming</span>}
                     </div>
-                    <Link href="/student/classroom" className="text-[10px] px-2 py-1 rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100">
-                      <Play className="w-3 h-3 inline mr-0.5" /> Join
-                    </Link>
+                    {isCurrent && (
+                      <Link href="/student/classroom" className="text-[10px] px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 animate-pulse">
+                        <Play className="w-3 h-3 inline mr-0.5" /> Join Now
+                      </Link>
+                    )}
+                    {isUpcoming && (
+                      <span className="text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-500">
+                        in {startMin - nowMinutes}min
+                      </span>
+                    )}
+                    {isPast && (
+                      <Link href="/student/classroom" className="text-[10px] px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100">
+                        ⭐ Rate
+                      </Link>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

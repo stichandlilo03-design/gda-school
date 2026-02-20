@@ -191,6 +191,16 @@ export default function StudentClassroomClient({
                 <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p className="text-gray-500 font-medium">Waiting for teacher to start class...</p>
                 <p className="text-xs text-gray-400 mt-1">Auto-refreshes every 15 seconds</p>
+                {/* Rate teacher if there was a previous session */}
+                {!showRating && (
+                  <button onClick={() => setShowRating({
+                    teacherId: cls.teacherId,
+                    teacherName: cls.teacher?.user?.name || "Teacher",
+                    classId: cls.id,
+                  })} className="mt-4 px-4 py-2 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-200 inline-flex items-center gap-1.5">
+                    ⭐ Rate your teacher
+                  </button>
+                )}
               </div>
             )}
           </div>

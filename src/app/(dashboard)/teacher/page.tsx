@@ -94,6 +94,16 @@ export default async function TeacherDashboard() {
   const currentMonthPayroll = payrolls.find((p: any) => p.month === now.getMonth() + 1 && p.year === now.getFullYear());
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+  // Session credits from live sessions
+  const sessionCredits = await db.sessionCredit.findMany({
+    where: {
+      teacherId: teacher.id,
+      createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) },
+    },
+  });
+  const creditTotal = sessionCredits.reduce((s, c) => s + c.creditAmount, 0);
+  const combinedEarned = monthlyEarned + creditTotal;
+
   // Tasks based on scheme of work
   const today = new Date();
   const weekNumber = Math.ceil(((today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / 86400000 + new Date(today.getFullYear(), 0, 1).getDay() + 1) / 7);
@@ -246,9 +256,9 @@ export default async function TeacherDashboard() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-emerald-200 text-[10px] font-medium uppercase tracking-wider">Salary Balance — {MONTHS[now.getMonth()]} {now.getFullYear()}</p>
-                <div className="text-3xl font-bold mt-1">{salary.currency} {Math.round(monthlyEarned).toLocaleString()}</div>
+                <div className="text-3xl font-bold mt-1">{salary.currency} {Math.round(combinedEarned).toLocaleString()}</div>
                 <p className="text-emerald-200 text-xs mt-0.5">
-                  of {salary.currency} {Math.round(grossMonthly).toLocaleString()} monthly · {currentMonthSessions.length} days worked
+                  of {salary.currency} {Math.round(grossMonthly).toLocaleString()} monthly · {sessionCredits.length} sessions · {currentMonthSessions.length} days
                 </p>
               </div>
               <div className="text-right space-y-1">
@@ -263,10 +273,10 @@ export default async function TeacherDashboard() {
               </div>
             </div>
             <div className="w-full bg-white/20 rounded-full h-2.5">
-              <div className="bg-white rounded-full h-2.5 transition-all" style={{ width: `${Math.min(100, grossMonthly > 0 ? Math.round(monthlyEarned / grossMonthly * 100) : 0)}%` }} />
+              <div className="bg-white rounded-full h-2.5 transition-all" style={{ width: `${Math.min(100, grossMonthly > 0 ? Math.round(combinedEarned / grossMonthly * 100) : 0)}%` }} />
             </div>
             <div className="flex justify-between text-[10px] text-emerald-200 mt-1">
-              <span>{grossMonthly > 0 ? Math.round(monthlyEarned / grossMonthly * 100) : 0}% earned</span>
+              <span>{grossMonthly > 0 ? Math.round(combinedEarned / grossMonthly * 100) : 0}% earned</span>
               <Link href="/teacher/payroll" className="underline hover:text-white">View Payroll →</Link>
             </div>
           </div>

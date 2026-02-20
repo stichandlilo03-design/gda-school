@@ -50,6 +50,7 @@ export default function TimetableManager({ school, grades }: Props) {
       subjectName: c.subject?.name || "",
       teacherName: c.teacher?.user?.name || "",
       classId: c.id,
+      sessionSlot: c.session || "SESSION_A",
       colorClass: subjectColorMap[c.id],
     }))
   );
@@ -237,6 +238,7 @@ export default function TimetableManager({ school, grades }: Props) {
           {classes.map((c: any) => (
             <span key={c.id} className={`text-[10px] px-2.5 py-1 rounded-full border font-medium ${subjectColorMap[c.id]}`}>
               {c.subject?.name || c.name} — {c.teacher?.user?.name?.split(" ")[0] || "?"}
+              <span className="ml-1 opacity-60">({c.session === "SESSION_B" ? "Afternoon" : c.session === "SESSION_C" ? "Evening" : "Morning"})</span>
             </span>
           ))}
         </div>
@@ -285,7 +287,7 @@ export default function TimetableManager({ school, grades }: Props) {
                           <div className={`p-2 rounded-lg border ${entry.colorClass} relative group`}>
                             <p className="text-[11px] font-bold leading-tight">{entry.subjectName}</p>
                             <p className="text-[9px] opacity-70 mt-0.5">{entry.teacherName}</p>
-                            <p className="text-[8px] opacity-50">{entry.startTime}-{entry.endTime}</p>
+                            <p className="text-[8px] opacity-50">{entry.startTime}-{entry.endTime} · {entry.sessionSlot === "SESSION_B" ? "PM" : entry.sessionSlot === "SESSION_C" ? "Eve" : "AM"}</p>
                             <button onClick={() => handleDeleteSlot(entry.classId, day, slot.period)}
                               className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white hidden group-hover:flex items-center justify-center">
                               {loading === `del-${day}-${slot.period}` ? <Loader2 className="w-2 h-2 animate-spin" /> : <X className="w-2.5 h-2.5" />}
@@ -359,8 +361,9 @@ export default function TimetableManager({ school, grades }: Props) {
           <p><strong>1. Set School Hours:</strong> Configure when school opens/closes, period duration, break length, and number of periods per day.</p>
           <p><strong>2. Build Timetable:</strong> For each grade, assign subjects to time slots. Click + on any empty cell to add a period, or use Auto-Generate.</p>
           <p><strong>3. Auto-Generate:</strong> Automatically creates a balanced timetable that rotates subjects across days — you can then fine-tune it.</p>
-          <p><strong>4. Smart Sessions:</strong> Live classroom sessions will <strong>automatically start</strong> when a period begins and <strong>automatically end</strong> when it finishes — just like a real school bell!</p>
-          <p><strong>5. Teachers & Students</strong> can view their personalized timetables from their dashboards.</p>
+          <p><strong>4. Smart Sessions:</strong> Live classroom sessions will <strong>automatically start</strong> when a period begins and <strong>automatically end</strong> when it finishes — just like a real school bell! All sessions stop when school closes.</p>
+          <p><strong>5. 3 Session Slots:</strong> Classes are grouped into <strong>Morning (A)</strong>, <strong>Afternoon (B)</strong>, and <strong>Evening (C)</strong> sessions. The timetable respects these slots.</p>
+          <p><strong>6. Teachers &amp; Students</strong> can view their personalized timetables from their dashboards. Students see &quot;happening now&quot; and &quot;up next&quot; indicators.</p>
         </div>
       </div>
     </div>

@@ -28,6 +28,14 @@ export default async function TeacherPayrollPage() {
 
   if (!teacher) return <div className="p-8">Teacher not found.</div>;
 
+  // Fetch session credits (from auto live sessions)
+  const sessionCredits = await db.sessionCredit.findMany({
+    where: { teacherId: teacher.id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: { liveSession: { select: { topic: true, classId: true, durationMin: true, startedAt: true, endedAt: true, class: { select: { name: true } } } } },
+  });
+
   return (
     <>
       <DashboardHeader title="My Payroll" subtitle="Earnings, payment accounts & payslips" />
@@ -37,6 +45,7 @@ export default async function TeacherPayrollPage() {
           bankAccounts={JSON.parse(JSON.stringify(teacher.bankAccounts))}
           classes={JSON.parse(JSON.stringify(teacher.classes))}
           countryCode={teacher.user.countryCode}
+          sessionCredits={JSON.parse(JSON.stringify(sessionCredits))}
         />
       </div>
     </>

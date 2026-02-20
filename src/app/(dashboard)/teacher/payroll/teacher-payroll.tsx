@@ -13,10 +13,10 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const STATUS_COLORS: Record<string, string> = { DRAFT: "bg-amber-100 text-amber-700", PAID: "bg-emerald-100 text-emerald-700", CANCELLED: "bg-gray-100 text-gray-500" };
 const METHOD_ICONS: Record<string, any> = { BANK_TRANSFER: Building, MOBILE_MONEY: Smartphone, PAYPAL: Globe, CRYPTO: Bitcoin, CASH: Banknote, CHECK: CreditCard };
 
-export default function TeacherPayroll({ schools, bankAccounts, classes, countryCode }: { schools: any[]; bankAccounts: any[]; classes: any[]; countryCode: string }) {
+export default function TeacherPayroll({ schools, bankAccounts, classes, countryCode, sessionCredits }: { schools: any[]; bankAccounts: any[]; classes: any[]; countryCode: string; sessionCredits: any[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
-  const [tab, setTab] = useState<"earnings" | "accounts" | "payslips" | "log">("earnings");
+  const [tab, setTab] = useState<"earnings" | "sessions" | "accounts" | "payslips" | "log">("earnings");
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -47,13 +47,22 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
   const daysWorked = currentMonthSessions.length;
   const dailyRate = salary ? (salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances) / salary.workingDaysPerMonth : 0;
   const grossMonthly = salary ? salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances : 0;
-  const earnPercent = grossMonthly > 0 ? Math.round((monthlyEarned / grossMonthly) * 100) : 0;
+  const earnPercent = grossMonthly > 0 ? Math.round(((monthlyEarned + currentMonthCreditTotal) / grossMonthly) * 100) : 0;
 
   // Payment totals
   const totalPaid = payrolls.filter((p: any) => p.status === "PAID").reduce((s: number, p: any) => s + p.netPay, 0);
   const totalPending = payrolls.filter((p: any) => p.status === "DRAFT" || p.status === "PENDING").reduce((s: number, p: any) => s + p.netPay, 0);
   const currentMonthPayroll = payrolls.find((p: any) => p.month === now.getMonth() + 1 && p.year === now.getFullYear());
   const currentMonthPaid = currentMonthPayroll?.status === "PAID";
+
+  // Session credit totals
+  const totalCreditsEarned = sessionCredits.reduce((s: number, c: any) => s + c.creditAmount, 0);
+  const currentMonthCredits = sessionCredits.filter((c: any) => {
+    const d = new Date(c.createdAt);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const currentMonthCreditTotal = currentMonthCredits.reduce((s: number, c: any) => s + c.creditAmount, 0);
+  const totalSessionsTeached = sessionCredits.length;
 
   const selectedCountry = getCountryConfig(form.countryCode);
 
@@ -95,7 +104,7 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
       <div className="flex gap-2 flex-wrap">
         {[
           { key: "earnings", label: "💰 Earnings" },
-          { key: "log", label: "📝 Log Session" },
+          { key: "sessions", label: `📊 Sessions (${sessionCredits.length})` },
           { key: "accounts", label: `🏦 Accounts (${bankAccounts.length})` },
           { key: "payslips", label: `📄 Payslips (${payrolls.length})` },
         ].map((t) => (
@@ -121,15 +130,20 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
               <div className="p-6 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white rounded-2xl">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-emerald-200 text-xs font-medium uppercase">Earned — {MONTHS[now.getMonth()]} {now.getFullYear()}</p>
-                  <span className="text-emerald-200 text-xs bg-white/20 px-2 py-0.5 rounded-full">{daysWorked} / {salary.workingDaysPerMonth} days worked</span>
+                  <span className="text-emerald-200 text-xs bg-white/20 px-2 py-0.5 rounded-full">{currentMonthCredits.length} sessions · {daysWorked} days</span>
                 </div>
-                <div className="text-4xl font-bold mb-2">{salary.currency} {fmt(Math.round(monthlyEarned))}</div>
+                <div className="text-4xl font-bold mb-2">{salary.currency} {fmt(Math.round(monthlyEarned + currentMonthCreditTotal))}</div>
+                {/* Breakdown */}
+                <div className="flex gap-3 text-xs text-emerald-200 mb-2">
+                  {monthlyEarned > 0 && <span>Manual: {salary.currency} {fmt(Math.round(monthlyEarned))}</span>}
+                  {currentMonthCreditTotal > 0 && <span>Live sessions: {salary.currency} {fmt(Math.round(currentMonthCreditTotal))}</span>}
+                </div>
                 {/* Progress bar */}
                 <div className="w-full bg-white/20 rounded-full h-3 mb-2">
                   <div className="bg-white rounded-full h-3 transition-all duration-500" style={{ width: `${Math.min(100, earnPercent)}%` }} />
                 </div>
                 <div className="flex justify-between text-xs text-emerald-200">
-                  <span>{earnPercent}% of full salary earned</span>
+                  <span>{grossMonthly > 0 ? Math.round((monthlyEarned + currentMonthCreditTotal) / grossMonthly * 100) : 0}% of full salary earned</span>
                   <span>Full: {salary.currency} {fmt(grossMonthly)}</span>
                 </div>
                 {/* Payment status for current month */}
@@ -147,7 +161,7 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
               </div>
 
               {/* Total Payments Summary */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="stat-card text-center border-emerald-200">
                   <DollarSign className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
                   <div className="text-lg font-bold text-emerald-600">{salary.currency} {fmt(Math.round(totalPaid))}</div>
@@ -158,10 +172,15 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
                   <div className="text-lg font-bold text-amber-600">{salary.currency} {fmt(Math.round(totalPending))}</div>
                   <div className="text-[10px] text-gray-500">Pending Payment</div>
                 </div>
-                <div className="stat-card text-center">
-                  <Calendar className="w-5 h-5 text-brand-500 mx-auto mb-1" />
-                  <div className="text-lg font-bold text-brand-600">{payrolls.filter((p: any) => p.status === "PAID").length}</div>
-                  <div className="text-[10px] text-gray-500">Payslips Paid</div>
+                <div className="stat-card text-center border-blue-200">
+                  <BookOpen className="w-5 h-5 text-blue-500 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-blue-600">{totalSessionsTeached}</div>
+                  <div className="text-[10px] text-gray-500">Sessions Taught</div>
+                </div>
+                <div className="stat-card text-center border-purple-200">
+                  <Calendar className="w-5 h-5 text-purple-500 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-purple-600">{salary.currency} {fmt(Math.round(totalCreditsEarned))}</div>
+                  <div className="text-[10px] text-gray-500">All-Time Credits</div>
                 </div>
               </div>
 
@@ -264,54 +283,85 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
       )}
 
       {/* ===================== LOG SESSION TAB ===================== */}
-      {tab === "log" && (
+      {/* ===================== SESSION HISTORY TAB ===================== */}
+      {tab === "sessions" && (
         <div className="space-y-4">
-          <div className="card space-y-4">
-            <h3 className="section-title">Log Teaching Session</h3>
-            <p className="text-xs text-gray-500">Log your completed teaching sessions. Your daily rate of <strong>{salary?.currency} {fmt(Math.round(dailyRate))}</strong> will be credited to your balance.</p>
+          {/* Session credit summary */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="stat-card text-center">
+              <div className="text-lg font-bold text-emerald-600">{totalSessionsTeached}</div>
+              <div className="text-[10px] text-gray-500">Total Sessions</div>
+            </div>
+            <div className="stat-card text-center">
+              <div className="text-lg font-bold text-blue-600">{salary?.currency || ""} {fmt(Math.round(totalCreditsEarned))}</div>
+              <div className="text-[10px] text-gray-500">Total Credits</div>
+            </div>
+            <div className="stat-card text-center">
+              <div className="text-lg font-bold text-amber-600">{currentMonthCredits.length}</div>
+              <div className="text-[10px] text-gray-500">This Month</div>
+            </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Class *</label>
-                <select className="input-field" value={sessionForm.classId} onChange={(e) => setSessionForm((p) => ({ ...p, classId: e.target.value }))}>
-                  <option value="">Select class</option>
-                  {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.schoolGrade.gradeLevel})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Date *</label>
-                <input type="date" className="input-field" value={sessionForm.date} onChange={(e) => setSessionForm((p) => ({ ...p, date: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Hours Worked</label>
-                <select className="input-field" value={sessionForm.hoursWorked} onChange={(e) => setSessionForm((p) => ({ ...p, hoursWorked: e.target.value }))}>
-                  <option value="1">1 hour</option><option value="2">2 hours</option><option value="3">3 hours</option>
-                  <option value="4">4 hours (half day)</option><option value="5">5 hours</option><option value="6">6 hours</option>
-                  <option value="7">7 hours</option><option value="8">8 hours (full day)</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Topic Taught</label>
-                <input className="input-field" placeholder="e.g. Algebra - Quadratic Equations" value={sessionForm.topic} onChange={(e) => setSessionForm((p) => ({ ...p, topic: e.target.value }))} />
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+            💡 Credits are automatically added to your balance when you teach a live session. Each session earns a portion of your monthly salary based on duration.
+          </div>
+
+          {sessionCredits.length === 0 ? (
+            <div className="card text-center py-12">
+              <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No session credits yet.</p>
+              <p className="text-xs text-gray-400 mt-1">Credits are added automatically when you teach live sessions.</p>
+            </div>
+          ) : (
+            <div className="card">
+              <h3 className="section-title mb-3">Session Credit History</h3>
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {sessionCredits.map((c: any) => (
+                  <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold ${c.status === "CREDITED" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                      {c.status === "CREDITED" ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-gray-800">
+                        {c.liveSession?.class?.name || c.liveSession?.topic || "Live Session"}
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        {new Date(c.createdAt).toLocaleDateString()} • {c.durationMin} min
+                        {c.liveSession?.startedAt && (
+                          <span> • {new Date(c.liveSession.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-emerald-700">+{c.currency} {fmt(c.creditAmount)}</span>
+                      <p className="text-[9px] text-gray-400">{c.status}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <textarea className="input-field" rows={2} placeholder="Notes (optional)" value={sessionForm.notes} onChange={(e) => setSessionForm((p) => ({ ...p, notes: e.target.value }))} />
+          )}
 
-            {/* Earning preview */}
-            {salary && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
-                <span className="text-xs text-emerald-700">You'll earn:</span>
-                <span className="text-lg font-bold text-emerald-700">
-                  {salary.currency} {fmt(Math.round(parseFloat(sessionForm.hoursWorked) >= 8 ? dailyRate : dailyRate * (parseFloat(sessionForm.hoursWorked) / 8)))}
-                </span>
+          {/* Manual sessions too */}
+          {sessions.length > 0 && (
+            <div className="card">
+              <h3 className="section-title mb-3">Manual Teaching Sessions</h3>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {sessions.slice(0, 20).map((s: any) => (
+                  <div key={s.id} className="flex items-center gap-3 py-2 border-b border-gray-50">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${s.verified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
+                      {s.verified ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-gray-800">{s.topic || "Teaching session"}</p>
+                      <p className="text-[10px] text-gray-500">{new Date(s.date).toLocaleDateString()} • {s.hoursWorked}h</p>
+                    </div>
+                    <span className="text-sm font-bold text-emerald-600">+{s.currency} {fmt(s.amountEarned)}</span>
+                  </div>
+                ))}
               </div>
-            )}
-
-            <button onClick={handleLogSession} disabled={loading === "session" || !sessionForm.classId} className="btn-primary text-sm w-full py-3">
-              {loading === "session" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Log Session & Earn
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
