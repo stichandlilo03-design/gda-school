@@ -61,6 +61,9 @@ export default async function StudentFeesPage() {
           pendingReview={pendingReview}
           payments={JSON.parse(JSON.stringify(student.payments))}
           currency={schoolCurrency}
+          feeInstructions={student.school.feeInstructions || ""}
+          feePaymentPolicy={student.school.feePaymentPolicy || "PERCENTAGE"}
+          feePaymentThreshold={student.school.feePaymentThreshold ?? 70}
         />
       </div>
     </>

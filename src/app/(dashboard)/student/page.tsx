@@ -66,7 +66,11 @@ export default async function StudentDashboard() {
     .reduce((sum, p) => sum + p.amount, 0);
 
   const feePercent = totalFees > 0 ? Math.round((approvedPaid / totalFees) * 100) : 100;
-  const hasAccess = feePercent >= 70 || student.feePaid;
+  const feeThreshold = student.school.feePaymentThreshold ?? 70;
+  const feePolicy = student.school.feePaymentPolicy || "PERCENTAGE";
+  const hasAccess = feePolicy === "FLEXIBLE" ? true
+    : feePolicy === "FULL" ? (feePercent >= 100 || student.feePaid)
+    : (feePercent >= feeThreshold || student.feePaid);
   const balanceDue = Math.max(0, totalFees - approvedPaid);
 
   // Get active term
@@ -210,7 +214,9 @@ export default async function StudentDashboard() {
                 <h3 className={`text-sm font-bold ${hasAccess ? "text-emerald-800" : "text-amber-800"}`}>
                   {hasAccess
                     ? `${feePercent}% Paid — Full Access Unlocked!`
-                    : `${feePercent}% Paid — Pay ${70 - feePercent}% more to unlock class details`
+                    : feePolicy === "FULL"
+                    ? `${feePercent}% Paid — Full payment required to unlock classes`
+                    : `${feePercent}% Paid — Pay ${Math.max(0, feeThreshold - feePercent)}% more to unlock classes (${feeThreshold}% required)`
                   }
                 </h3>
               </div>
@@ -230,6 +236,14 @@ export default async function StudentDashboard() {
             <Link href="/student/fees" className="btn-primary text-xs px-4 py-2 flex-shrink-0">
               {hasAccess ? "View Fees" : "Pay Now"}
             </Link>
+          </div>
+        )}
+
+        {/* Fee Instructions from School */}
+        {student.school.feeInstructions && !student.feePaid && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-xs font-bold text-blue-800 mb-1">📋 Fee Payment Instructions</p>
+            <p className="text-xs text-blue-700 whitespace-pre-wrap">{student.school.feeInstructions}</p>
           </div>
         )}
 

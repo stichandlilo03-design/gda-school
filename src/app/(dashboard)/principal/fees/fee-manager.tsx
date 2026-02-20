@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { setFeeStructure } from "@/lib/actions/school";
+import { setFeeStructure, updateFeePolicy } from "@/lib/actions/school";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, DollarSign, Save, Edit3, AlertTriangle, Users, TrendingDown, CreditCard, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, DollarSign, Save, Edit3, AlertTriangle, Users, TrendingDown, CreditCard, Search, ChevronDown, ChevronUp, Settings } from "lucide-react";
 import { getGradeLabelForCountry } from "@/lib/education-systems";
 
 const TERMS = [{ value: "TERM_1", label: "Term 1" }, { value: "TERM_2", label: "Term 2" }, { value: "TERM_3", label: "Term 3" }];
 
 export default function FeeManager({
   grades, fees, currency, studentDebts, pendingPaymentsCount, countryCode = "NG",
+  feePaymentThreshold = 70, feePaymentPolicy = "PERCENTAGE", feeInstructions = "",
 }: {
   grades: any[]; fees: any[]; currency: string; studentDebts?: any[]; pendingPaymentsCount?: number; countryCode?: string;
+  feePaymentThreshold?: number; feePaymentPolicy?: string; feeInstructions?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
@@ -23,6 +25,12 @@ export default function FeeManager({
   const [editingFee, setEditingFee] = useState<string | null>(null);
   const [debtSearch, setDebtSearch] = useState("");
   const [debtFilter, setDebtFilter] = useState<"all"|"critical"|"warning"|"low">("all");
+  const [policyForm, setPolicyForm] = useState({
+    feePaymentPolicy: feePaymentPolicy,
+    feePaymentThreshold: feePaymentThreshold,
+    feeInstructions: feeInstructions,
+  });
+  const [showPolicy, setShowPolicy] = useState(false);
   const [showDebts, setShowDebts] = useState(true);
 
   const loadExisting = (gradeId: string, term: string) => {
@@ -61,9 +69,88 @@ export default function FeeManager({
     return true;
   });
 
+  const handleSavePolicy = async () => {
+    setLoading("policy");
+    const result = await updateFeePolicy(policyForm);
+    if (result.error) setMessage("Error: " + result.error);
+    else { setMessage("Fee policy saved!"); router.refresh(); }
+    setLoading("");
+  };
+
   return (
     <div className="space-y-6">
       {message && <div className={`rounded-lg p-3 text-sm ${message.includes("Error") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{message}</div>}
+
+      {/* FEE PAYMENT POLICY */}
+      <div className="card border-2 border-purple-200">
+        <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowPolicy(!showPolicy)}>
+          <div className="flex items-center gap-3">
+            <Settings className="w-5 h-5 text-purple-600" />
+            <div>
+              <h3 className="text-sm font-bold text-gray-800">Fee Payment Policy</h3>
+              <p className="text-[10px] text-gray-500">
+                Current: {policyForm.feePaymentPolicy === "FULL" ? "Full payment required" :
+                  policyForm.feePaymentPolicy === "FLEXIBLE" ? "No minimum — flexible payment" :
+                  `Minimum ${policyForm.feePaymentThreshold}% payment required`}
+              </p>
+            </div>
+          </div>
+          {showPolicy ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        </div>
+
+        {showPolicy && (
+          <div className="mt-4 pt-4 border-t space-y-4">
+            <div>
+              <label className="label">Payment Policy *</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { value: "PERCENTAGE", label: "Minimum Percentage", desc: "Students pay at least X% before accessing classes", icon: "📊" },
+                  { value: "FULL", label: "Full Payment", desc: "Students must pay 100% before accessing classes", icon: "💯" },
+                  { value: "FLEXIBLE", label: "Flexible / Owe", desc: "Students can access classes regardless of payment", icon: "🤝" },
+                ].map(p => (
+                  <button key={p.value} type="button"
+                    onClick={() => setPolicyForm(prev => ({ ...prev, feePaymentPolicy: p.value }))}
+                    className={`p-3 rounded-xl border-2 text-left transition-all ${
+                      policyForm.feePaymentPolicy === p.value ? "border-purple-500 bg-purple-50 ring-1 ring-purple-300" : "border-gray-200 hover:border-purple-200"
+                    }`}>
+                    <span className="text-xl">{p.icon}</span>
+                    <h4 className="text-xs font-bold text-gray-800 mt-1">{p.label}</h4>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{p.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {policyForm.feePaymentPolicy === "PERCENTAGE" && (
+              <div>
+                <label className="label">Minimum Payment Threshold (%)</label>
+                <div className="flex items-center gap-3">
+                  <input type="range" min={0} max={100} step={5}
+                    value={policyForm.feePaymentThreshold}
+                    onChange={(e) => setPolicyForm(prev => ({ ...prev, feePaymentThreshold: parseInt(e.target.value) }))}
+                    className="flex-1 accent-purple-600" />
+                  <span className="text-lg font-bold text-purple-700 w-16 text-center">{policyForm.feePaymentThreshold}%</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Students who paid at least {policyForm.feePaymentThreshold}% can access classes
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="label">Fee Instructions for Students</label>
+              <textarea className="input-field min-h-[80px]" placeholder="e.g. Payment due by 15th of each month. Bank: ABC, Account: 1234567890..."
+                value={policyForm.feeInstructions}
+                onChange={(e) => setPolicyForm(prev => ({ ...prev, feeInstructions: e.target.value }))} />
+              <p className="text-[10px] text-gray-500 mt-1">Students see this on their dashboard and fees page</p>
+            </div>
+
+            <button onClick={handleSavePolicy} disabled={loading === "policy"} className="btn-primary text-xs px-4 py-2">
+              {loading === "policy" ? <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Saving...</> : <><Save className="w-3 h-3 mr-1" /> Save Fee Policy</>}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

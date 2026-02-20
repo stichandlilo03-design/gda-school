@@ -69,6 +69,9 @@ export default async function FeesPage() {
           studentDebts={JSON.parse(JSON.stringify(studentDebts))}
           pendingPaymentsCount={pendingPayments.length}
           countryCode={principal.school.countryCode}
+          feePaymentThreshold={principal.school.feePaymentThreshold ?? 70}
+          feePaymentPolicy={principal.school.feePaymentPolicy || "PERCENTAGE"}
+          feeInstructions={principal.school.feeInstructions || ""}
         />
       </div>
     </>

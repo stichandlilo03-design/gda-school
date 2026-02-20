@@ -259,6 +259,9 @@ model School {
   sessionDurationMin Int   @default(40)
   breakDurationMin   Int   @default(10)
   sessionsPerDay     Int   @default(4)
+  feePaymentThreshold Int  @default(70)
+  feePaymentPolicy    String @default("PERCENTAGE") // PERCENTAGE, FULL, FLEXIBLE
+  feeInstructions     String? @db.Text
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

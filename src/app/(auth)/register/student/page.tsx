@@ -173,7 +173,6 @@ export default function StudentRegisterPage() {
                       <option>Select country first</option>
                     </select>
                   )}
-                  </select>
                 </div>
                 <div>
                   <label className="label">Preferred Session *</label>

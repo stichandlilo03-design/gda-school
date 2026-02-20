@@ -237,3 +237,28 @@ export async function setFeeStructure(data: {
   revalidatePath("/principal/fees");
   return { success: true };
 }
+
+export async function updateFeePolicy(data: {
+  feePaymentPolicy: string;
+  feePaymentThreshold: number;
+  feeInstructions: string;
+}) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
+
+  const principal = await db.principal.findUnique({ where: { userId: session.user.id } });
+  if (!principal) return { error: "Principal not found" };
+
+  await db.school.update({
+    where: { id: principal.schoolId },
+    data: {
+      feePaymentPolicy: data.feePaymentPolicy,
+      feePaymentThreshold: Math.max(0, Math.min(100, data.feePaymentThreshold)),
+      feeInstructions: data.feeInstructions || null,
+    },
+  });
+
+  revalidatePath("/principal/fees");
+  revalidatePath("/student");
+  return { success: true };
+}

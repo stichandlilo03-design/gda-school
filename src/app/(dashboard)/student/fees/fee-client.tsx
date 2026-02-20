@@ -19,9 +19,11 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
 
 export default function StudentFeeClient({
   student, feeStructures, bankAccounts, totalFees, totalPaid, pendingReview, payments, currency,
+  feeInstructions = "", feePaymentPolicy = "PERCENTAGE", feePaymentThreshold = 70,
 }: {
   student: any; feeStructures: any[]; bankAccounts: any[]; totalFees: number;
   totalPaid: number; pendingReview: number; payments: any[]; currency: string;
+  feeInstructions?: string; feePaymentPolicy?: string; feePaymentThreshold?: number;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -154,6 +156,28 @@ export default function StudentFeeClient({
           <div>
             <p className="text-sm font-bold text-emerald-800">Fees Fully Paid!</p>
             <p className="text-xs text-emerald-600">You have full access to all your classes and materials.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Fee Policy & Instructions */}
+      {!student.feePaid && (feeInstructions || feePaymentPolicy) && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-2">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-blue-600" />
+            <h3 className="text-xs font-bold text-blue-800">School Fee Information</h3>
+          </div>
+          <div className="text-[10px] text-blue-700 space-y-1">
+            <p>
+              {feePaymentPolicy === "FULL"
+                ? "📋 This school requires full payment (100%) before you can access classes."
+                : feePaymentPolicy === "FLEXIBLE"
+                ? "📋 This school allows flexible payments. You can attend classes while paying."
+                : `📋 You need to pay at least ${feePaymentThreshold}% of your fees to access classes.`}
+            </p>
+            {feeInstructions && (
+              <div className="bg-white p-2 rounded-lg mt-1 whitespace-pre-wrap">{feeInstructions}</div>
+            )}
           </div>
         </div>
       )}
