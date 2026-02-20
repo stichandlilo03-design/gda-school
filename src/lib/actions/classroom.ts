@@ -24,7 +24,8 @@ export async function startLiveClass(classId: string, topic?: string) {
   const live = await db.liveClassSession.create({
     data: {
       classId, teacherId: teacher.id, topic, status: "IN_PROGRESS", startedAt: new Date(),
-      boardContent: [], raisedHands: [], chatMessages: [], teachingMode: "board",
+      boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
+      whispers: [], questions: [], reactions: [], polls: [], teachingMode: "board",
     },
   });
 

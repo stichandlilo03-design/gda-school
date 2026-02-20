@@ -36,7 +36,8 @@ export async function GET() {
             classId: cls.id, teacherId: cls.teacherId,
             topic: `${cls.name} (Auto)`, status: "IN_PROGRESS",
             startedAt: now, autoStarted: true,
-            boardContent: [], raisedHands: [], chatMessages: [], questions: [],
+            boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
+            whispers: [], questions: [], reactions: [], polls: [],
           },
         });
         results.push(`Auto-started: ${cls.name}`);

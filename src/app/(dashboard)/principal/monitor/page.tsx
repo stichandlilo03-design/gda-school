@@ -14,12 +14,8 @@ export default async function PrincipalMonitorPage() {
   });
   if (!principal) return null;
 
-  // Get ALL live + recent sessions for this school
   const liveSessions = await db.liveClassSession.findMany({
-    where: {
-      class: { schoolGrade: { schoolId: principal.schoolId } },
-      status: "IN_PROGRESS",
-    },
+    where: { class: { schoolGrade: { schoolId: principal.schoolId } }, status: "IN_PROGRESS" },
     include: {
       class: {
         include: {
@@ -33,8 +29,7 @@ export default async function PrincipalMonitorPage() {
     orderBy: { startedAt: "desc" },
   });
 
-  // Recent ended sessions today
-  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const recentSessions = await db.liveClassSession.findMany({
     where: {
       class: { schoolGrade: { schoolId: principal.schoolId } },
@@ -46,10 +41,9 @@ export default async function PrincipalMonitorPage() {
       sessionCredits: true,
     },
     orderBy: { endedAt: "desc" },
-    take: 20,
+    take: 50,
   });
 
-  // Total credits today
   const todayCredits = await db.sessionCredit.aggregate({
     where: { schoolId: principal.schoolId, createdAt: { gte: todayStart } },
     _sum: { creditAmount: true },
@@ -58,7 +52,7 @@ export default async function PrincipalMonitorPage() {
 
   return (
     <>
-      <DashboardHeader title="Classroom Monitor" subtitle="Live view of all classroom activities" />
+      <DashboardHeader title="Classroom Monitor" subtitle="Live view of all classroom activities & session history" />
       <div className="p-6 lg:p-8">
         <MonitorClient
           liveSessions={JSON.parse(JSON.stringify(liveSessions))}

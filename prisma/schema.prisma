@@ -1080,9 +1080,13 @@ model LiveClassSession {
   endedAt     DateTime?
   durationMin Int      @default(0)
   boardContent Json    @default("[]")
+  boardHistory Json    @default("[]")
   raisedHands  Json    @default("[]")
   chatMessages Json    @default("[]")
+  whispers     Json    @default("[]")
   questions    Json    @default("[]")
+  reactions    Json    @default("[]")
+  polls        Json    @default("[]")
   teachingMode String  @default("board")
   autoStarted  Boolean @default(false)
   creditAwarded Boolean @default(false)
