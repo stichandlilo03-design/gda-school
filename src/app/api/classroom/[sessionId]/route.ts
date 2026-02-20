@@ -13,7 +13,7 @@ export async function GET(
         id: true, status: true, topic: true, teachingMode: true,
         boardContent: true, boardHistory: true, raisedHands: true,
         chatMessages: true, whispers: true, questions: true,
-        reactions: true, polls: true, startedAt: true, teacherId: true, durationMin: true,
+        reactions: true, polls: true, videoFeeds: true, startedAt: true, teacherId: true, durationMin: true,
         class: { select: { name: true, id: true } },
         teacher: { select: { user: { select: { name: true } } } },
       },
@@ -178,6 +178,34 @@ export async function POST(
       let polls = arr(ls.polls);
       polls = polls.map((p: any) => p.id === body.pollId ? { ...p, correctOption: body.optionIndex } : p);
       await db.liveClassSession.update({ where: { id: sessionId }, data: { polls: polls } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // VIDEO FEED (camera frame + status)
+    if (action === "cam_update") {
+      let feeds = arr(ls.videoFeeds);
+      const existing = feeds.findIndex((f: any) => f.odid === body.userId);
+      const entry = {
+        odid: body.userId,
+        name: body.userName || "User",
+        isTeacher: body.isTeacher || false,
+        camOn: body.camOn,
+        micOn: body.micOn,
+        frame: body.frame || null, // small base64 jpeg
+        ts: Date.now(),
+      };
+      if (existing >= 0) feeds[existing] = entry;
+      else feeds.push(entry);
+      // Remove stale feeds (>10s old)
+      feeds = feeds.filter((f: any) => Date.now() - f.ts < 10000);
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { videoFeeds: feeds } });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "cam_off") {
+      let feeds = arr(ls.videoFeeds);
+      feeds = feeds.filter((f: any) => f.odid !== body.userId);
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { videoFeeds: feeds } });
       return NextResponse.json({ ok: true });
     }
 

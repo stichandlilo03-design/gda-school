@@ -105,47 +105,48 @@ export default function PayrollManager({ teachers, currency, currentMonth, curre
                 const full = t.salary ? t.salary.baseSalary + t.salary.housingAllowance + t.salary.transportAllowance + t.salary.otherAllowances : 0;
                 const pct = full > 0 ? Math.round((earned / full) * 100) : 0;
                 return (
-                  <div key={t.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">{t.teacher.user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="text-sm font-medium">{t.teacher.user.name}</h4>
-                        <span className="text-xs font-bold text-emerald-600">{t.salary?.currency || currency} {fmt(Math.round(earned))}</span>
+                  <div key={t.id}>
+                    <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">{t.teacher.user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}</div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="text-sm font-medium">{t.teacher.user.name}</h4>
+                          <span className="text-xs font-bold text-emerald-600">{t.salary?.currency || currency} {fmt(Math.round(earned))}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className={`rounded-full h-2 transition-all ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-red-400"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                          <span>{days} days • {pct}% earned</span>
+                          <span>Full: {fmt(full)}</span>
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className={`rounded-full h-2 transition-all ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-red-400"}`} style={{ width: `${Math.min(100, pct)}%` }} />
-                      </div>
-                      <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                        <span>{days} days • {pct}% earned</span>
-                        <span>Full: {fmt(full)}</span>
-                      </div>
+                      {!t.salary && <span className="text-[10px] text-amber-600 font-medium">No salary set</span>}
+                      {t.teacher.bankAccounts[0] ? (
+                        <button onClick={(e) => { e.stopPropagation(); setViewBank(viewBank === t.id ? null : t.id); }}
+                          className="flex items-center gap-1 text-[10px] text-purple-600 hover:text-purple-800 px-2 py-1 rounded-lg hover:bg-purple-50">
+                          <Building2 className="w-3 h-3" /> Bank
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-red-400">No bank</span>
+                      )}
                     </div>
-                    {!t.salary && <span className="text-[10px] text-amber-600 font-medium">No salary set</span>}
-                    {t.teacher.bankAccounts[0] ? (
-                      <button onClick={(e) => { e.stopPropagation(); setViewBank(viewBank === t.id ? null : t.id); }}
-                        className="flex items-center gap-1 text-[10px] text-purple-600 hover:text-purple-800 px-2 py-1 rounded-lg hover:bg-purple-50">
-                        <Building2 className="w-3 h-3" /> Bank
-                      </button>
-                    ) : (
-                      <span className="text-[10px] text-red-400">No bank</span>
-                    )}
-                  </div>
-                  {viewBank === t.id && t.teacher.bankAccounts[0] && (() => {
-                    const b = t.teacher.bankAccounts[0];
-                    return (
-                      <div className="mt-2 p-3 bg-purple-50 rounded-lg border border-purple-200 text-xs space-y-1">
-                        <p className="font-bold text-purple-800">💳 Bank Details ({b.label})</p>
-                        {b.bankName && <p className="text-gray-700">Bank: <span className="font-medium">{b.bankName}</span></p>}
-                        {b.accountName && <p className="text-gray-700">Name: <span className="font-medium">{b.accountName}</span></p>}
-                        {b.accountNumber && <p className="text-gray-700">Account: <span className="font-medium">{b.accountNumber}</span></p>}
-                        {b.routingNumber && <p className="text-gray-700">Routing: <span className="font-medium">{b.routingNumber}</span></p>}
-                        {b.mobileNumber && <p className="text-gray-700">Mobile: <span className="font-medium">{b.mobileProvider} {b.mobileNumber}</span></p>}
-                        {b.paypalEmail && <p className="text-gray-700">PayPal: <span className="font-medium">{b.paypalEmail}</span></p>}
-                        {b.cryptoAddress && <p className="text-gray-700">Crypto: <span className="font-medium">{b.cryptoNetwork} - {b.cryptoAddress}</span></p>}
-                        <p className="text-gray-500">Currency: {b.currency} • {b.isVerified ? "✅ Verified" : "⏳ Unverified"}</p>
-                      </div>
-                    );
-                  })()}
+                    {viewBank === t.id && t.teacher.bankAccounts[0] && (() => {
+                      const b = t.teacher.bankAccounts[0];
+                      return (
+                        <div className="mt-2 p-3 bg-purple-50 rounded-lg border border-purple-200 text-xs space-y-1">
+                          <p className="font-bold text-purple-800">💳 Bank Details ({b.label})</p>
+                          {b.bankName && <p className="text-gray-700">Bank: <span className="font-medium">{b.bankName}</span></p>}
+                          {b.accountName && <p className="text-gray-700">Name: <span className="font-medium">{b.accountName}</span></p>}
+                          {b.accountNumber && <p className="text-gray-700">Account: <span className="font-medium">{b.accountNumber}</span></p>}
+                          {b.routingNumber && <p className="text-gray-700">Routing: <span className="font-medium">{b.routingNumber}</span></p>}
+                          {b.mobileNumber && <p className="text-gray-700">Mobile: <span className="font-medium">{b.mobileProvider} {b.mobileNumber}</span></p>}
+                          {b.paypalEmail && <p className="text-gray-700">PayPal: <span className="font-medium">{b.paypalEmail}</span></p>}
+                          {b.cryptoAddress && <p className="text-gray-700">Crypto: <span className="font-medium">{b.cryptoNetwork} - {b.cryptoAddress}</span></p>}
+                          <p className="text-gray-500">Currency: {b.currency} • {b.isVerified ? "✅ Verified" : "⏳ Unverified"}</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
