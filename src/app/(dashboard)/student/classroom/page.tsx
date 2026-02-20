@@ -11,6 +11,7 @@ export default async function StudentClassroomPage() {
   const student = await db.student.findUnique({
     where: { userId: session.user.id },
     include: {
+      school: { select: { sessionDurationMin: true, breakDurationMin: true, sessionsPerDay: true } },
       enrollments: {
         where: { status: "ACTIVE" },
         include: {
@@ -41,19 +42,27 @@ export default async function StudentClassroomPage() {
   if (!student) return null;
   const isKG = ["K1", "K2", "K3"].includes(student.gradeLevel);
 
+  // FILTER: Only show classes that match student's grade level
+  const myGradeEnrollments = student.enrollments.filter((e: any) =>
+    e.class.schoolGrade?.gradeLevel === student.gradeLevel
+  );
+
   return (
     <>
       <DashboardHeader
         title={isKG ? "🏫 My Classroom" : "My Classroom"}
-        subtitle={isKG ? "Join your class and learn!" : "Join live classes & view announcements"}
+        subtitle={isKG ? "Join your class and learn!" : `Grade ${student.gradeLevel} — Join live classes & view announcements`}
       />
       <div className="p-6 lg:p-8">
         <StudentClassroomClient
-          enrollments={JSON.parse(JSON.stringify(student.enrollments))}
+          enrollments={JSON.parse(JSON.stringify(myGradeEnrollments))}
           todayAttendance={JSON.parse(JSON.stringify(student.attendances))}
           studentId={student.id}
           studentName={session.user.name || "Student"}
+          studentGrade={student.gradeLevel}
           isKG={isKG}
+          sessionDurationMin={student.school?.sessionDurationMin || 40}
+          breakDurationMin={student.school?.breakDurationMin || 10}
         />
       </div>
     </>

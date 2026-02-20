@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   Play, Square, Users, Clock, CheckCircle, XCircle, AlertTriangle,
   Loader2, Megaphone, Bell, ChevronDown, ChevronUp, Send, Trash2,
-  BookOpen, UserCheck, FolderOpen, Monitor
+  BookOpen, UserCheck, FolderOpen, Monitor, Coffee
 } from "lucide-react";
 import Link from "next/link";
 import VisualClassroom from "@/components/visual-classroom";
@@ -23,7 +23,7 @@ const ATT_OPTIONS = [
   { value: "EXCUSED", label: "Excused", color: "bg-blue-500", icon: AlertTriangle },
 ];
 
-export default function TeacherClassroomClient({ classes, teacherId }: { classes: any[]; teacherId: string }) {
+export default function TeacherClassroomClient({ classes, teacherId, sessionDurationMin, breakDurationMin }: { classes: any[]; teacherId: string; sessionDurationMin: number; breakDurationMin: number }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
@@ -35,6 +35,8 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
   const [topicInput, setTopicInput] = useState("");
   const [activeVisual, setActiveVisual] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [onBreak, setOnBreak] = useState(false);
+  const [breakCountdown, setBreakCountdown] = useState(0);
 
   const today = DAYS[new Date().getDay()];
 
@@ -71,6 +73,18 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
     return () => clearInterval(i);
   }, []);
 
+  // Break countdown timer
+  useEffect(() => {
+    if (!onBreak || breakCountdown <= 0) return;
+    const i = setInterval(() => {
+      setBreakCountdown(prev => {
+        if (prev <= 1) { setOnBreak(false); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(i);
+  }, [onBreak, breakCountdown]);
+
   const handleStartClass = async (classId: string) => {
     setLoading("start-" + classId);
     const result = await startLiveClass(classId, topicInput || undefined);
@@ -86,9 +100,12 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
   const handleEndClass = async (sessionId: string) => {
     if (!confirm("End this live session?")) return;
     setLoading("end-" + sessionId);
-    await endLiveClass(sessionId);
+    const result = await endLiveClass(sessionId);
     setActiveVisual(null);
     setActiveSessionId(null);
+    // Trigger break timer
+    setOnBreak(true);
+    setBreakCountdown(breakDurationMin * 60);
     router.refresh();
     setLoading("");
   };
@@ -127,6 +144,26 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
       <ClassAlarm schedules={alarmSchedules} />
 
       {message && <div className={`p-3 rounded-lg text-sm ${message.includes("Error") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{message}</div>}
+
+      {/* Session info */}
+      <div className="flex items-center gap-4 text-[10px] text-gray-500">
+        <span>⏱️ Session: {sessionDurationMin}min</span>
+        <span>☕ Break: {breakDurationMin}min</span>
+        <span>📊 Credits auto-added to payroll on session end</span>
+      </div>
+
+      {/* Break timer */}
+      {onBreak && (
+        <div className="p-6 rounded-2xl text-center bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+          <Coffee className="w-12 h-12 mx-auto mb-3 text-blue-500" />
+          <h3 className="text-xl font-bold text-blue-800">Break Time</h3>
+          <p className="text-sm text-blue-600 mt-1">Session ended. Take a {breakDurationMin}-minute break before next class.</p>
+          <div className="mt-3 text-3xl font-mono font-bold text-gray-800">
+            {Math.floor(breakCountdown / 60)}:{String(breakCountdown % 60).padStart(2, "0")}
+          </div>
+          <button onClick={() => setOnBreak(false)} className="mt-3 text-xs text-gray-400 hover:text-gray-600">Skip break</button>
+        </div>
+      )}
 
       {/* Visual Classroom (when active) */}
       {activeVisual && activeSessionId && (() => {

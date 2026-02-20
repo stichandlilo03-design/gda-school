@@ -15,6 +15,9 @@ export async function updateSchoolSettings(data: {
   secondaryColor: string;
   rulesText?: string;
   anthemLyrics?: string;
+  sessionDurationMin?: number;
+  breakDurationMin?: number;
+  sessionsPerDay?: number;
 }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
@@ -29,6 +32,9 @@ export async function updateSchoolSettings(data: {
       motto: data.motto || null,
       primaryColor: data.primaryColor,
       secondaryColor: data.secondaryColor,
+      sessionDurationMin: data.sessionDurationMin || 40,
+      breakDurationMin: data.breakDurationMin || 10,
+      sessionsPerDay: data.sessionsPerDay || 4,
       rulesText: data.rulesText || null,
       anthemLyrics: data.anthemLyrics || null,
     },

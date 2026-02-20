@@ -256,6 +256,9 @@ model School {
   countryCode     String
   currency        String   @default("USD")
   rulesText       String?  @db.Text
+  sessionDurationMin Int   @default(40)
+  breakDurationMin   Int   @default(10)
+  sessionsPerDay     Int   @default(4)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

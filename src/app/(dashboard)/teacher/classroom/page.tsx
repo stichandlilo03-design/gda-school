@@ -11,6 +11,11 @@ export default async function TeacherClassroomPage() {
   const teacher = await db.teacher.findUnique({
     where: { userId: session.user.id },
     include: {
+      schools: {
+        where: { isActive: true, status: "APPROVED" },
+        include: { school: { select: { sessionDurationMin: true, breakDurationMin: true, sessionsPerDay: true } } },
+        take: 1,
+      },
       classes: {
         where: { isActive: true },
         include: {
@@ -38,6 +43,7 @@ export default async function TeacherClassroomPage() {
 
   if (!teacher) return null;
 
+  const schoolSettings = teacher.schools?.[0]?.school;
   const totalStudents = teacher.classes.reduce((s, c) => s + c.enrollments.length, 0);
 
   return (
@@ -47,6 +53,8 @@ export default async function TeacherClassroomPage() {
         <TeacherClassroomClient
           classes={JSON.parse(JSON.stringify(teacher.classes))}
           teacherId={teacher.id}
+          sessionDurationMin={schoolSettings?.sessionDurationMin || 40}
+          breakDurationMin={schoolSettings?.breakDurationMin || 10}
         />
       </div>
     </>

@@ -35,7 +35,7 @@ export async function startLiveClass(classId: string, topic?: string) {
   return { success: true, sessionId: live.id };
 }
 
-// End a live class session + credit teacher
+// End a live class session + credit teacher + auto payroll
 export async function endLiveClass(sessionId: string) {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
@@ -46,29 +46,35 @@ export async function endLiveClass(sessionId: string) {
   });
   if (!live) return { error: "Session not found" };
 
-  // Calculate duration
   const durationMin = live.startedAt
     ? Math.round((Date.now() - live.startedAt.getTime()) / 60000)
     : 0;
 
+  const school = live.class.schoolGrade?.school;
+  const sessionLimit = school?.sessionDurationMin || 40;
+  const breakMin = school?.breakDurationMin || 10;
+
   await db.liveClassSession.update({
     where: { id: sessionId },
-    data: { status: "ENDED", endedAt: new Date(), durationMin, raisedHands: [], },
+    data: { status: "ENDED", endedAt: new Date(), durationMin, raisedHands: [] },
   });
 
-  // Award session credit to teacher (if not already awarded)
+  // Award session credit + auto payroll
   if (!live.creditAwarded && durationMin >= 5) {
-    const school = live.class.schoolGrade?.school;
     const schoolTeacher = await db.schoolTeacher.findFirst({
       where: { teacherId: live.teacherId, schoolId: school?.id || "" },
       include: { salary: true },
     });
 
-    // Calculate per-session rate: monthlySalary / ~80 sessions per month (4 sessions/day * 20 days)
     let creditAmount = 0;
     if (schoolTeacher?.salary) {
-      const sessionsPerMonth = 80;
-      creditAmount = Math.round((schoolTeacher.salary.baseSalary / sessionsPerMonth) * (Math.min(durationMin, 45) / 40) * 100) / 100;
+      const sessionsPerDay = school?.sessionsPerDay || 4;
+      const workingDays = schoolTeacher.salary.workingDaysPerMonth || 22;
+      const sessionsPerMonth = sessionsPerDay * workingDays;
+      creditAmount = Math.round(
+        (schoolTeacher.salary.baseSalary / sessionsPerMonth) *
+        (Math.min(durationMin, sessionLimit + 5) / sessionLimit) * 100
+      ) / 100;
     }
 
     if (creditAmount > 0) {
@@ -88,14 +94,59 @@ export async function endLiveClass(sessionId: string) {
         where: { id: sessionId },
         data: { creditAwarded: true },
       });
+
+      // AUTO-PAYROLL: Upsert current month's payroll record
+      if (schoolTeacher) {
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+
+        const existing = await db.payrollRecord.findUnique({
+          where: { schoolTeacherId_month_year: { schoolTeacherId: schoolTeacher.id, month, year } },
+        });
+
+        if (existing) {
+          // Add credit to existing payroll
+          const newGross = existing.grossPay + creditAmount;
+          const taxDed = schoolTeacher.salary ? newGross * (schoolTeacher.salary.taxRate / 100) : 0;
+          const netPay = newGross - taxDed - existing.pensionDeduction - existing.otherDeductions;
+          await db.payrollRecord.update({
+            where: { id: existing.id },
+            data: { grossPay: newGross, netPay, notes: `Auto-updated: +${creditAmount} from session (${durationMin}min)` },
+          });
+        } else {
+          // Create new payroll for this month
+          const base = schoolTeacher.salary?.baseSalary || 0;
+          const allowances = (schoolTeacher.salary?.housingAllowance || 0) +
+            (schoolTeacher.salary?.transportAllowance || 0) + (schoolTeacher.salary?.otherAllowances || 0);
+          const taxRate = schoolTeacher.salary?.taxRate || 0;
+          const taxDed = creditAmount * (taxRate / 100);
+          await db.payrollRecord.create({
+            data: {
+              schoolTeacherId: schoolTeacher.id,
+              month, year,
+              baseSalary: base,
+              allowances,
+              grossPay: creditAmount,
+              taxDeduction: taxDed,
+              netPay: creditAmount - taxDed,
+              currency: school?.currency || "USD",
+              status: "DRAFT",
+              notes: `Auto-created from session (${durationMin}min)`,
+            },
+          });
+        }
+      }
     }
   }
 
   revalidatePath("/teacher/classroom");
   revalidatePath("/student/classroom");
   revalidatePath("/principal");
-  return { success: true, durationMin };
+  revalidatePath("/principal/payroll");
+  return { success: true, durationMin, breakMin };
 }
+
 
 // Mark attendance for a student
 export async function markAttendance(data: {
