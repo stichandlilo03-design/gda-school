@@ -219,6 +219,16 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
     };
   }, [sessionId, userId]);
 
+  // Attach local stream to video element after render
+  useEffect(() => {
+    if (joined && localStreamRef.current && localVideoRef.current) {
+      if (localVideoRef.current.srcObject !== localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+        localVideoRef.current.play().catch(() => {});
+      }
+    }
+  }, [joined, camOn]);
+
   useEffect(() => {
     remotes.forEach((rs, id) => {
       const el = remoteVidRefs.current.get(id);
@@ -280,9 +290,8 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
 
       <div className={`grid gap-1.5 ${remoteArr.length===0?"grid-cols-1":remoteArr.length<=2?"grid-cols-2":"grid-cols-3"}`}>
         <div className={`relative rounded-xl overflow-hidden bg-gray-900 aspect-video ${remoteArr.length===0?"max-w-xs mx-auto w-full":""}`}>
-          {camOn?(
-            <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          ):(
+          <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover ${camOn?"":"hidden"}`} style={{transform:"scaleX(-1)"}} />
+          {!camOn&&(
             <div className="w-full h-full flex items-center justify-center bg-gray-800">
               <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold">{userName?.[0]||"?"}</div>
             </div>
