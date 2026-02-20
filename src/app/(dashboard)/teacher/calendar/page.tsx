@@ -10,17 +10,19 @@ export default async function TeacherCalendarPage() {
 
   const teacher = await db.teacher.findUnique({
     where: { userId: session.user.id },
-    select: { schoolId: true },
+    include: { schools: { where: { isActive: true, status: "APPROVED" }, take: 1, select: { schoolId: true } } },
   });
-  if (!teacher) return null;
+  if (!teacher || !teacher.schools[0]) return null;
+
+  const schoolId = teacher.schools[0].schoolId;
 
   const events = await db.academicEvent.findMany({
-    where: { schoolId: teacher.schoolId },
+    where: { schoolId },
     orderBy: { startDate: "asc" },
   });
 
   const terms = await db.term.findMany({
-    where: { schoolId: teacher.schoolId },
+    where: { schoolId },
     orderBy: { startDate: "asc" },
   });
 
