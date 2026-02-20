@@ -1264,6 +1264,7 @@ model LiveClassSession {
   teacherJoinedAt DateTime?
   lateMinutes    Int      @default(0)
   isPrep         Boolean  @default(false)
+  prepHidden     Json     @default("{}")
   createdAt   DateTime @default(now())
 
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)

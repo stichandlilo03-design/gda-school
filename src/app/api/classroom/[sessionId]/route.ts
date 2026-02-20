@@ -14,12 +14,32 @@ export async function GET(
         boardContent: true, boardHistory: true, raisedHands: true,
         chatMessages: true, whispers: true, questions: true,
         reactions: true, polls: true, videoFeeds: true, rtcSignals: true, startedAt: true, teacherId: true, durationMin: true,
+        isPrep: true, prepHidden: true,
         class: { select: { name: true, id: true } },
         teacher: { select: { user: { select: { name: true } } } },
       },
     });
     if (!s) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const liveMinutes = s.startedAt ? Math.round((Date.now() - new Date(s.startedAt).getTime()) / 60000) : 0;
+
+    // If prep session, filter hidden elements for non-teacher requests
+    const role = req.nextUrl.searchParams.get("role");
+    const hidden = (s.isPrep && s.prepHidden && typeof s.prepHidden === "object") ? s.prepHidden as Record<string, boolean> : {};
+
+    if (s.isPrep && role !== "teacher") {
+      return NextResponse.json({
+        ...s,
+        liveMinutes,
+        boardContent: hidden.board ? [] : s.boardContent,
+        boardHistory: hidden.board ? [] : s.boardHistory,
+        polls: hidden.polls ? [] : s.polls,
+        chatMessages: hidden.chat ? [] : s.chatMessages,
+        questions: hidden.qa ? [] : s.questions,
+        whispers: hidden.whisper ? [] : s.whispers,
+        prepHidden: hidden, // students see WHICH things are hidden (for UI messaging)
+      });
+    }
+
     return NextResponse.json({ ...s, liveMinutes });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
@@ -417,6 +437,15 @@ export async function POST(
       sigs = sigs.filter((s: any) => !ids.includes(s.id));
       await db.liveClassSession.update({ where: { id: sessionId }, data: { rtcSignals: sigs } });
       return NextResponse.json({ ok: true });
+    }
+
+    // PREP: Toggle hidden elements (teacher controls what students see)
+    if (action === "toggle_prep_hidden") {
+      const hidden = (ls.prepHidden && typeof ls.prepHidden === "object") ? { ...(ls.prepHidden as any) } : {};
+      const field = body.field; // "board" | "polls" | "chat" | "qa" | "whisper"
+      hidden[field] = !hidden[field];
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { prepHidden: hidden } });
+      return NextResponse.json({ ok: true, hidden });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

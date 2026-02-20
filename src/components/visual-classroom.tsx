@@ -273,12 +273,15 @@ export default function VisualClassroom(props: Props) {
   const [examTitle, setExamTitle] = useState("");
   const [examQuestions, setExamQuestions] = useState<{question:string;options:string[];correctOption:number|null;timeLimitSec:number}[]>([]);
   const [examSaving, setExamSaving] = useState(false);
+  // Prep visibility controls
+  const [isSessionPrep, setIsSessionPrep] = useState(false);
+  const [prepHidden, setPrepHidden] = useState<Record<string, boolean>>({});
 
   // ===== POLL SERVER =====
   const pollServer = useCallback(async () => {
     if (!sessionId) return;
     try {
-      const r = await fetch(`/api/classroom/${sessionId}`);
+      const r = await fetch(`/api/classroom/${sessionId}?role=${isTeacher ? "teacher" : "student"}`);
       if (!r.ok) return;
       const d = await r.json();
       setBoardLines(Array.isArray(d.boardContent) ? d.boardContent : []);
@@ -290,6 +293,8 @@ export default function VisualClassroom(props: Props) {
       setPolls(Array.isArray(d.polls) ? d.polls : []);
       if (d.teachingMode) setTeachingMode(d.teachingMode);
       if (d.liveMinutes !== undefined) setLiveMinutes(d.liveMinutes);
+      if (d.isPrep !== undefined) setIsSessionPrep(d.isPrep);
+      if (d.prepHidden) setPrepHidden(typeof d.prepHidden === "object" ? d.prepHidden : {});
       setLastPoll(Date.now());
       if (!isTeacher && handRaised && !(d.raisedHands||[]).find((h:any) => h.studentId === studentId)) {
         setHandRaised(false); setHandAccepted(true);
@@ -399,6 +404,7 @@ export default function VisualClassroom(props: Props) {
     setWhisperMsg("");
   };
   const sendReaction = (emoji: string) => post("reaction",{from:isTeacher?"Teacher":studentName,emoji});
+  const togglePrepHide = (field: string) => post("toggle_prep_hidden", { field });
   const createPoll = () => {
     if (!pollQ.trim()) return;
     post("create_poll",{question:pollQ,options:pollOpts.filter(o=>o.trim()),mode:"poll"});
@@ -503,6 +509,42 @@ export default function VisualClassroom(props: Props) {
         </div>
       </div>
 
+      {/* PREP CONTROLS BAR — Teacher can hide/show content from students */}
+      {isSessionPrep && isTeacher && (
+        <div className="px-3 py-1.5 bg-amber-100 border-b border-amber-300 flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold text-amber-800">🔒 Prep Mode — Hide from students:</span>
+          {([
+            { key: "board", label: "Board", icon: "📋" },
+            { key: "polls", label: "Polls/Exams", icon: "📊" },
+            { key: "chat", label: "Chat", icon: "💬" },
+            { key: "qa", label: "Q&A", icon: "❓" },
+          ] as const).map(item => (
+            <button key={item.key} onClick={() => togglePrepHide(item.key)}
+              className={`text-[9px] px-2 py-0.5 rounded-full font-bold border transition ${
+                prepHidden[item.key]
+                  ? "bg-red-100 border-red-400 text-red-700"
+                  : "bg-emerald-100 border-emerald-400 text-emerald-700"
+              }`}>
+              {item.icon} {item.label}: {prepHidden[item.key] ? "HIDDEN" : "VISIBLE"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* PREP BANNER — Student sees what's hidden */}
+      {isSessionPrep && !isTeacher && (
+        <div className="px-3 py-2 bg-amber-50 border-b border-amber-200">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-amber-700">📋 Prep Session — Teacher is setting up the class</span>
+          </div>
+          {Object.values(prepHidden).some(v => v) && (
+            <p className="text-[9px] text-amber-600 mt-0.5">
+              🔒 Some content is hidden: {prepHidden.board && "Board "}{prepHidden.polls && "Polls/Exams "}{prepHidden.chat && "Chat "}{prepHidden.qa && "Q&A "}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className={`${isKG?"bg-gradient-to-b from-sky-100 to-yellow-50":"bg-gradient-to-b from-gray-100 to-gray-200"}`}>
         <div className="flex">
           <div className="flex-1 p-3 space-y-3 overflow-y-auto" style={{maxHeight: fullscreen ? "calc(100vh - 50px)" : "auto"}}>
@@ -547,6 +589,16 @@ export default function VisualClassroom(props: Props) {
 
             {/* BLACKBOARD */}
             <div className="relative">
+              {/* Hidden overlay for students during prep */}
+              {isSessionPrep && !isTeacher && prepHidden.board && (
+                <div className="absolute inset-0 z-10 bg-gray-800/90 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <Lock className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-white">Board Hidden</p>
+                    <p className="text-[10px] text-gray-400">Teacher is preparing content. It will be visible when class goes live.</p>
+                  </div>
+                </div>
+              )}
               <div className="bg-amber-800 rounded-t-lg px-3 py-1 flex items-center justify-between">
                 <span className="text-[9px] text-amber-200">📋 {isKG?"Our Board":"Blackboard"}</span>
                 {isTeacher && (
@@ -567,6 +619,15 @@ export default function VisualClassroom(props: Props) {
                 </div>
               )}
             </div>
+
+            {/* Polls hidden during prep */}
+            {isSessionPrep && !isTeacher && prepHidden.polls && (
+              <div className="p-3 bg-gray-100 border border-gray-200 rounded-xl text-center">
+                <BarChart3 className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+                <p className="text-[10px] text-gray-500 font-bold">Polls & Exams Hidden</p>
+                <p className="text-[9px] text-gray-400">Teacher is setting up. Will be visible when class goes live.</p>
+              </div>
+            )}
 
             {/* Active Poll (simple) */}
             {polls.filter((p:any) => p.active && !p.questions).map((p:any) => {
@@ -838,6 +899,15 @@ export default function VisualClassroom(props: Props) {
                   <span className="text-xs font-bold text-gray-700">💬 Class Chat</span>
                   <button onClick={() => setPanel(null)}><X className="w-3.5 h-3.5 text-gray-400" /></button>
                 </div>
+                {isSessionPrep && !isTeacher && prepHidden.chat ? (
+                  <div className="flex-1 flex items-center justify-center p-6">
+                    <div className="text-center">
+                      <Lock className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                      <p className="text-xs font-bold text-gray-500">Chat Hidden</p>
+                      <p className="text-[9px] text-gray-400">Teacher is preparing. Chat will open when class starts.</p>
+                    </div>
+                  </div>
+                ) : (<>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1.5" ref={chatScrollRef}
                   onScroll={(e) => {
                     const el = e.currentTarget;
@@ -865,6 +935,7 @@ export default function VisualClassroom(props: Props) {
                     <button onClick={sendChat} className="p-1 bg-brand-600 text-white rounded-lg"><Send className="w-3 h-3" /></button>
                   </div>
                 </div>
+              </>)}
               </>)}
 
               {/* Q&A */}
