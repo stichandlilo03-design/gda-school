@@ -12,7 +12,7 @@ export default async function ParentGradesPage() {
     include: { children: { include: { student: { include: {
       user: { select: { name: true } },
       school: { select: { name: true } },
-      scores: { orderBy: { createdAt: "desc" }, include: { assessment: true, class: { include: { subject: true } } } },
+      scores: { orderBy: { createdAt: "desc" }, include: { assessment: { include: { class: { include: { subject: true } } } } } },
     } } } } },
   });
 
@@ -27,7 +27,7 @@ export default async function ParentGradesPage() {
           const scores = child.scores || [];
           const bySubject: Record<string, any[]> = {};
           scores.forEach((s: any) => {
-            const sub = s.class?.subject?.name || "Other";
+            const sub = s.assessment?.class?.subject?.name || "Other";
             if (!bySubject[sub]) bySubject[sub] = [];
             bySubject[sub].push(s);
           });

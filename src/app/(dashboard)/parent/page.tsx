@@ -32,7 +32,7 @@ export default async function ParentDashboard() {
                 },
               },
               attendances: { orderBy: { date: "desc" }, take: 30 },
-              scores: { orderBy: { createdAt: "desc" }, take: 10, include: { assessment: { select: { title: true, maxScore: true, type: true } }, class: { include: { subject: true } } } },
+              scores: { orderBy: { createdAt: "desc" }, take: 10, include: { assessment: { include: { class: { include: { subject: true } } } } } },
               payments: { orderBy: { createdAt: "desc" }, take: 5 },
             },
           },

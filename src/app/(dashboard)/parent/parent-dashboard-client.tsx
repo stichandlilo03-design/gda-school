@@ -208,7 +208,7 @@ export default function ParentDashboardClient({ parent }: { parent: any }) {
                           <div key={s.id} className="flex items-center justify-between py-1.5 px-2 bg-gray-50 rounded-lg text-[10px]">
                             <div>
                               <span className="font-medium">{s.assessment?.title || "Assessment"}</span>
-                              <span className="text-gray-400 ml-1">({s.class?.subject?.name})</span>
+                              <span className="text-gray-400 ml-1">({s.assessment?.class?.subject?.name})</span>
                             </div>
                             <span className={`font-bold px-2 py-0.5 rounded ${color}`}>{s.score}/{s.assessment?.maxScore} ({pct}%)</span>
                           </div>
