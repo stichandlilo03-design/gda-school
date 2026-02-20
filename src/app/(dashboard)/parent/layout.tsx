@@ -11,6 +11,7 @@ const parentLinks = [
   { href: "/parent/fees", icon: "CreditCard", label: "Fees & Payments" },
   { href: "/parent/teachers", icon: "BookOpen", label: "Teachers" },
   { href: "/parent/timetable", icon: "Calendar", label: "Timetable" },
+  { href: "/parent/calendar", icon: "Calendar", label: "Academic Calendar" },
   { href: "/parent/messages", icon: "MessageSquare", label: "Messages" },
   { href: "/parent/profile", icon: "User", label: "My Profile" },
   { href: "/parent/help", icon: "HelpCircle", label: "Help & FAQ" },

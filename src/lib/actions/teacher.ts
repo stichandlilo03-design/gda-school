@@ -116,10 +116,13 @@ export async function createAssessment(data: {
       weight: data.weight,
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
       isPublished: true,
+      gradeStatus: "DRAFT",
     },
   });
 
   revalidatePath("/teacher/gradebook");
+  revalidatePath("/principal/grading");
+  revalidatePath("/student/grades");
   return { success: true, assessmentId: assessment.id };
 }
 
@@ -150,6 +153,8 @@ export async function enterScores(data: {
   }
 
   revalidatePath("/teacher/gradebook");
+  revalidatePath("/principal/grading");
+  revalidatePath("/student/grades");
   return { success: true };
 }
 
@@ -160,6 +165,8 @@ export async function deleteAssessment(assessmentId: string) {
   await db.score.deleteMany({ where: { assessmentId } });
   await db.assessment.delete({ where: { id: assessmentId } });
   revalidatePath("/teacher/gradebook");
+  revalidatePath("/principal/grading");
+  revalidatePath("/student/grades");
   return { success: true };
 }
 

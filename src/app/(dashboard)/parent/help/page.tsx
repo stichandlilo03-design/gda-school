@@ -41,16 +41,21 @@ const sections = [
     tips: ["Aim for 80%+ attendance for the best academic outcomes.", "If your child is marked 'Late', the system records the exact minutes."],
   },
   {
-    icon: "📊", title: "Grades & Reports", description: "View test scores, assessments, and academic performance",
+    icon: "📊", title: "Grades & Reports", description: "View test scores, report cards, assignments, and academic performance",
     link: "/parent/grades",
     steps: [
-      "Go to 'Grades & Reports' to see all your children's academic scores.",
-      "Scores are grouped by subject with the average percentage shown for each.",
-      "Each assessment shows: title, type (test/exam/project), score, max score, and percentage.",
-      "Color coding: Green (70%+) = Good performance, Amber (50-69%) = Average, Red (below 50%) = Needs improvement.",
-      "Use this to identify which subjects your child excels in and where they need support.",
+      "Go to 'Grades & Reports' to see all your children's academic records.",
+      "The page has three tabs: 'Verified Grades', 'Assignments', and 'Report Cards'.",
+      "VERIFIED GRADES: Only scores approved by the school principal are shown — teachers cannot manipulate these.",
+      "Scores are grouped by subject with averages and progress bars.",
+      "ASSIGNMENTS: See all homework and projects — which are submitted, pending, or graded.",
+      "Pending assignments show the due date so you can remind your child.",
+      "REPORT CARDS: View official end-of-term reports signed by the principal.",
+      "Report cards show: Subject breakdown (CA 40% + Exam 60%), attendance rate, assignment completion, participation score.",
+      "For Term 3 (promotion term), you'll see if your child was promoted and to which grade.",
+      "Each report card has teacher remarks, principal remarks, and a digital signature date.",
     ],
-    tips: ["Compare subject averages to find strengths and weaknesses.", "Discuss low grades with the teacher through Messages."],
+    tips: ["Only principal-approved grades appear — this prevents grade manipulation.", "Compare subject averages to identify where your child needs extra support.", "Report cards are auto-generated from multiple data points — attendance, assignments, assessments — making them very hard to fake."],
   },
   {
     icon: "💰", title: "Fees & Payments", description: "View fee breakdown, pay on behalf of your child, and track payment status",
@@ -95,6 +100,18 @@ const sections = [
     tips: ["Use the timetable to know when your child should be in class.", "Compare with attendance to verify your child is attending scheduled classes."],
   },
   {
+    icon: "📅", title: "Academic Calendar", description: "View terms, holidays, exams, and school events",
+    link: "/parent/calendar",
+    steps: [
+      "Go to 'Academic Calendar' to see the complete school year schedule.",
+      "The calendar shows: term start/end dates, mid-term breaks, exam periods, public holidays, and custom events.",
+      "Events are color-coded by type (green = term start, red = term end, amber = breaks, blue = holidays, purple = exams).",
+      "The current term is highlighted at the top for quick reference.",
+      "If your children attend different schools, you'll see a combined calendar.",
+    ],
+    tips: ["Plan family activities around school breaks and holidays.", "Use exam period dates to help your child prepare in advance."],
+  },
+  {
     icon: "💬", title: "Messages", description: "Chat directly with teachers and school principals",
     link: "/parent/messages",
     steps: [
@@ -135,6 +152,9 @@ const faqs = [
   { q: "What if I have children at different schools?", a: "Everything works seamlessly. Each child's data is school-specific — fees show the correct school's bank accounts, timetable follows their school's schedule, and teachers are from their school." },
   { q: "Can I unlink a child?", a: "Yes, go to 'My Children' and click 'Unlink' on the child's card. This only removes the link — it doesn't affect their school enrollment or data." },
   { q: "Is my personal information visible to teachers?", a: "Teachers and principals can see your name when you message them, but your email and phone number are not shared. Communication happens only through the in-platform messaging system." },
+  { q: "How do report cards work?", a: "At the end of each term, the principal generates report cards automatically. They include approved grades (CA 40% + Exam 60%), attendance rate, assignment completion, and participation. The principal signs and approves each one before it becomes visible to you." },
+  { q: "Can teachers change grades after approval?", a: "No. Once the principal approves grades, they are locked. Teachers must submit new assessments through the approval workflow. This prevents grade manipulation even if someone tries to bribe a teacher." },
+  { q: "When does promotion happen?", a: "Promotion decisions are made at the end of Term 3 (the final term). The principal decides whether to promote each student based on their overall performance across all three terms." },
 ];
 
 export default function ParentHelpPage() {

@@ -18,6 +18,8 @@ const principalLinks = [
   { href: "/principal/payments", icon: "DollarSign", label: "Payment Review" },
   { href: "/principal/curriculum", icon: "BookOpen", label: "Curriculum" },
   { href: "/principal/timetable", icon: "Calendar", label: "Timetable" },
+  { href: "/principal/calendar", icon: "Calendar", label: "Academic Calendar" },
+  { href: "/principal/grading", icon: "ClipboardList", label: "Grading & Reports" },
   { href: "/principal/reports", icon: "BarChart3", label: "Reports" },
   { href: "/principal/settings", icon: "Settings", label: "School Settings" },
   { href: "/principal/help", icon: "HelpCircle", label: "Help & FAQ" },

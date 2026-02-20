@@ -17,16 +17,20 @@ export default async function GradebookPage() {
           enrollments: { where: { status: "ACTIVE" }, include: { student: { include: { user: { select: { name: true } } } } } },
           assessments: { include: { scores: true }, orderBy: { createdAt: "desc" } },
           schoolGrade: true,
+          assignments: { include: { submissions: true }, orderBy: { createdAt: "desc" } },
         },
       },
     },
   });
 
+  const classes = teacher?.classes || [];
+  const assignments = classes.flatMap(c => (c.assignments || []).map(a => ({ ...a, classId: c.id })));
+
   return (
     <>
-      <DashboardHeader title="Gradebook" subtitle="Create assessments and enter student grades" />
+      <DashboardHeader title="Gradebook" subtitle="Create assessments, enter grades, and manage assignments" />
       <div className="p-6 lg:p-8">
-        <GradebookManager classes={JSON.parse(JSON.stringify(teacher?.classes || []))} />
+        <GradebookManager classes={JSON.parse(JSON.stringify(classes))} assignments={JSON.parse(JSON.stringify(assignments))} />
       </div>
     </>
   );
