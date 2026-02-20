@@ -271,6 +271,8 @@ export async function generatePayroll(month: number, year: number) {
   }
 
   revalidatePath("/principal/payroll");
+  revalidatePath("/teacher");
+  revalidatePath("/teacher/payroll");
   return { success: true, message: `Generated payroll for ${created} teacher(s).` };
 }
 
@@ -299,6 +301,7 @@ export async function processPayroll(payrollId: string, transactionRef?: string,
 
   revalidatePath("/principal/payroll");
   revalidatePath("/teacher");
+  revalidatePath("/teacher/payroll");
   return { success: true };
 }
 
@@ -317,6 +320,8 @@ export async function batchProcessPayroll(month: number, year: number) {
     await db.payrollRecord.update({ where: { id: r.id }, data: { status: "PAID", paidAt: new Date() } });
   }
   revalidatePath("/principal/payroll");
+  revalidatePath("/teacher");
+  revalidatePath("/teacher/payroll");
   return { success: true, message: `Paid ${records.length} teacher(s).` };
 }
 
@@ -325,6 +330,8 @@ export async function cancelPayroll(payrollId: string) {
   if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
   await db.payrollRecord.update({ where: { id: payrollId }, data: { status: "CANCELLED" } });
   revalidatePath("/principal/payroll");
+  revalidatePath("/teacher");
+  revalidatePath("/teacher/payroll");
   return { success: true };
 }
 
@@ -344,6 +351,8 @@ export async function adjustPayroll(payrollId: string, adjustment: number, notes
     },
   });
   revalidatePath("/principal/payroll");
+  revalidatePath("/teacher");
+  revalidatePath("/teacher/payroll");
   return { success: true };
 }
 

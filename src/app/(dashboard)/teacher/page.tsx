@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   BookOpen, Users, Clock, ClipboardList, UserCheck, FolderOpen, Briefcase,
   AlertCircle, CheckCircle, XCircle, Calendar, Video, Star, School, FileText,
-  ArrowRight, GraduationCap
+  ArrowRight, GraduationCap, DollarSign, Banknote
 } from "lucide-react";
 
 export default async function TeacherDashboard() {
@@ -24,6 +24,9 @@ export default async function TeacherDashboard() {
             orderBy: { scheduledAt: "desc" },
             include: { interviewer: { select: { name: true } } },
           },
+          salary: true,
+          payrolls: { orderBy: [{ year: "desc" }, { month: "desc" }], take: 12 },
+          sessions: { where: { date: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } }, orderBy: { date: "desc" } },
         },
       },
       classes: {
@@ -79,6 +82,17 @@ export default async function TeacherDashboard() {
     });
   });
   const uniqueStudents = Array.from(uniqueStudentMap.values());
+
+  // Salary & payroll data
+  const salary = activeSchool?.salary;
+  const payrolls = activeSchool?.payrolls || [];
+  const currentMonthSessions = activeSchool?.sessions || [];
+  const now = new Date();
+  const monthlyEarned = currentMonthSessions.reduce((s: number, sess: any) => s + (sess.amountEarned || 0), 0);
+  const grossMonthly = salary ? salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances : 0;
+  const totalPaid = payrolls.filter((p: any) => p.status === "PAID").reduce((s: number, p: any) => s + p.netPay, 0);
+  const currentMonthPayroll = payrolls.find((p: any) => p.month === now.getMonth() + 1 && p.year === now.getFullYear());
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   // Tasks based on scheme of work
   const today = new Date();
@@ -220,6 +234,41 @@ export default async function TeacherDashboard() {
             <h3 className="text-base font-bold text-gray-800 mb-2">No School Yet</h3>
             <p className="text-sm text-gray-500 mb-4">You haven't joined a school yet. Browse the job board or wait for a principal to invite you.</p>
             <Link href="/teacher/vacancies" className="btn-primary text-sm"><Briefcase className="w-4 h-4 mr-1" /> Browse Job Board</Link>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* SALARY BALANCE */}
+        {/* ============================================================ */}
+
+        {salary && (
+          <div className="p-5 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white rounded-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-emerald-200 text-[10px] font-medium uppercase tracking-wider">Salary Balance — {MONTHS[now.getMonth()]} {now.getFullYear()}</p>
+                <div className="text-3xl font-bold mt-1">{salary.currency} {Math.round(monthlyEarned).toLocaleString()}</div>
+                <p className="text-emerald-200 text-xs mt-0.5">
+                  of {salary.currency} {Math.round(grossMonthly).toLocaleString()} monthly · {currentMonthSessions.length} days worked
+                </p>
+              </div>
+              <div className="text-right space-y-1">
+                <div className="text-emerald-100 text-[10px]">
+                  <DollarSign className="w-3 h-3 inline" /> Total Received: <span className="font-bold">{salary.currency} {Math.round(totalPaid).toLocaleString()}</span>
+                </div>
+                {currentMonthPayroll && (
+                  <div className={`text-[10px] px-2 py-1 rounded-full inline-block ${currentMonthPayroll.status === "PAID" ? "bg-white/20 text-white" : "bg-amber-400/30 text-amber-100"}`}>
+                    {currentMonthPayroll.status === "PAID" ? "✅ This month paid" : "⏳ " + currentMonthPayroll.status}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-2.5">
+              <div className="bg-white rounded-full h-2.5 transition-all" style={{ width: `${Math.min(100, grossMonthly > 0 ? Math.round(monthlyEarned / grossMonthly * 100) : 0)}%` }} />
+            </div>
+            <div className="flex justify-between text-[10px] text-emerald-200 mt-1">
+              <span>{grossMonthly > 0 ? Math.round(monthlyEarned / grossMonthly * 100) : 0}% earned</span>
+              <Link href="/teacher/payroll" className="underline hover:text-white">View Payroll →</Link>
+            </div>
           </div>
         )}
 

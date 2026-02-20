@@ -49,6 +49,12 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
   const grossMonthly = salary ? salary.baseSalary + salary.housingAllowance + salary.transportAllowance + salary.otherAllowances : 0;
   const earnPercent = grossMonthly > 0 ? Math.round((monthlyEarned / grossMonthly) * 100) : 0;
 
+  // Payment totals
+  const totalPaid = payrolls.filter((p: any) => p.status === "PAID").reduce((s: number, p: any) => s + p.netPay, 0);
+  const totalPending = payrolls.filter((p: any) => p.status === "DRAFT" || p.status === "PENDING").reduce((s: number, p: any) => s + p.netPay, 0);
+  const currentMonthPayroll = payrolls.find((p: any) => p.month === now.getMonth() + 1 && p.year === now.getFullYear());
+  const currentMonthPaid = currentMonthPayroll?.status === "PAID";
+
   const selectedCountry = getCountryConfig(form.countryCode);
 
   const handleAddAccount = async () => {
@@ -114,7 +120,7 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
               {/* Balance Card */}
               <div className="p-6 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white rounded-2xl">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-emerald-200 text-xs font-medium uppercase">Available Balance — {MONTHS[now.getMonth()]} {now.getFullYear()}</p>
+                  <p className="text-emerald-200 text-xs font-medium uppercase">Earned — {MONTHS[now.getMonth()]} {now.getFullYear()}</p>
                   <span className="text-emerald-200 text-xs bg-white/20 px-2 py-0.5 rounded-full">{daysWorked} / {salary.workingDaysPerMonth} days worked</span>
                 </div>
                 <div className="text-4xl font-bold mb-2">{salary.currency} {fmt(Math.round(monthlyEarned))}</div>
@@ -126,7 +132,65 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
                   <span>{earnPercent}% of full salary earned</span>
                   <span>Full: {salary.currency} {fmt(grossMonthly)}</span>
                 </div>
+                {/* Payment status for current month */}
+                {currentMonthPayroll && (
+                  <div className={`mt-3 p-2.5 rounded-lg text-xs font-medium ${currentMonthPaid ? "bg-white/20 text-white" : "bg-amber-500/30 text-amber-100"}`}>
+                    {currentMonthPaid ? (
+                      <span>✅ This month&apos;s salary has been paid — {salary.currency} {fmt(currentMonthPayroll.netPay)}
+                        {currentMonthPayroll.paidAt && <span className="opacity-70"> on {new Date(currentMonthPayroll.paidAt).toLocaleDateString()}</span>}
+                      </span>
+                    ) : (
+                      <span>⏳ Payroll generated — {currentMonthPayroll.status === "DRAFT" ? "awaiting principal approval" : "processing"}</span>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Total Payments Summary */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="stat-card text-center border-emerald-200">
+                  <DollarSign className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-emerald-600">{salary.currency} {fmt(Math.round(totalPaid))}</div>
+                  <div className="text-[10px] text-gray-500">Total Received</div>
+                </div>
+                <div className="stat-card text-center border-amber-200">
+                  <Clock className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-amber-600">{salary.currency} {fmt(Math.round(totalPending))}</div>
+                  <div className="text-[10px] text-gray-500">Pending Payment</div>
+                </div>
+                <div className="stat-card text-center">
+                  <Calendar className="w-5 h-5 text-brand-500 mx-auto mb-1" />
+                  <div className="text-lg font-bold text-brand-600">{payrolls.filter((p: any) => p.status === "PAID").length}</div>
+                  <div className="text-[10px] text-gray-500">Payslips Paid</div>
+                </div>
+              </div>
+
+              {/* Recent Payments Received */}
+              {payrolls.filter((p: any) => p.status === "PAID").length > 0 && (
+                <div className="card border-emerald-200">
+                  <h3 className="section-title mb-3 text-emerald-800">💰 Recent Payments Received</h3>
+                  <div className="space-y-2">
+                    {payrolls.filter((p: any) => p.status === "PAID").slice(0, 6).map((p: any) => (
+                      <div key={p.id} className="flex items-center gap-3 p-2.5 bg-emerald-50 rounded-lg">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-200 text-emerald-700 flex items-center justify-center text-xs font-bold">{MONTHS[p.month - 1]}</div>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium">{MONTHS[p.month - 1]} {p.year}</p>
+                          <p className="text-[10px] text-gray-500">
+                            Paid {p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ""}
+                            {p.transactionRef && <span> · Ref: {p.transactionRef}</span>}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-bold text-emerald-700">{p.currency} {fmt(p.netPay)}</span>
+                          {p.paymentProof && (
+                            <a href={p.paymentProof} target="_blank" rel="noopener noreferrer" className="block text-[9px] text-blue-600 underline mt-0.5">View Proof</a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* How it works */}
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
@@ -426,12 +490,21 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
                   <div className="flex items-center gap-2"><h4 className="text-sm font-semibold">{MONTHS[p.month - 1]} {p.year}</h4>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[p.status]}`}>{p.status}</span></div>
                   <div className="flex items-center gap-4 text-xs text-gray-500 mt-0.5">
-                    <span>Earned: {p.currency} {fmt(p.grossPay)}</span><span className="text-red-500">Tax: -{fmt(p.taxDeduction)}</span>
+                    <span>Gross: {p.currency} {fmt(p.grossPay)}</span>
+                    {p.taxDeduction > 0 && <span className="text-red-500">Tax: -{fmt(p.taxDeduction)}</span>}
+                    {p.pensionDeduction > 0 && <span className="text-red-500">Pension: -{fmt(p.pensionDeduction)}</span>}
                   </div>
                   {p.notes && <p className="text-[10px] text-gray-400 mt-0.5">{p.notes}</p>}
+                  {p.transactionRef && <p className="text-[10px] text-gray-500 mt-0.5">Ref: <span className="font-medium">{p.transactionRef}</span></p>}
                 </div>
-                <div className="text-right"><div className="text-lg font-bold text-emerald-700">{p.currency} {fmt(p.netPay)}</div>
-                  <div className="text-[10px] text-gray-400">{p.paidAt ? `Paid ${new Date(p.paidAt).toLocaleDateString()}` : "Pending"}</div></div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-emerald-700">{p.currency} {fmt(p.netPay)}</div>
+                  <div className="text-[10px] text-gray-400">{p.paidAt ? `Paid ${new Date(p.paidAt).toLocaleDateString()}` : "Pending"}</div>
+                  {p.paymentProof && (
+                    <a href={p.paymentProof} target="_blank" rel="noopener noreferrer"
+                      className="text-[10px] text-blue-600 underline hover:text-blue-800">📎 View Payment Proof</a>
+                  )}
+                </div>
               </div>
             </div>
           ))}
