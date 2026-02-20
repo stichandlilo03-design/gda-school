@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 // ============ TEACHER ACTIONS ============
 
 // Start a live class session
-export async function startLiveClass(classId: string, topic?: string, isPrep?: boolean) {
+export async function startLiveClass(classId: string, topic?: string, isPrep?: boolean, prepDurationMin?: number) {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
 
@@ -29,7 +29,6 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
     where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] }, autoStarted: true, teacherJoinedAt: null },
   });
   if (autoSession) {
-    // Teacher is joining their auto-started session — track join time + late minutes
     const nowJ = new Date();
     let lateMins = 0;
     if (autoSession.startedAt) {
@@ -44,11 +43,28 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
     return { success: true, sessionId: autoSession.id, lateMinutes: lateMins };
   }
 
-  // Close any existing open session for this class by THIS teacher
-  await db.liveClassSession.updateMany({
-    where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] } },
-    data: { status: "ENDED", endedAt: new Date() },
+  // Check for existing PREP session — carry over board content if starting real class
+  let carryOverBoard: any[] = [];
+  let carryOverHistory: any[] = [];
+  const existingPrep = await db.liveClassSession.findFirst({
+    where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] }, isPrep: true },
   });
+  if (existingPrep && !isPrep) {
+    // Starting a REAL class after prep — save prep board content
+    carryOverBoard = Array.isArray(existingPrep.boardContent) ? existingPrep.boardContent as any[] : [];
+    carryOverHistory = Array.isArray(existingPrep.boardHistory) ? existingPrep.boardHistory as any[] : [];
+    // End the prep session
+    await db.liveClassSession.update({
+      where: { id: existingPrep.id },
+      data: { status: "ENDED", endedAt: new Date() },
+    });
+  } else {
+    // Close any existing non-prep sessions for this class by THIS teacher
+    await db.liveClassSession.updateMany({
+      where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] } },
+      data: { status: "ENDED", endedAt: new Date() },
+    });
+  }
 
   // Check if this is a timetable-scheduled class and calculate late minutes
   const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
@@ -57,21 +73,29 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
   const today = DAYS[now.getDay()];
   let lateMinutes = 0;
 
-  const schedule = await db.classSchedule.findFirst({
-    where: { classId, dayOfWeek: today as any },
-  });
-  if (schedule) {
-    const schedStart = parseInt(schedule.startTime.split(":")[0]) * 60 + parseInt(schedule.startTime.split(":")[1] || "0");
-    if (nowMin > schedStart + 2) {
-      lateMinutes = nowMin - schedStart;
+  if (!isPrep) {
+    const schedule = await db.classSchedule.findFirst({
+      where: { classId, dayOfWeek: today as any },
+    });
+    if (schedule) {
+      const schedStart = parseInt(schedule.startTime.split(":")[0]) * 60 + parseInt(schedule.startTime.split(":")[1] || "0");
+      if (nowMin > schedStart + 2) {
+        lateMinutes = nowMin - schedStart;
+      }
     }
   }
 
   const live = await db.liveClassSession.create({
     data: {
-      classId, teacherId: teacher.id, topic: isPrep ? `[PREP] ${topic || "Class Setup"}` : topic, status: "IN_PROGRESS", startedAt: new Date(),
-      teacherJoinedAt: new Date(), lateMinutes: isPrep ? 0 : lateMinutes, isPrep: isPrep || false,
-      boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
+      classId, teacherId: teacher.id,
+      topic: isPrep ? `[PREP] ${topic || "Class Setup"}` : topic,
+      status: "IN_PROGRESS", startedAt: new Date(),
+      teacherJoinedAt: new Date(), lateMinutes: isPrep ? 0 : lateMinutes,
+      isPrep: isPrep || false,
+      durationMin: isPrep ? (prepDurationMin || 30) : 0,
+      boardContent: carryOverBoard.length > 0 ? carryOverBoard : [],
+      boardHistory: carryOverHistory.length > 0 ? carryOverHistory : [],
+      raisedHands: [], chatMessages: [],
       whispers: [], questions: [], reactions: [], polls: [], teachingMode: "board",
     },
   });
@@ -80,6 +104,49 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
   revalidatePath("/student/classroom");
   revalidatePath("/principal");
   return { success: true, sessionId: live.id };
+}
+
+// Convert a prep session into a real live class (keeps all board content)
+export async function convertPrepToLive(sessionId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session) return { error: "Unauthorized" };
+
+  const live = await db.liveClassSession.findUnique({ where: { id: sessionId } });
+  if (!live || !live.isPrep) return { error: "Not a prep session" };
+
+  // Calculate late minutes from timetable
+  const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const today = DAYS[now.getDay()];
+  let lateMinutes = 0;
+
+  const schedule = await db.classSchedule.findFirst({
+    where: { classId: live.classId, dayOfWeek: today as any },
+  });
+  if (schedule) {
+    const schedStart = parseInt(schedule.startTime.split(":")[0]) * 60 + parseInt(schedule.startTime.split(":")[1] || "0");
+    if (nowMin > schedStart + 2) {
+      lateMinutes = nowMin - schedStart;
+    }
+  }
+
+  // Convert: keep ALL content, just change isPrep and reset timer
+  const newTopic = (live.topic || "").replace("[PREP] ", "");
+  await db.liveClassSession.update({
+    where: { id: sessionId },
+    data: {
+      isPrep: false,
+      topic: newTopic || "Live Class",
+      startedAt: new Date(), // Reset start time for credit calculation
+      lateMinutes,
+    },
+  });
+
+  revalidatePath("/teacher/classroom");
+  revalidatePath("/student/classroom");
+  revalidatePath("/principal");
+  return { success: true, sessionId };
 }
 
 // End a live class session + credit teacher + auto payroll

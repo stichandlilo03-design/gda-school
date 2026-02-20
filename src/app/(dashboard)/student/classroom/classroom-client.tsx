@@ -201,7 +201,11 @@ export default function StudentClassroomClient({
               <h2 className={`font-bold ${isKG ? "text-xl text-amber-800" : "text-sm text-gray-700"}`}>
                 {isKG ? "🏫 " : ""}Active Classroom
                 <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
-                {isLive && liveSession?.isPrep && <span className="ml-2 text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full">PREP</span>}
+                {isLive && liveSession?.isPrep && (
+                  <span className="ml-2 text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                    PREP {liveSession.startedAt && <StudentPrepTimer startedAt={liveSession.startedAt} durationMin={liveSession.durationMin || 15} />}
+                  </span>
+                )}
                 {isLive && !liveSession?.isPrep && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
               </h2>
               <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">Leave</button>
@@ -348,4 +352,21 @@ export default function StudentClassroomClient({
       </div>
     </div>
   );
+}
+
+function StudentPrepTimer({ startedAt, durationMin }: { startedAt: string | Date; durationMin: number }) {
+  const [remaining, setRemaining] = useState(durationMin * 60);
+  useEffect(() => {
+    const calc = () => {
+      const start = new Date(startedAt).getTime();
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      setRemaining(Math.max(0, durationMin * 60 - elapsed));
+    };
+    calc();
+    const i = setInterval(calc, 1000);
+    return () => clearInterval(i);
+  }, [startedAt, durationMin]);
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  return <span className="font-mono">{remaining <= 0 ? "done" : `${mins}:${String(secs).padStart(2, "0")}`}</span>;
 }

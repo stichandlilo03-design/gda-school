@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  startLiveClass, endLiveClass, bulkMarkAttendance, postClassAnnouncement, deleteAnnouncement,
+  startLiveClass, endLiveClass, bulkMarkAttendance, postClassAnnouncement, deleteAnnouncement, convertPrepToLive,
 } from "@/lib/actions/classroom";
 import { removeStudentFromClass } from "@/lib/actions/student-management";
 import { useRouter } from "next/navigation";
@@ -39,6 +39,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [onBreak, setOnBreak] = useState(false);
   const [breakCountdown, setBreakCountdown] = useState(0);
+  const [prepDuration, setPrepDuration] = useState(15);
 
   const today = DAYS[new Date().getDay()];
 
@@ -111,14 +112,27 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
   const handleStartPrep = async (classId: string) => {
     setLoading("prep-" + classId);
     setClassMessage("");
-    const result = await startLiveClass(classId, topicInput || "Class Preparation", true);
+    const result = await startLiveClass(classId, topicInput || "Class Preparation", true, prepDuration);
     setTopicInput("");
     if (result.error) {
       setClassMessage(result.error);
     } else if (result.sessionId) {
       setActiveVisual(classId);
       setActiveSessionId(result.sessionId);
-      setClassMessage("📋 Prep session started — no payment will be generated. Students can join to prepare.");
+      setClassMessage(`📋 Prep session started (${prepDuration} min). Set up your board, materials, and polls. Students can join to prepare. Click "Go Live" when ready to start the real class.`);
+    }
+    router.refresh();
+    setLoading("");
+  };
+
+  const handleGoLive = async (sessionId: string, classId: string) => {
+    if (!confirm("Convert this prep into a real live class? Board content will be kept. Payment tracking starts now.")) return;
+    setLoading("golive-" + sessionId);
+    const result = await convertPrepToLive(sessionId);
+    if (result.error) {
+      setClassMessage("Error: " + result.error);
+    } else {
+      setClassMessage("🔴 Class is now LIVE! Board content preserved. Payment credits started.");
     }
     router.refresh();
     setLoading("");
@@ -214,8 +228,19 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
               <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
                 <Monitor className="w-4 h-4" /> {cls.liveSessions?.[0]?.isPrep ? "Prep —" : "Teaching —"} {cls.subject?.name || cls.name}
                 <span className={`text-[10px] text-white px-2 py-0.5 rounded-full ${cls.liveSessions?.[0]?.isPrep ? "bg-amber-500" : "bg-red-500 animate-pulse"}`}>{cls.liveSessions?.[0]?.isPrep ? "PREP" : "LIVE"}</span>
+                {cls.liveSessions?.[0]?.isPrep && cls.liveSessions?.[0]?.startedAt && (
+                  <PrepTimer startedAt={cls.liveSessions[0].startedAt} durationMin={cls.liveSessions[0].durationMin || 15} />
+                )}
               </h2>
-              <button onClick={() => { setActiveVisual(null); setActiveSessionId(null); }} className="text-xs text-gray-500 hover:text-red-500">Close Board</button>
+              <div className="flex items-center gap-2">
+                {cls.liveSessions?.[0]?.isPrep && (
+                  <button onClick={() => handleGoLive(cls.liveSessions[0].id, cls.id)} disabled={!!loading}
+                    className="text-xs px-3 py-1 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1 animate-pulse">
+                    <Play className="w-3 h-3" /> Go Live
+                  </button>
+                )}
+                <button onClick={() => { setActiveVisual(null); setActiveSessionId(null); }} className="text-xs text-gray-500 hover:text-red-500">Close Board</button>
+              </div>
             </div>
             <VisualClassroom
               sessionId={activeSessionId}
@@ -259,15 +284,20 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
               <div className="flex items-center gap-2">
                 {!isLive ? (
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <input className="input-field text-[10px] w-28 py-1" placeholder="Topic..." value={topicInput} onChange={(e) => setTopicInput(e.target.value)} />
+                    <input className="input-field text-[10px] w-24 py-1" placeholder="Topic..." value={topicInput} onChange={(e) => setTopicInput(e.target.value)} />
                     <button onClick={() => handleStartClass(cls.id)} disabled={loading === "start-" + cls.id}
                       className="text-[10px] px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1">
                       {loading === "start-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Start
                     </button>
-                    <button onClick={() => handleStartPrep(cls.id)} disabled={loading === "prep-" + cls.id}
-                      className="text-[10px] px-2 py-1.5 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 flex items-center gap-1" title="Open a prep session (no payment). Set up materials, board, etc.">
-                      {loading === "prep-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Settings className="w-3 h-3" />} Prep
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      <select className="input-field text-[10px] py-1 w-14" value={prepDuration} onChange={e => setPrepDuration(+e.target.value)}>
+                        {[5,10,15,20,30,45,60].map(m => <option key={m} value={m}>{m}m</option>)}
+                      </select>
+                      <button onClick={() => handleStartPrep(cls.id)} disabled={loading === "prep-" + cls.id}
+                        className="text-[10px] px-2 py-1.5 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 flex items-center gap-1" title="Open a prep session — set up board, polls, materials. No payment.">
+                        {loading === "prep-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Settings className="w-3 h-3" />} Prep
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -275,10 +305,19 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
                       className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
                       <Monitor className="w-3 h-3 inline mr-0.5" /> Board
                     </button>
+                    {liveSession.isPrep && (
+                      <button onClick={() => handleGoLive(liveSession.id, cls.id)} disabled={loading === "golive-" + liveSession.id}
+                        className="text-[10px] px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1 animate-pulse">
+                        {loading === "golive-" + liveSession.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Go Live
+                      </button>
+                    )}
                     <button onClick={() => handleEndClass(liveSession.id)} disabled={loading === "end-" + liveSession.id}
                       className="text-[10px] px-2.5 py-1.5 bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-800 flex items-center gap-1">
                       {loading === "end-" + liveSession.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} End
                     </button>
+                    {liveSession.isPrep && liveSession.startedAt && (
+                      <PrepTimer startedAt={liveSession.startedAt} durationMin={liveSession.durationMin || 15} />
+                    )}
                   </div>
                 )}
                 {isExp ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -416,5 +455,31 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
         );
       })}
     </div>
+  );
+}
+
+// Prep session countdown timer
+function PrepTimer({ startedAt, durationMin }: { startedAt: string | Date; durationMin: number }) {
+  const [remaining, setRemaining] = useState(durationMin * 60);
+  useEffect(() => {
+    const calc = () => {
+      const start = new Date(startedAt).getTime();
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      setRemaining(Math.max(0, durationMin * 60 - elapsed));
+    };
+    calc();
+    const i = setInterval(calc, 1000);
+    return () => clearInterval(i);
+  }, [startedAt, durationMin]);
+
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const urgent = remaining <= 60;
+  const expired = remaining <= 0;
+
+  return (
+    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${expired ? "bg-red-500 text-white animate-pulse" : urgent ? "bg-amber-400 text-amber-900" : "bg-amber-100 text-amber-700"}`}>
+      {expired ? "⏰ Prep time up!" : `⏱ ${mins}:${String(secs).padStart(2, "0")}`}
+    </span>
   );
 }
