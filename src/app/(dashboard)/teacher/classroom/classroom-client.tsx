@@ -7,7 +7,7 @@ import {
 import { useRouter } from "next/navigation";
 import {
   Play, Square, Users, Clock, CheckCircle, XCircle, AlertTriangle,
-  Loader2, Megaphone, Bell, Calendar, ChevronDown, ChevronUp, Send, Trash2,
+  Loader2, Megaphone, Bell, ChevronDown, ChevronUp, Send, Trash2,
   BookOpen, UserCheck, FolderOpen, Monitor
 } from "lucide-react";
 import Link from "next/link";
@@ -27,22 +27,16 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
   const router = useRouter();
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
-  const [selectedClass, setSelectedClass] = useState(classes[0]?.id || "");
   const [expanded, setExpanded] = useState<string | null>(classes[0]?.id || null);
   const [showAttendance, setShowAttendance] = useState<string | null>(null);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, string>>({});
   const [showAnnForm, setShowAnnForm] = useState<string | null>(null);
   const [annForm, setAnnForm] = useState({ title: "", content: "", type: "GENERAL", isPinned: false });
   const [topicInput, setTopicInput] = useState("");
-  const [timer, setTimer] = useState(0);
   const [activeVisual, setActiveVisual] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   const today = DAYS[new Date().getDay()];
-
-  useEffect(() => {
-    const i = setInterval(() => setTimer((t) => t + 1), 1000);
-    return () => clearInterval(i);
-  }, []);
 
   // Build alarm schedules
   const alarmSchedules = classes.flatMap((cls: any) =>
@@ -55,10 +49,29 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
     }))
   );
 
+  // Auto-open visual for any live class
+  useEffect(() => {
+    const liveClass = classes.find((c) => c.liveSessions?.length > 0);
+    if (liveClass && !activeVisual) {
+      setActiveVisual(liveClass.id);
+      setActiveSessionId(liveClass.liveSessions[0].id);
+    }
+  }, [classes]);
+
+  // Auto-refresh every 15s
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 15000);
+    return () => clearInterval(interval);
+  }, [router]);
+
   const handleStartClass = async (classId: string) => {
     setLoading("start-" + classId);
-    await startLiveClass(classId, topicInput || undefined);
+    const result = await startLiveClass(classId, topicInput || undefined);
     setTopicInput("");
+    if (result.sessionId) {
+      setActiveVisual(classId);
+      setActiveSessionId(result.sessionId);
+    }
     router.refresh();
     setLoading("");
   };
@@ -67,6 +80,8 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
     if (!confirm("End this live session?")) return;
     setLoading("end-" + sessionId);
     await endLiveClass(sessionId);
+    setActiveVisual(null);
+    setActiveSessionId(null);
     router.refresh();
     setLoading("");
   };
@@ -100,23 +115,16 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
     setAttendanceMap(map);
   };
 
-  // Auto-open visual for live class
-  useEffect(() => {
-    const live = classes.find((c) => c.liveSessions?.length > 0);
-    if (live && !activeVisual) setActiveVisual(live.id);
-  }, [classes]);
-
   return (
     <div className="space-y-6">
       <ClassAlarm schedules={alarmSchedules} />
 
       {message && <div className={`p-3 rounded-lg text-sm ${message.includes("Error") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{message}</div>}
 
-      {/* Visual Classroom */}
-      {activeVisual && (() => {
+      {/* Visual Classroom (when active) */}
+      {activeVisual && activeSessionId && (() => {
         const cls = classes.find((c: any) => c.id === activeVisual);
         if (!cls) return null;
-        const isLive = cls.liveSessions?.length > 0;
         const students = cls.enrollments.map((e: any) => ({
           id: e.student?.id || e.studentId,
           name: e.student?.user?.name || "Student",
@@ -127,15 +135,19 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                <Monitor className="w-4 h-4" /> Visual Classroom — {cls.subject?.name || cls.name}
+                <Monitor className="w-4 h-4" /> Teaching — {cls.subject?.name || cls.name}
+                <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>
               </h2>
-              <button onClick={() => setActiveVisual(null)} className="text-xs text-gray-500 hover:text-red-500">Close Visual</button>
+              <button onClick={() => { setActiveVisual(null); setActiveSessionId(null); }} className="text-xs text-gray-500 hover:text-red-500">Close Board</button>
             </div>
             <VisualClassroom
-              classId={cls.id} className={cls.name}
+              sessionId={activeSessionId}
+              classId={cls.id}
               subjectName={cls.subject?.name || cls.name}
-              teacherName="You" students={students}
-              isTeacher={true} isLive={isLive}
+              teacherName="You"
+              students={students}
+              isTeacher={true}
+              isLive={true}
               topic={cls.liveSessions?.[0]?.topic}
               isKG={isKG}
             />
@@ -167,42 +179,40 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
                 <p className="text-[10px] text-gray-500">{cls.enrollments.length} students • {cls._count?.materials || 0} materials</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={(e) => { e.stopPropagation(); setActiveVisual(activeVisual === cls.id ? null : cls.id); }}
-                  className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
-                  <Monitor className="w-3 h-3 inline mr-0.5" /> Board
-                </button>
                 {!isLive ? (
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <input className="input-field text-[10px] w-32 py-1" placeholder="Topic..." value={topicInput} onChange={(e) => setTopicInput(e.target.value)} />
+                    <input className="input-field text-[10px] w-28 py-1" placeholder="Topic..." value={topicInput} onChange={(e) => setTopicInput(e.target.value)} />
                     <button onClick={() => handleStartClass(cls.id)} disabled={loading === "start-" + cls.id}
                       className="text-[10px] px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1">
                       {loading === "start-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Start
                     </button>
                   </div>
                 ) : (
-                  <button onClick={(e) => { e.stopPropagation(); handleEndClass(liveSession.id); }} disabled={loading === "end-" + liveSession.id}
-                    className="text-[10px] px-2.5 py-1.5 bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-800 flex items-center gap-1">
-                    {loading === "end-" + liveSession.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} End
-                  </button>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => { setActiveVisual(cls.id); setActiveSessionId(liveSession.id); }}
+                      className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
+                      <Monitor className="w-3 h-3 inline mr-0.5" /> Board
+                    </button>
+                    <button onClick={() => handleEndClass(liveSession.id)} disabled={loading === "end-" + liveSession.id}
+                      className="text-[10px] px-2.5 py-1.5 bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-800 flex items-center gap-1">
+                      {loading === "end-" + liveSession.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} End
+                    </button>
+                  </div>
                 )}
                 {isExp ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
               </div>
             </div>
 
-            {/* Schedule line */}
             {todayScheds.length > 0 && (
               <div className="flex gap-1 mt-2">
                 {todayScheds.map((s: any, i: number) => (
-                  <span key={i} className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-lg font-medium">
-                    Today: {s.startTime}-{s.endTime}
-                  </span>
+                  <span key={i} className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-lg font-medium">Today: {s.startTime}-{s.endTime}</span>
                 ))}
               </div>
             )}
 
             {isExp && (
               <div className="mt-4 pt-4 border-t space-y-4">
-                {/* Action buttons */}
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={() => setShowAttendance(showAttendance === cls.id ? null : cls.id)}
                     className="text-[10px] px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 font-medium flex items-center gap-1">
@@ -214,9 +224,6 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
                   </button>
                   <Link href="/teacher/materials" className="text-[10px] px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center gap-1">
                     <FolderOpen className="w-3 h-3" /> Materials
-                  </Link>
-                  <Link href="/teacher/gradebook" className="text-[10px] px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 flex items-center gap-1">
-                    <BookOpen className="w-3 h-3" /> Gradebook
                   </Link>
                 </div>
 
@@ -242,18 +249,14 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
                             </div>
                             <span className="text-xs flex-1">{en.student.user.name}</span>
                             {existing ? (
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                                existing.status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : existing.status === "LATE" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
-                              }`}>{existing.status}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${existing.status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : existing.status === "LATE" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{existing.status}</span>
                             ) : (
                               <div className="flex gap-0.5">
                                 {ATT_OPTIONS.map((opt) => (
                                   <button key={opt.value} onClick={() => setAttendanceMap((p) => ({...p, [en.student.id]: opt.value}))}
                                     className={`w-6 h-6 rounded-full flex items-center justify-center transition text-white text-[8px] ${
                                       attendanceMap[en.student.id] === opt.value ? opt.color + " ring-2 ring-offset-1 ring-gray-400" : "bg-gray-200 text-gray-500"
-                                    }`}>
-                                    {opt.label[0]}
-                                  </button>
+                                    }`}>{opt.label[0]}</button>
                                 ))}
                               </div>
                             )}
@@ -271,7 +274,7 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
                 {/* Announcement form */}
                 {showAnnForm === cls.id && (
                   <div className="p-4 bg-amber-50 rounded-xl space-y-2">
-                    <input className="input-field text-sm" placeholder="Announcement title" value={annForm.title} onChange={(e) => setAnnForm((p) => ({...p, title: e.target.value}))} />
+                    <input className="input-field text-sm" placeholder="Title" value={annForm.title} onChange={(e) => setAnnForm((p) => ({...p, title: e.target.value}))} />
                     <textarea className="input-field text-sm min-h-[60px]" placeholder="Content..." value={annForm.content} onChange={(e) => setAnnForm((p) => ({...p, content: e.target.value}))} />
                     <div className="flex gap-2">
                       <button onClick={() => handlePostAnn(cls.id)} disabled={loading === "ann"} className="btn-primary text-xs">
@@ -292,9 +295,7 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
                           {en.student.user.image ? (
                             <img src={en.student.user.image} alt="" className="w-8 h-8 rounded-full mx-auto" />
                           ) : (
-                            <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 mx-auto flex items-center justify-center text-[10px] font-bold">
-                              {en.student.user.name[0]}
-                            </div>
+                            <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 mx-auto flex items-center justify-center text-[10px] font-bold">{en.student.user.name[0]}</div>
                           )}
                           <p className="text-[9px] text-gray-600 mt-1 truncate">{en.student.user.name.split(" ")[0]}</p>
                         </div>
@@ -303,7 +304,6 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
                   </div>
                 )}
 
-                {/* Recent announcements */}
                 {cls.announcements?.length > 0 && (
                   <div>
                     <h5 className="text-[10px] font-bold text-gray-500 uppercase mb-2">Announcements</h5>

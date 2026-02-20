@@ -39,7 +39,6 @@ export default async function StudentClassroomPage() {
   });
 
   if (!student) return null;
-
   const isKG = ["K1", "K2", "K3"].includes(student.gradeLevel);
 
   return (
@@ -53,6 +52,7 @@ export default async function StudentClassroomPage() {
           enrollments={JSON.parse(JSON.stringify(student.enrollments))}
           todayAttendance={JSON.parse(JSON.stringify(student.attendances))}
           studentId={student.id}
+          studentName={session.user.name || "Student"}
           isKG={isKG}
         />
       </div>

@@ -22,11 +22,15 @@ export async function startLiveClass(classId: string, topic?: string) {
   });
 
   const live = await db.liveClassSession.create({
-    data: { classId, teacherId: teacher.id, topic, status: "IN_PROGRESS", startedAt: new Date() },
+    data: {
+      classId, teacherId: teacher.id, topic, status: "IN_PROGRESS", startedAt: new Date(),
+      boardContent: [], raisedHands: [], chatMessages: [], teachingMode: "board",
+    },
   });
 
   revalidatePath("/teacher/classroom");
   revalidatePath("/student/classroom");
+  revalidatePath("/principal");
   return { success: true, sessionId: live.id };
 }
 
@@ -37,11 +41,12 @@ export async function endLiveClass(sessionId: string) {
 
   await db.liveClassSession.update({
     where: { id: sessionId },
-    data: { status: "ENDED", endedAt: new Date() },
+    data: { status: "ENDED", endedAt: new Date(), raisedHands: [], chatMessages: [] },
   });
 
   revalidatePath("/teacher/classroom");
   revalidatePath("/student/classroom");
+  revalidatePath("/principal");
   return { success: true };
 }
 

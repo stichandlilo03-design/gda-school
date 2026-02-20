@@ -1078,6 +1078,10 @@ model LiveClassSession {
   status      String   @default("WAITING")
   startedAt   DateTime?
   endedAt     DateTime?
+  boardContent Json    @default("[]")
+  raisedHands  Json    @default("[]")
+  chatMessages Json    @default("[]")
+  teachingMode String  @default("board")
   createdAt   DateTime @default(now())
 
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)

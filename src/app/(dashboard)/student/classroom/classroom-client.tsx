@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { studentJoinClass } from "@/lib/actions/classroom";
 import { useRouter } from "next/navigation";
 import {
-  Play, Clock, CheckCircle, AlertCircle, Users, BookOpen, Bell,
-  Calendar, Loader2, Megaphone, ChevronDown, ChevronUp, FolderOpen, BellRing
+  Play, Clock, CheckCircle, BookOpen, Bell,
+  Loader2, Megaphone, ChevronDown, ChevronUp, FolderOpen
 } from "lucide-react";
 import Link from "next/link";
 import ClassAlarm from "@/components/class-alarm";
@@ -15,9 +15,9 @@ const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATUR
 const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 export default function StudentClassroomClient({
-  enrollments, todayAttendance, studentId, isKG = false,
+  enrollments, todayAttendance, studentId, studentName, isKG = false,
 }: {
-  enrollments: any[]; todayAttendance: any[]; studentId: string; isKG?: boolean;
+  enrollments: any[]; todayAttendance: any[]; studentId: string; studentName: string; isKG?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
@@ -26,10 +26,8 @@ export default function StudentClassroomClient({
   const [activeClassroom, setActiveClassroom] = useState<string | null>(null);
 
   const today = DAYS[new Date().getDay()];
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
 
-  // Build alarm schedule
+  // Build alarm schedules
   const alarmSchedules = enrollments.flatMap((e: any) =>
     (e.class.schedules || []).map((s: any) => ({
       classId: e.class.id,
@@ -68,11 +66,16 @@ export default function StudentClassroomClient({
   useEffect(() => {
     const live = sorted.find((e) => e.class.liveSessions?.length > 0);
     if (live && !activeClassroom) setActiveClassroom(live.class.id);
-  }, [sorted]);
+  }, []);
+
+  // Auto-refresh every 15s to detect new live sessions
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 15000);
+    return () => clearInterval(interval);
+  }, [router]);
 
   return (
     <div className="space-y-6">
-      {/* Alarm System */}
       <ClassAlarm schedules={alarmSchedules} isKG={isKG} />
 
       {/* Active Visual Classroom */}
@@ -80,34 +83,45 @@ export default function StudentClassroomClient({
         const enrollment = enrollments.find((e: any) => e.class.id === activeClassroom);
         if (!enrollment) return null;
         const cls = enrollment.class;
-        const isLive = cls.liveSessions?.length > 0;
+        const liveSession = cls.liveSessions?.[0];
+        const isLive = !!liveSession;
+        const sessionId = liveSession?.id || "";
         const students = (cls.enrollments || []).map((en: any) => ({
           id: en.student?.id || en.studentId,
           name: en.student?.user?.name || "Student",
           image: en.student?.user?.image,
         }));
+
         return (
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className={`font-bold ${isKG ? "text-xl text-amber-800" : "text-sm text-gray-700"}`}>
                 {isKG ? "🏫 " : ""}Active Classroom
+                {isLive && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
               </h2>
-              <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">
-                Leave Classroom
-              </button>
+              <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">Leave</button>
             </div>
-            <VisualClassroom
-              classId={cls.id}
-              className={cls.name}
-              subjectName={cls.subject?.name || cls.name}
-              teacherName={cls.teacher?.user?.name || "Teacher"}
-              teacherImage={cls.teacher?.user?.image}
-              students={students}
-              isTeacher={false}
-              isLive={isLive}
-              topic={cls.liveSessions?.[0]?.topic}
-              isKG={isKG}
-            />
+            {isLive && sessionId ? (
+              <VisualClassroom
+                sessionId={sessionId}
+                classId={cls.id}
+                subjectName={cls.subject?.name || cls.name}
+                teacherName={cls.teacher?.user?.name || "Teacher"}
+                students={students}
+                isTeacher={false}
+                isLive={true}
+                topic={liveSession?.topic}
+                isKG={isKG}
+                studentId={studentId}
+                studentName={studentName}
+              />
+            ) : (
+              <div className={`rounded-2xl p-8 text-center border-2 border-dashed ${isKG ? "bg-yellow-50 border-yellow-300" : "bg-gray-50 border-gray-300"}`}>
+                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500 font-medium">Class is not live yet. Waiting for teacher to start...</p>
+                <p className="text-xs text-gray-400 mt-1">This page auto-refreshes — you&apos;ll see the classroom when the teacher starts</p>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -120,49 +134,32 @@ export default function StudentClassroomClient({
         {sorted.length === 0 ? (
           <div className={`card text-center py-12 ${isKG ? "bg-yellow-50 border-yellow-200" : ""}`}>
             <BookOpen className={`w-12 h-12 mx-auto mb-3 ${isKG ? "text-yellow-400" : "text-gray-300"}`} />
-            <p className={isKG ? "text-lg font-bold text-gray-600" : "text-gray-500"}>
-              {isKG ? "No classes yet! Ask your teacher 🙋" : "No enrolled classes yet."}
-            </p>
-            <Link href="/student/subjects" className={`mt-4 inline-block ${isKG ? "bg-yellow-400 text-yellow-900 px-6 py-2 rounded-full font-bold text-lg" : "btn-primary text-sm"}`}>
-              {isKG ? "Find Classes 🔍" : "Browse Subjects"}
-            </Link>
+            <p className={isKG ? "text-lg font-bold text-gray-600" : "text-gray-500"}>No enrolled classes yet.</p>
+            <Link href="/student/subjects" className="mt-4 inline-block btn-primary text-sm">Browse Subjects</Link>
           </div>
         ) : (
-          <div className={`${isKG ? "grid md:grid-cols-2 gap-4" : "space-y-3"}`}>
+          <div className={isKG ? "grid md:grid-cols-2 gap-4" : "space-y-3"}>
             {sorted.map((e: any) => {
               const cls = e.class;
               const isLive = cls.liveSessions?.length > 0;
               const todaySchedules = cls.schedules?.filter((s: any) => s.dayOfWeek === today) || [];
               const attended = isAttended(cls.id);
               const status = getStatus(cls.id);
-              const joined = joinResult[cls.id];
 
               if (isKG) {
-                // Big colorful KG cards
-                const subjectEmojis: Record<string, string> = {
-                  Mathematics: "🔢", English: "📖", Science: "🔬", Art: "🎨",
-                  Music: "🎵", "Physical Education": "⚽", default: "📚",
-                };
-                const emoji = Object.entries(subjectEmojis).find(([k]) =>
-                  (cls.subject?.name || cls.name).toLowerCase().includes(k.toLowerCase())
-                )?.[1] || subjectEmojis.default;
-
+                const emojis: Record<string,string> = { Mathematics: "🔢", English: "📖", Science: "🔬", Art: "🎨", Music: "🎵", default: "📚" };
+                const emoji = Object.entries(emojis).find(([k]) => (cls.subject?.name || cls.name).toLowerCase().includes(k.toLowerCase()))?.[1] || emojis.default;
                 return (
                   <div key={e.id} onClick={() => setActiveClassroom(cls.id)}
                     className={`rounded-2xl p-5 border-2 shadow-md cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] ${
-                      isLive ? "bg-red-50 border-red-300 ring-2 ring-red-400 animate-pulse" :
-                      todaySchedules.length > 0 ? "bg-white border-blue-300" : "bg-gray-50 border-gray-200"
+                      isLive ? "bg-red-50 border-red-300 ring-2 ring-red-400 animate-pulse" : "bg-white border-blue-200"
                     }`}>
                     <div className="flex items-center gap-4">
                       <div className="text-5xl">{emoji}</div>
                       <div className="flex-1">
                         <h3 className="text-lg font-extrabold text-gray-800">{cls.subject?.name || cls.name}</h3>
                         <p className="text-sm text-gray-500">Teacher {cls.teacher?.user?.name?.split(" ")[0]}</p>
-                        {isLive && (
-                          <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">
-                            🔴 LIVE NOW
-                          </span>
-                        )}
+                        {isLive && <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">🔴 LIVE NOW</span>}
                         {attended && <span className="text-xs text-emerald-600 font-bold mt-1 block">✅ Attended!</span>}
                       </div>
                     </div>
@@ -170,21 +167,18 @@ export default function StudentClassroomClient({
                 );
               }
 
-              // Regular card
               const isExp = expanded === cls.id;
               return (
                 <div key={e.id} className={`card transition-all ${isLive ? "ring-2 ring-red-400 border-red-200" : ""}`}>
                   <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpanded(isExp ? null : cls.id)}>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      isLive ? "bg-red-100 text-red-600" : todaySchedules.length > 0 ? "bg-brand-100 text-brand-600" : "bg-gray-100 text-gray-500"
-                    }`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isLive ? "bg-red-100 text-red-600" : "bg-brand-100 text-brand-600"}`}>
                       {isLive ? <Play className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
                         {isLive && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
-                        {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
+                        {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
                       </div>
                       <p className="text-[10px] text-gray-500">{cls.teacher?.user?.name} • {cls._count?.enrollments || 0} students</p>
                     </div>
@@ -196,45 +190,30 @@ export default function StudentClassroomClient({
                         </button>
                       )}
                       <button onClick={(ev) => { ev.stopPropagation(); setActiveClassroom(cls.id); }}
-                        className="text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-brand-50">
-                        Enter
-                      </button>
+                        className="text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-brand-50">Enter</button>
                       {isExp ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                     </div>
                   </div>
-
                   {isExp && (
                     <div className="mt-3 pt-3 border-t space-y-3">
-                      {/* Schedule */}
                       {cls.schedules?.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          {cls.schedules.sort((a:any,b:any) => DAYS.indexOf(a.dayOfWeek) - DAYS.indexOf(b.dayOfWeek)).map((s:any, i:number) => (
+                          {cls.schedules.sort((a:any,b:any) => DAYS.indexOf(a.dayOfWeek)-DAYS.indexOf(b.dayOfWeek)).map((s:any, i:number) => (
                             <span key={i} className={`text-[10px] px-2 py-1 rounded-lg ${s.dayOfWeek === today ? "bg-brand-100 text-brand-700 font-bold" : "bg-gray-100 text-gray-600"}`}>
                               {DAY_SHORT[DAYS.indexOf(s.dayOfWeek)]} {s.startTime}-{s.endTime}
                             </span>
                           ))}
                         </div>
                       )}
-                      {/* Announcements */}
-                      {cls.announcements?.length > 0 && (
-                        <div className="space-y-1">
-                          <h5 className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1"><Megaphone className="w-3 h-3" /> Announcements</h5>
-                          {cls.announcements.slice(0, 3).map((a: any) => (
-                            <div key={a.id} className="text-xs bg-amber-50 p-2 rounded-lg">
-                              <span className="font-medium text-amber-800">{a.title}</span>
-                              <span className="text-gray-500 ml-1">— {a.content?.slice(0, 80)}</span>
-                            </div>
-                          ))}
+                      {cls.announcements?.length > 0 && cls.announcements.slice(0,3).map((a:any) => (
+                        <div key={a.id} className="text-xs bg-amber-50 p-2 rounded-lg">
+                          <Megaphone className="w-3 h-3 inline mr-1 text-amber-600" />
+                          <span className="font-medium text-amber-800">{a.title}</span> — {a.content?.slice(0,80)}
                         </div>
-                      )}
-                      {/* Quick links */}
+                      ))}
                       <div className="flex gap-2">
-                        <Link href="/student/materials" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
-                          <FolderOpen className="w-3 h-3" /> Materials ({cls._count?.materials || 0})
-                        </Link>
-                        <Link href="/student/grades" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1">
-                          <BookOpen className="w-3 h-3" /> Grades
-                        </Link>
+                        <Link href="/student/materials" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Materials</Link>
+                        <Link href="/student/grades" className="text-[10px] px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Grades</Link>
                       </div>
                     </div>
                   )}
