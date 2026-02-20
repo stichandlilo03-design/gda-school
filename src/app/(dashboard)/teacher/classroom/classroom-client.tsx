@@ -85,7 +85,7 @@ export default function TeacherClassroomClient({ classes, teacherId }: { classes
   const handlePostAnn = async (classId: string) => {
     if (!annForm.title) return;
     setLoading("ann");
-    await postClassAnnouncement({ classId, teacherId, ...annForm });
+    await postClassAnnouncement({ classId, ...annForm });
     setShowAnnForm(null);
     setAnnForm({ title: "", content: "", type: "GENERAL", isPinned: false });
     router.refresh();
