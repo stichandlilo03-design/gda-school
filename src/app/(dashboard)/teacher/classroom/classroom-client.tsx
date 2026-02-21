@@ -133,8 +133,9 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       setClassMessage("Error: " + result.error);
     } else {
       setClassMessage("🔴 Class is now LIVE! Board content preserved. Payment credits started.");
+      // Don't call router.refresh() — it disrupts the classroom
+      // The visual classroom polls every 3 seconds and will see isPrep=false
     }
-    router.refresh();
     setLoading("");
   };
 

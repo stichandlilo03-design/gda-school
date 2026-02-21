@@ -296,7 +296,7 @@ export default function VisualClassroom(props: Props) {
       if (!r.ok) {
         setPollErrors(e => e + 1);
         // After 5 consecutive errors, try to find a new session
-        if (!isTeacher && pollErrors >= 4) {
+        if (!isTeacher && pollErrors >= 20) {
           setSessionStatus("reconnecting");
           try {
             const ar = await fetch(`/api/classroom/active?classId=${classId}`);
@@ -558,7 +558,7 @@ export default function VisualClassroom(props: Props) {
         </div>
       )}
       {/* CONNECTION WARNING */}
-      {pollErrors > 2 && sessionStatus === "active" && (
+      {pollErrors > 5 && sessionStatus === "active" && (
         <div className="absolute top-2 right-2 z-[70] bg-amber-500 text-white text-[9px] px-2 py-1 rounded-full animate-pulse font-bold">
           ⚠️ Weak connection
         </div>

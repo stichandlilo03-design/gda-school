@@ -5,59 +5,47 @@ export async function GET() {
   try {
     const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
     const now = new Date();
-    const today = DAYS[now.getDay()];
-    const nowMin = now.getHours() * 60 + now.getMinutes();
     const results: string[] = [];
 
     // ============================================================
-    // 1. ENFORCE SCHOOL CLOSE TIME — end ALL sessions past close
+    // 1. SCHOOL CLOSE — end everything past close time
     // ============================================================
     const schools = await db.school.findMany({ where: { isActive: true }, select: { id: true, schoolCloseTime: true, schoolOpenTime: true, sessionDurationMin: true, sessionsPerDay: true, currency: true, timezone: true } });
     for (const school of schools) {
-      // Use school timezone for time calculations
-      const schoolTz = school.timezone || "UTC";
-      const schoolNow = new Date(now.toLocaleString("en-US", { timeZone: schoolTz }));
-      const schoolNowMin = schoolNow.getHours() * 60 + schoolNow.getMinutes();
-      const schoolToday = DAYS[schoolNow.getDay()];
+      const tz = school.timezone || "UTC";
+      const sNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+      const sMin = sNow.getHours() * 60 + sNow.getMinutes();
       const closeMin = parseInt((school.schoolCloseTime || "15:00").split(":")[0]) * 60 + parseInt((school.schoolCloseTime || "15:00").split(":")[1] || "0");
-      if (schoolNowMin > closeMin + 5) {
-        const activeSessions = await db.liveClassSession.findMany({
+      if (sMin > closeMin + 10) {
+        const active = await db.liveClassSession.findMany({
           where: { status: { in: ["WAITING", "IN_PROGRESS"] }, class: { schoolGrade: { schoolId: school.id } } },
         });
-        for (const session of activeSessions) {
-          const durationMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
-          await db.liveClassSession.update({
-            where: { id: session.id },
-            data: { status: "ENDED", endedAt: now, durationMin },
-          });
-          await creditTeacher(session, school.id, durationMin, now, school);
-          results.push(`School closed — ended session (${durationMin}min)`);
+        for (const s of active) {
+          const dur = s.startedAt ? Math.round((now.getTime() - s.startedAt.getTime()) / 60000) : 0;
+          await db.liveClassSession.update({ where: { id: s.id }, data: { status: "ENDED", endedAt: now, durationMin: dur } });
+          if (!s.isPrep) await creditTeacher(s, school.id, dur, now, school);
+          results.push(`School closed — ended (${dur}min)`);
         }
       }
     }
 
     // ============================================================
-    // 1.5 PREP SESSION TIMEOUT — end prep sessions past their duration (NO credit)
+    // 2. PREP TIMEOUT — end preps past teacher's chosen duration
     // ============================================================
-    const prepSessions = await db.liveClassSession.findMany({
-      where: { status: "IN_PROGRESS", isPrep: true },
-    });
-    for (const prep of prepSessions) {
-      const prepMin = prep.startedAt ? Math.round((now.getTime() - prep.startedAt.getTime()) / 60000) : 0;
-      const prepLimit = prep.durationMin || 30;
-      if (prepMin >= prepLimit) {
-        await db.liveClassSession.update({
-          where: { id: prep.id },
-          data: { status: "ENDED", endedAt: now, durationMin: prepMin },
-        });
-        results.push(`Prep ended after ${prepMin}min (limit ${prepLimit}min) — no credit`);
+    const preps = await db.liveClassSession.findMany({ where: { status: "IN_PROGRESS", isPrep: true } });
+    for (const p of preps) {
+      const mins = p.startedAt ? Math.round((now.getTime() - p.startedAt.getTime()) / 60000) : 0;
+      const limit = p.durationMin || 30;
+      if (mins >= limit) {
+        await db.liveClassSession.update({ where: { id: p.id }, data: { status: "ENDED", endedAt: now, durationMin: mins } });
+        results.push(`Prep ended ${mins}min (limit ${limit}min)`);
       }
     }
 
     // ============================================================
-    // 2. TIMETABLE-BASED AUTO-START & AUTO-END
+    // 3. TIMETABLE AUTO-START & AUTO-END
     // ============================================================
-    // Fetch schedules for all possible "today" days across timezones
+    const today = DAYS[now.getDay()];
     const possibleDays = [...new Set([today, DAYS[(now.getDay() + 1) % 7], DAYS[(now.getDay() + 6) % 7]])];
     const schedules = await db.classSchedule.findMany({
       where: { dayOfWeek: { in: possibleDays as any[] } },
@@ -73,89 +61,92 @@ export async function GET() {
     });
 
     for (const sched of schedules) {
-      const startMin = parseInt(sched.startTime.split(":")[0]) * 60 + parseInt(sched.startTime.split(":")[1] || "0");
-      const endMin = parseInt(sched.endTime.split(":")[0]) * 60 + parseInt(sched.endTime.split(":")[1] || "0");
       const cls = sched.class;
       const school = cls.schoolGrade?.school;
       if (!school) continue;
 
-      // Use school timezone
       const tz = (school as any).timezone || "UTC";
       const localNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
-      const localNowMin = localNow.getHours() * 60 + localNow.getMinutes();
-      const localToday = DAYS[localNow.getDay()];
+      const localMin = localNow.getHours() * 60 + localNow.getMinutes();
+      const localDay = DAYS[localNow.getDay()];
+      if (sched.dayOfWeek !== localDay) continue;
 
-      // Skip if not this school's "today"
-      if (sched.dayOfWeek !== localToday) continue;
+      const openMin = parseInt((school.schoolOpenTime || "08:00").split(":")[0]) * 60 + parseInt((school.schoolOpenTime || "08:00").split(":")[1] || "0");
+      const closeMin = parseInt((school.schoolCloseTime || "15:00").split(":")[0]) * 60 + parseInt((school.schoolCloseTime || "15:00").split(":")[1] || "0");
+      if (localMin < openMin || localMin > closeMin + 10) continue;
 
-      const schoolOpenMin = parseInt((school.schoolOpenTime || "08:00").split(":")[0]) * 60 + parseInt((school.schoolOpenTime || "08:00").split(":")[1] || "0");
-      const schoolCloseMin = parseInt((school.schoolCloseTime || "15:00").split(":")[0]) * 60 + parseInt((school.schoolCloseTime || "15:00").split(":")[1] || "0");
+      const startMin = parseInt(sched.startTime.split(":")[0]) * 60 + parseInt(sched.startTime.split(":")[1] || "0");
+      const endMin = parseInt(sched.endTime.split(":")[0]) * 60 + parseInt(sched.endTime.split(":")[1] || "0");
 
-      // Skip if outside school hours (using school local time)
-      if (localNowMin < schoolOpenMin || localNowMin > schoolCloseMin + 5) continue;
+      // ---- AUTO-START ----
+      if (localMin >= startMin && localMin <= startMin + 2 && cls.liveSessions.length === 0) {
+        // BLOCK: Don't auto-start if there's ANY prep session today (active OR recently ended)
+        const prepToday = await db.liveClassSession.findFirst({
+          where: {
+            classId: cls.id,
+            isPrep: true,
+            OR: [
+              { status: "IN_PROGRESS" },
+              { status: "ENDED", endedAt: { gte: new Date(now.getTime() - 60 * 60 * 1000) } },
+            ],
+          },
+        });
+        if (prepToday) {
+          results.push(`Skip auto-start ${cls.name} — prep exists, teacher controls when to go live`);
+          continue;
+        }
 
-      // Auto-start: within 2 min of start time, no active session, teacher not busy
-      if (localNowMin >= startMin && localNowMin <= startMin + 2 && cls.liveSessions.length === 0) {
-        const teacherBusy = await db.liveClassSession.findFirst({
+        const busy = await db.liveClassSession.findFirst({
           where: { teacherId: cls.teacherId, status: "IN_PROGRESS" },
         });
-        if (!teacherBusy) {
-          await db.liveClassSession.create({
-            data: {
-              classId: cls.id, teacherId: cls.teacherId,
-              topic: `${cls.name} — Period ${sched.periodNumber}`, status: "IN_PROGRESS",
-              startedAt: now, autoStarted: true,
-              teacherJoinedAt: null, lateMinutes: 0,
-              boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
-              whispers: [], questions: [], reactions: [], polls: [],
-            },
-          });
-          results.push(`Auto-started: ${cls.name} P${sched.periodNumber}`);
-        }
+        if (busy) continue;
+
+        await db.liveClassSession.create({
+          data: {
+            classId: cls.id, teacherId: cls.teacherId,
+            topic: `${cls.name} — Period ${sched.periodNumber}`, status: "IN_PROGRESS",
+            startedAt: now, autoStarted: true,
+            teacherJoinedAt: null, lateMinutes: 0,
+            boardContent: [], boardHistory: [], raisedHands: [], chatMessages: [],
+            whispers: [], questions: [], reactions: [], polls: [],
+          },
+        });
+        results.push(`Auto-started: ${cls.name} P${sched.periodNumber}`);
       }
 
-      // Auto-end: past timetable end time OR past duration limit (skip prep — handled separately)
+      // ---- AUTO-END (real classes only, NOT prep) ----
       if (cls.liveSessions.length > 0) {
-        const session = cls.liveSessions[0];
-        if (session.isPrep) continue; // Prep has its own timeout logic
-        const sessionMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
-        const sessionLimit = school.sessionDurationMin || 40;
-
-        if (localNowMin > endMin + 5 || sessionMin >= sessionLimit + 10) {
-          const durationMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
-          await db.liveClassSession.update({
-            where: { id: session.id },
-            data: { status: "ENDED", endedAt: now, durationMin },
-          });
-          await creditTeacher(session, school.id, durationMin, now, school);
-          results.push(`Auto-ended: ${cls.name} (${durationMin}min)`);
+        const s = cls.liveSessions[0];
+        if (s.isPrep) continue;
+        const dur = s.startedAt ? Math.round((now.getTime() - s.startedAt.getTime()) / 60000) : 0;
+        const limit = school.sessionDurationMin || 40;
+        if (localMin > endMin + 5 || dur >= limit + 10) {
+          await db.liveClassSession.update({ where: { id: s.id }, data: { status: "ENDED", endedAt: now, durationMin: dur } });
+          await creditTeacher(s, school.id, dur, now, school);
+          results.push(`Auto-ended: ${cls.name} (${dur}min)`);
         }
       }
     }
 
     // ============================================================
-    // 3. ORPHANED SESSIONS — exceed 1.5x limit with no timetable (skip prep — handled above)
+    // 4. ORPHANED real sessions (3x limit)
     // ============================================================
     const orphaned = await db.liveClassSession.findMany({
       where: { status: "IN_PROGRESS", isPrep: false },
       include: { class: { include: { schoolGrade: { include: { school: true } } } } },
     });
-    for (const session of orphaned) {
-      const school = session.class?.schoolGrade?.school;
+    for (const s of orphaned) {
+      const school = s.class?.schoolGrade?.school;
       if (!school) continue;
-      const sessionMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
-      const limit = school.sessionDurationMin || 40;
-      if (sessionMin > limit * 2.5) {
-        await db.liveClassSession.update({
-          where: { id: session.id },
-          data: { status: "ENDED", endedAt: now, durationMin: sessionMin },
-        });
-        await creditTeacher(session, school.id, sessionMin, now, school);
-        results.push(`Orphan ended (${sessionMin}min)`);
+      const dur = s.startedAt ? Math.round((now.getTime() - s.startedAt.getTime()) / 60000) : 0;
+      if (dur > (school.sessionDurationMin || 40) * 3) {
+        await db.liveClassSession.update({ where: { id: s.id }, data: { status: "ENDED", endedAt: now, durationMin: dur } });
+        await creditTeacher(s, school.id, dur, now, school);
+        results.push(`Orphan ended (${dur}min)`);
       }
     }
 
-    return NextResponse.json({ ok: true, results, checked: schedules.length, time: `${now.getHours()}:${String(now.getMinutes()).padStart(2,"0")}` });
+    return NextResponse.json({ ok: true, results, checked: schedules.length });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -163,54 +154,21 @@ export async function GET() {
 
 async function creditTeacher(session: any, schoolId: string, durationMin: number, now: Date, school: any) {
   if (session.creditAwarded || durationMin < 1 || session.isPrep) return;
-
-  const st = await db.schoolTeacher.findFirst({
-    where: { teacherId: session.teacherId, schoolId },
-    include: { salary: true },
-  });
+  const st = await db.schoolTeacher.findFirst({ where: { teacherId: session.teacherId, schoolId }, include: { salary: true } });
   if (!st?.salary) return;
-
-  const sessionsPerDay = school.sessionsPerDay || 4;
-  const workingDays = st.salary.workingDaysPerMonth || 22;
-  const sessionsPerMonth = sessionsPerDay * workingDays;
-  const sessionLimit = school.sessionDurationMin || 40;
-  const credit = Math.round((st.salary.baseSalary / sessionsPerMonth) * (Math.min(durationMin, sessionLimit + 5) / sessionLimit) * 100) / 100;
+  const perMonth = (school.sessionsPerDay || 4) * (st.salary.workingDaysPerMonth || 22);
+  const limit = school.sessionDurationMin || 40;
+  const credit = Math.round((st.salary.baseSalary / perMonth) * (Math.min(durationMin, limit + 5) / limit) * 100) / 100;
   if (credit <= 0) return;
-
-  await db.sessionCredit.create({
-    data: {
-      liveSessionId: session.id, teacherId: session.teacherId,
-      schoolId, durationMin, creditAmount: credit,
-      currency: school.currency || "USD", status: "CREDITED",
-    },
-  });
+  await db.sessionCredit.create({ data: { liveSessionId: session.id, teacherId: session.teacherId, schoolId, durationMin, creditAmount: credit, currency: school.currency || "USD", status: "CREDITED" } });
   await db.liveClassSession.update({ where: { id: session.id }, data: { creditAwarded: true } });
-
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-  const existing = await db.payrollRecord.findUnique({
-    where: { schoolTeacherId_month_year: { schoolTeacherId: st.id, month, year } },
-  });
-  if (existing) {
-    const newGross = existing.grossPay + credit;
-    const taxDed = newGross * (st.salary.taxRate / 100);
-    const pensionDed = newGross * ((st.salary.pensionRate || 0) / 100);
-    await db.payrollRecord.update({
-      where: { id: existing.id },
-      data: { grossPay: newGross, netPay: Math.max(0, newGross - taxDed - pensionDed - existing.otherDeductions) },
-    });
+  const month = now.getMonth() + 1, year = now.getFullYear();
+  const ex = await db.payrollRecord.findUnique({ where: { schoolTeacherId_month_year: { schoolTeacherId: st.id, month, year } } });
+  if (ex) {
+    const g = ex.grossPay + credit, t = g * (st.salary.taxRate / 100), p = g * ((st.salary.pensionRate || 0) / 100);
+    await db.payrollRecord.update({ where: { id: ex.id }, data: { grossPay: g, netPay: Math.max(0, g - t - p - ex.otherDeductions) } });
   } else {
-    const taxDed = credit * ((st.salary.taxRate || 0) / 100);
-    const pensionDed = credit * ((st.salary.pensionRate || 0) / 100);
-    await db.payrollRecord.create({
-      data: {
-        schoolTeacherId: st.id, month, year,
-        baseSalary: st.salary.baseSalary,
-        allowances: (st.salary.housingAllowance||0) + (st.salary.transportAllowance||0) + (st.salary.otherAllowances||0),
-        grossPay: credit, taxDeduction: taxDed, pensionDeduction: pensionDed,
-        netPay: Math.max(0, credit - taxDed - pensionDed),
-        currency: school.currency || "USD", status: "DRAFT",
-      },
-    });
+    const t = credit * ((st.salary.taxRate || 0) / 100), p = credit * ((st.salary.pensionRate || 0) / 100);
+    await db.payrollRecord.create({ data: { schoolTeacherId: st.id, month, year, baseSalary: st.salary.baseSalary, allowances: (st.salary.housingAllowance||0)+(st.salary.transportAllowance||0)+(st.salary.otherAllowances||0), grossPay: credit, taxDeduction: t, pensionDeduction: p, netPay: Math.max(0, credit-t-p), currency: school.currency || "USD", status: "DRAFT" } });
   }
 }

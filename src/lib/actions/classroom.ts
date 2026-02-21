@@ -131,21 +131,22 @@ export async function convertPrepToLive(sessionId: string) {
     }
   }
 
-  // Convert: keep ALL content, just change isPrep and reset timer
+  // Convert: keep ALL content (board, chat, polls, etc), change isPrep to false
+  // SAME session ID — students stay connected, no disconnect
   const newTopic = (live.topic || "").replace("[PREP] ", "");
   await db.liveClassSession.update({
     where: { id: sessionId },
     data: {
       isPrep: false,
+      durationMin: 0, // Reset — no longer a timed prep
       topic: newTopic || "Live Class",
       startedAt: new Date(), // Reset start time for credit calculation
       lateMinutes,
     },
   });
 
-  revalidatePath("/teacher/classroom");
-  revalidatePath("/student/classroom");
-  revalidatePath("/principal");
+  // DO NOT call revalidatePath — it causes student page refresh which disconnects them
+  // Students poll every 3 seconds and will see isPrep=false naturally
   return { success: true, sessionId };
 }
 

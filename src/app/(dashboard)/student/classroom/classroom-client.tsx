@@ -91,7 +91,7 @@ export default function StudentClassroomClient({
     setLoading(classId);
     const result = await studentJoinClass(classId);
     if (result.error) setJoinResult({...joinResult, [classId]: "error"});
-    else { setJoinResult({...joinResult, [classId]: result.status || "PRESENT"}); router.refresh(); }
+    else { setJoinResult({...joinResult, [classId]: result.status || "PRESENT"}); }
     setLoading("");
   };
 
@@ -146,11 +146,8 @@ export default function StudentClassroomClient({
     }
   };
 
-  // Auto-refresh page data every 20s (picks up new enrollments, schedule changes)
-  useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 20000);
-    return () => clearInterval(interval);
-  }, [router]);
+  // NO router.refresh() — it causes VisualClassroom to disconnect
+  // All live data comes from API polling (liveSessionMap + VisualClassroom pollServer)
 
   // Auto-session check
   useEffect(() => {
