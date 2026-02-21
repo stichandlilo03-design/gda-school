@@ -16,6 +16,7 @@ interface Props {
   studentId?: string; studentName?: string;
   onSessionEnd?: () => void;
   onNewSession?: (newSessionId: string, isPrep?: boolean) => void;
+  onPrepChange?: (isPrep: boolean) => void;
 }
 
 // ============ TOOL PANELS ============
@@ -228,15 +229,26 @@ const TEXT_COLORS = [
 export default function VisualClassroom(props: Props) {
   const { sessionId: initialSessionId, classId, subjectName, teacherName, students,
     isTeacher, isLive, topic, isKG = false, studentId, studentName,
-    onSessionEnd, onNewSession } = props;
+    onSessionEnd, onNewSession, onPrepChange } = props;
 
   const [sessionId, setSessionId] = useState(initialSessionId);
   const [sessionStatus, setSessionStatus] = useState<"active"|"ended"|"searching">(initialSessionId ? "active" : (isTeacher ? "active" : "searching"));
   const [pollErrors, setPollErrors] = useState(0);
   const onSessionEndRef = useRef(onSessionEnd);
   const onNewSessionRef = useRef(onNewSession);
+  const onPrepChangeRef = useRef(onPrepChange);
   useEffect(() => { onSessionEndRef.current = onSessionEnd; }, [onSessionEnd]);
   useEffect(() => { onNewSessionRef.current = onNewSession; }, [onNewSession]);
+  useEffect(() => { onPrepChangeRef.current = onPrepChange; }, [onPrepChange]);
+
+  // Notify parent when prep status changes
+  const prevPrepRef = useRef(isSessionPrep);
+  useEffect(() => {
+    if (prevPrepRef.current !== isSessionPrep) {
+      prevPrepRef.current = isSessionPrep;
+      if (onPrepChangeRef.current) onPrepChangeRef.current(isSessionPrep);
+    }
+  }, [isSessionPrep]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -261,7 +273,7 @@ export default function VisualClassroom(props: Props) {
   const [handRaised, setHandRaised] = useState(false);
   const [handAccepted, setHandAccepted] = useState(false);
   const [questionText, setQuestionText] = useState("");
-  const [answerText, setAnswerText] = useState("");
+  const [answerText, setAnswerText] = useState<Record<string, string>>({});
   const [fullscreen, setFullscreen] = useState(false);
   const [lastPoll, setLastPoll] = useState(0);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -512,7 +524,7 @@ export default function VisualClassroom(props: Props) {
   const ackHand = (sid: string) => post("ack_hand",{studentId:sid});
   const sendChat = () => { if (!chatMsg.trim()) return; post("chat",{from:isTeacher?"Teacher":studentName,message:chatMsg}); setChatMsg(""); };
   const askQuestion = () => { if (!questionText.trim()) return; post("ask_question",{studentId,studentName,question:questionText}); setQuestionText(""); setHandAccepted(false); };
-  const answerQ = (qId: string) => { if (!answerText.trim()) return; post("answer_question",{questionId:qId,answer:answerText}); setAnswerText(""); };
+  const answerQ = (qId: string) => { const txt = answerText[qId] || ""; if (!txt.trim()) return; post("answer_question",{questionId:qId,answer:txt}); setAnswerText(prev => ({ ...prev, [qId]: "" })); };
   const sendWhisper = () => {
     if (!whisperMsg.trim() || !whisperTo) return;
     post("whisper",{fromId:studentId,fromName:studentName,toId:whisperTo.id,toName:whisperTo.name,message:whisperMsg});
@@ -1109,7 +1121,7 @@ export default function VisualClassroom(props: Props) {
                       {isTeacher && !q.answered && (
                         <div className="flex gap-1 mt-1.5">
                           <input className="flex-1 input-field text-[10px] py-0.5" placeholder="Answer..."
-                            onChange={e => setAnswerText(e.target.value)} onKeyDown={e => e.key==="Enter"&&answerQ(q.id)} />
+                            value={answerText[q.id] || ""} onChange={e => setAnswerText(prev => ({ ...prev, [q.id]: e.target.value }))} onKeyDown={e => e.key==="Enter"&&answerQ(q.id)} />
                           <button onClick={() => answerQ(q.id)} className="text-[8px] bg-emerald-500 text-white px-2 py-0.5 rounded">Reply</button>
                         </div>
                       )}

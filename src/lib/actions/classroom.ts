@@ -130,43 +130,84 @@ export async function convertPrepToLive(sessionId: string) {
   const session = await getServerSession(authOptions);
   if (!session) return { error: "Unauthorized" };
 
-  const live = await db.liveClassSession.findUnique({ where: { id: sessionId } });
+  const live = await db.liveClassSession.findUnique({
+    where: { id: sessionId },
+    include: { class: { include: { schedules: true, schoolGrade: { include: { school: true } } } } },
+  });
   if (!live || !live.isPrep) return { error: "Not a prep session" };
 
-  // Calculate late minutes from timetable
+  // Check timetable — warn if going live outside scheduled time
   const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const today = DAYS[now.getDay()];
+  const school = live.class?.schoolGrade?.school;
+  const tz = (school as any)?.timezone || "UTC";
+  const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+  const nowMin = localNow.getHours() * 60 + localNow.getMinutes();
+  const today = DAYS[localNow.getDay()];
   let lateMinutes = 0;
+  let outsideSchedule = false;
+  let nextClassInfo = "";
 
-  const schedule = await db.classSchedule.findFirst({
-    where: { classId: live.classId, dayOfWeek: today as any },
-  });
-  if (schedule) {
-    const schedStart = parseInt(schedule.startTime.split(":")[0]) * 60 + parseInt(schedule.startTime.split(":")[1] || "0");
-    if (nowMin > schedStart + 2) {
-      lateMinutes = nowMin - schedStart;
+  const todaySchedules = (live.class?.schedules || []).filter((s: any) => s.dayOfWeek === today);
+  if (todaySchedules.length > 0) {
+    const sched = todaySchedules[0];
+    const schedStart = parseInt(sched.startTime.split(":")[0]) * 60 + parseInt(sched.startTime.split(":")[1] || "0");
+    const schedEnd = parseInt(sched.endTime.split(":")[0]) * 60 + parseInt(sched.endTime.split(":")[1] || "0");
+
+    if (nowMin < schedStart - 5) {
+      // Before class time
+      outsideSchedule = true;
+      const h = Math.floor(schedStart / 60), m = schedStart % 60;
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      nextClassInfo = `Class is scheduled for ${h12}:${String(m).padStart(2,"0")} ${ampm} today`;
+    } else if (nowMin > schedEnd + 10) {
+      // After class time
+      outsideSchedule = true;
+      nextClassInfo = "Class time has already passed for today";
+    } else {
+      // During class time — calculate late
+      if (nowMin > schedStart + 2) {
+        lateMinutes = nowMin - schedStart;
+      }
+    }
+  } else {
+    // No schedule today
+    outsideSchedule = true;
+    // Find next scheduled day
+    const allSchedules = live.class?.schedules || [];
+    if (allSchedules.length > 0) {
+      const dayOrder = ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"];
+      const todayIdx = dayOrder.indexOf(today);
+      const sorted = allSchedules.sort((a: any, b: any) => {
+        const ai = (dayOrder.indexOf(a.dayOfWeek) - todayIdx + 7) % 7;
+        const bi = (dayOrder.indexOf(b.dayOfWeek) - todayIdx + 7) % 7;
+        return ai - bi;
+      });
+      const next = sorted.find((s: any) => s.dayOfWeek !== today) || sorted[0];
+      const h = parseInt(next.startTime.split(":")[0]), m = parseInt(next.startTime.split(":")[1] || "0");
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      nextClassInfo = `Next class: ${next.dayOfWeek} at ${h12}:${String(m).padStart(2,"0")} ${ampm}`;
+    } else {
+      nextClassInfo = "No class scheduled on the timetable";
     }
   }
 
-  // Convert: keep ALL content (board, chat, polls, etc), change isPrep to false
-  // SAME session ID — students stay connected, no disconnect
+  // Convert: keep ALL content, change isPrep to false, clear prepHidden
   const newTopic = (live.topic || "").replace("[PREP] ", "");
   await db.liveClassSession.update({
     where: { id: sessionId },
     data: {
       isPrep: false,
-      durationMin: 0, // Reset — no longer a timed prep
+      durationMin: 0,
       topic: newTopic || "Live Class",
-      startedAt: new Date(), // Reset start time for credit calculation
+      startedAt: new Date(),
       lateMinutes,
+      prepHidden: {}, // Clear all hidden flags — everything visible now
     },
   });
 
-  // DO NOT call revalidatePath — it causes student page refresh which disconnects them
-  // Students poll every 3 seconds and will see isPrep=false naturally
-  return { success: true, sessionId };
+  return { success: true, sessionId, outsideSchedule, nextClassInfo };
 }
 
 // End a live class session + credit teacher + auto payroll

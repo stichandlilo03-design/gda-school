@@ -149,15 +149,17 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
   const handleGoLive = async (sessionId: string, classId: string) => {
     if (!confirm("Convert this prep into a real live class? Board content will be kept. Payment tracking starts now.")) return;
     setLoading("golive-" + sessionId);
-    const result = await convertPrepToLive(sessionId);
+    const result = await convertPrepToLive(sessionId) as any;
     if (result.error) {
       setClassMessage("Error: " + result.error);
     } else {
-      setClassMessage("🔴 Class is now LIVE! Board content preserved. Payment credits started.");
+      if (result.outsideSchedule) {
+        setClassMessage(`⚠️ Now LIVE — but outside scheduled time. ${result.nextClassInfo || ""}. Credits still count.`);
+      } else {
+        setClassMessage("🔴 Class is now LIVE! Board content preserved. Payment credits started.");
+      }
       setIsInPrep(false);
-      // Immediately update polled state so UI reflects LIVE
       setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: true, isPrep: false, sessionId } }));
-      setIsInPrep(false);
     }
     setLoading("");
   };

@@ -150,8 +150,16 @@ export default function StudentClassroomClient({
     }
   };
 
-  // NO router.refresh() — it causes VisualClassroom to disconnect
-  // All live data comes from API polling (liveSessionMap + VisualClassroom pollServer)
+  // Handle when VisualClassroom detects prep→live or live→prep change
+  const handlePrepChange = (isPrep: boolean) => {
+    if (activeClassroom) {
+      setLiveSessionMap(prev => {
+        const existing = prev[activeClassroom];
+        if (existing) return { ...prev, [activeClassroom]: { ...existing, isPrep } };
+        return prev;
+      });
+    }
+  };
 
   // Auto-session check
   useEffect(() => {
@@ -266,6 +274,7 @@ export default function StudentClassroomClient({
               studentId={studentId} studentName={studentName}
               onSessionEnd={handleSessionEnd}
               onNewSession={handleNewSession}
+              onPrepChange={handlePrepChange}
             />
             {/* Rate teacher button — always visible below classroom */}
             {!showRating && (
