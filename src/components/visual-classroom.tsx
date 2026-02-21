@@ -286,6 +286,16 @@ export default function VisualClassroom(props: Props) {
   const seenAnswerIds = useRef<Set<string>>(new Set());
   const firstDataLoad = useRef(true);
   const [answeredAlert, setAnsweredAlert] = useState<{question: string; answer: string} | null>(null);
+  // Notification system — track counts to detect new items
+  const prevChatCount = useRef(0);
+  const prevWhisperCount = useRef(0);
+  const prevReactionCount = useRef(0);
+  const prevTeachingMode = useRef("board");
+  const [chatNotif, setChatNotif] = useState<{from: string; message: string} | null>(null);
+  const [whisperNotif, setWhisperNotif] = useState<{from: string; message: string} | null>(null);
+  const [modeNotif, setModeNotif] = useState<string | null>(null);
+  const [unreadChat, setUnreadChat] = useState(0);
+  const [unreadWhisper, setUnreadWhisper] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [lastPoll, setLastPoll] = useState(0);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -407,8 +417,39 @@ export default function VisualClassroom(props: Props) {
       statusRef.current = "active";
       setBoardLines(Array.isArray(d.boardContent) ? d.boardContent : []);
       setRaisedHands(Array.isArray(d.raisedHands) ? d.raisedHands : []);
-      setChatMessages(Array.isArray(d.chatMessages) ? d.chatMessages : []);
-      setWhispers(Array.isArray(d.whispers) ? d.whispers : []);
+
+      // CHAT notifications — detect new messages
+      const serverChat = Array.isArray(d.chatMessages) ? d.chatMessages : [];
+      if (serverChat.length > prevChatCount.current && prevChatCount.current > 0) {
+        const newest = serverChat[serverChat.length - 1];
+        const myName = isTeacher ? "Teacher" : studentName;
+        // Only notify if message is from someone else AND chat panel isn't open
+        if (newest && newest.from !== myName) {
+          setChatNotif({ from: newest.from, message: newest.message });
+          if (panel !== "chat") setUnreadChat(prev => prev + (serverChat.length - prevChatCount.current));
+          setTimeout(() => setChatNotif(null), 5000);
+        }
+      }
+      prevChatCount.current = serverChat.length;
+      setChatMessages(serverChat);
+
+      // WHISPER notifications — detect new whispers for this student
+      const serverWhispers = Array.isArray(d.whispers) ? d.whispers : [];
+      if (!isTeacher && studentId) {
+        const myW = serverWhispers.filter((w:any) => w.toId === studentId);
+        const oldMyW = prevWhisperCount.current;
+        if (myW.length > oldMyW && oldMyW > 0) {
+          const newest = myW[myW.length - 1];
+          if (newest) {
+            setWhisperNotif({ from: newest.fromName, message: newest.message });
+            if (panel !== "whisper") setUnreadWhisper(prev => prev + (myW.length - oldMyW));
+            setTimeout(() => setWhisperNotif(null), 5000);
+          }
+        }
+        prevWhisperCount.current = myW.length;
+      }
+      setWhispers(serverWhispers);
+
       // Only update questions if server data actually changed (prevents disrupting teacher typing)
       const qJson = JSON.stringify(d.questions || []);
       if (qJson !== lastQuestionsJson.current) {
@@ -428,18 +469,31 @@ export default function VisualClassroom(props: Props) {
               if (q.studentId === studentId && q.answered && q.answer && !seenAnswerIds.current.has(q.id)) {
                 seenAnswerIds.current.add(q.id);
                 setAnsweredAlert({ question: q.question, answer: q.answer });
-                // Auto-open Q&A panel so student sees the answer
                 setPanel("qa");
-                // Auto-dismiss after 8 seconds
                 setTimeout(() => setAnsweredAlert(null), 8000);
               }
             }
           }
         }
       }
-      setReactions(Array.isArray(d.reactions) ? d.reactions : []);
+
+      // REACTION notifications
+      const serverReactions = Array.isArray(d.reactions) ? d.reactions : [];
+      setReactions(serverReactions);
       setPolls(Array.isArray(d.polls) ? d.polls : []);
+
+      // MODE CHANGE notification — teacher switched board/voice/video
+      const serverMode = d.teachingMode || "board";
+      if (serverMode !== prevTeachingMode.current && prevTeachingMode.current !== "") {
+        if (!isTeacher) {
+          const labels: Record<string,string> = { board: "📋 Blackboard", voice: "🎤 Voice Call", video: "📹 Video Call" };
+          setModeNotif(`Teacher switched to ${labels[serverMode] || serverMode}`);
+          setTimeout(() => setModeNotif(null), 5000);
+        }
+        prevTeachingMode.current = serverMode;
+      }
       if (d.teachingMode) setTeachingMode(d.teachingMode);
+
       if (d.liveMinutes !== undefined) setLiveMinutes(d.liveMinutes);
       if (d.isPrep !== undefined) setIsSessionPrep(d.isPrep);
       if (d.prepHidden) setPrepHidden(typeof d.prepHidden === "object" ? d.prepHidden : {});
@@ -754,12 +808,14 @@ export default function VisualClassroom(props: Props) {
             {unanswered>0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-[7px] text-white rounded-full flex items-center justify-center">{unanswered}</span>}
             {!isTeacher && answeredAlert && <span className="absolute -top-1 -left-1 w-3.5 h-3.5 bg-emerald-500 text-[7px] text-white rounded-full flex items-center justify-center animate-bounce">!</span>}
           </button>
-          <button onClick={() => setPanel(panel==="chat"?null:"chat")} className="relative p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
+          <button onClick={() => { setPanel(panel==="chat"?null:"chat"); setUnreadChat(0); setChatNotif(null); }} className="relative p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
             <MessageSquare className="w-3 h-3" />
+            {unreadChat > 0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-blue-500 text-[7px] text-white rounded-full flex items-center justify-center animate-bounce">{unreadChat}</span>}
           </button>
-          {!isTeacher && <button onClick={() => setPanel(panel==="whisper"?null:"whisper")} className="relative p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
+          {!isTeacher && <button onClick={() => { setPanel(panel==="whisper"?null:"whisper"); setUnreadWhisper(0); setWhisperNotif(null); }} className="relative p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
             <Lock className="w-3 h-3" />
-            {myWhispers.length>0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-pink-500 text-[7px] text-white rounded-full flex items-center justify-center">{myWhispers.length}</span>}
+            {unreadWhisper > 0 ? <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-pink-500 text-[7px] text-white rounded-full flex items-center justify-center animate-bounce">{unreadWhisper}</span>
+            : myWhispers.length>0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-pink-500/60 text-[7px] text-white rounded-full flex items-center justify-center">{myWhispers.length}</span>}
           </button>}
           {isTeacher && <button onClick={() => setPanel(panel==="poll"?null:"poll")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><BarChart3 className="w-3 h-3" /></button>}
           {!isTeacher && <button onClick={() => setShowSettings(!showSettings)} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><Settings className="w-3 h-3" /></button>}
@@ -771,7 +827,7 @@ export default function VisualClassroom(props: Props) {
 
       {/* ANSWERED QUESTION NOTIFICATION — student sees this when teacher replies */}
       {answeredAlert && !isTeacher && (
-        <div className="px-3 py-2.5 bg-emerald-500 text-white animate-pulse cursor-pointer" onClick={() => { setAnsweredAlert(null); setPanel("qa"); }}>
+        <div className="px-3 py-2.5 bg-emerald-500 text-white cursor-pointer" onClick={() => { setAnsweredAlert(null); setPanel("qa"); }}>
           <div className="flex items-center gap-2">
             <span className="text-lg">💬</span>
             <div className="flex-1 min-w-0">
@@ -781,6 +837,41 @@ export default function VisualClassroom(props: Props) {
             </div>
             <button onClick={(e) => { e.stopPropagation(); setAnsweredAlert(null); }} className="text-white/80 hover:text-white text-sm">✕</button>
           </div>
+        </div>
+      )}
+
+      {/* CHAT NOTIFICATION — new message from someone */}
+      {chatNotif && (
+        <div className="px-3 py-2 bg-blue-500 text-white cursor-pointer animate-pulse" onClick={() => { setChatNotif(null); setUnreadChat(0); setPanel("chat"); }}>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💬</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold">{chatNotif.from} sent a message</p>
+              <p className="text-[10px] opacity-90 truncate">{chatNotif.message}</p>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); setChatNotif(null); }} className="text-white/80 hover:text-white text-sm">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* WHISPER NOTIFICATION — private message */}
+      {whisperNotif && !isTeacher && (
+        <div className="px-3 py-2 bg-pink-500 text-white cursor-pointer animate-pulse" onClick={() => { setWhisperNotif(null); setUnreadWhisper(0); setPanel("whisper"); }}>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🤫</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold">{whisperNotif.from} whispered to you</p>
+              <p className="text-[10px] opacity-90 truncate">{whisperNotif.message}</p>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); setWhisperNotif(null); }} className="text-white/80 hover:text-white text-sm">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODE CHANGE NOTIFICATION — teacher switched mode */}
+      {modeNotif && !isTeacher && (
+        <div className="px-3 py-2 bg-indigo-500 text-white text-center animate-pulse">
+          <p className="text-xs font-bold">{modeNotif}</p>
         </div>
       )}
 
