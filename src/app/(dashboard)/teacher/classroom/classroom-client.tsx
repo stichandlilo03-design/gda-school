@@ -243,7 +243,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
               </div>
             </div>
             <VisualClassroom
-              sessionId={activeSessionId}
+              sessionId={activeSessionId || ""}
               classId={cls.id}
               subjectName={cls.subject?.name || cls.name}
               teacherName="You"

@@ -98,15 +98,57 @@ export default function StudentClassroomClient({
   const isAttended = (classId: string) => todayAttendance.some((a: any) => a.classId === classId);
   const getStatus = (classId: string) => todayAttendance.find((a: any) => a.classId === classId)?.status || null;
 
-  // Auto-open first live class
+  // Auto-open first LIVE (non-prep) class
   useEffect(() => {
-    const live = sorted.find((e) => e.class.liveSessions?.length > 0);
+    const live = sorted.find((e) => e.class.liveSessions?.length > 0 && !e.class.liveSessions?.[0]?.isPrep);
     if (live && !activeClassroom) setActiveClassroom(live.class.id);
   }, []);
 
-  // Auto-refresh every 15s
+  // Track current session IDs per class (for auto-reconnect)
+  const [liveSessionMap, setLiveSessionMap] = useState<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    enrollments.forEach((e: any) => {
+      if (e.class.liveSessions?.[0]) map[e.class.id] = e.class.liveSessions[0].id;
+    });
+    return map;
+  });
+
+  // Poll for active sessions every 10 seconds (catches new sessions when teacher starts class)
   useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 15000);
+    const poll = async () => {
+      for (const e of enrollments) {
+        try {
+          const r = await fetch(`/api/classroom/active?classId=${e.class.id}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d.session) {
+              setLiveSessionMap(prev => ({ ...prev, [e.class.id]: d.session.id }));
+            } else {
+              setLiveSessionMap(prev => { const n = { ...prev }; delete n[e.class.id]; return n; });
+            }
+          }
+        } catch {}
+      }
+    };
+    const i = setInterval(poll, 10000);
+    return () => clearInterval(i);
+  }, [enrollments]);
+
+  // Handle when VisualClassroom detects session ended
+  const handleSessionEnd = () => {
+    // Don't close immediately — the poll above will check for new session
+  };
+
+  // Handle when VisualClassroom finds a new session (auto-reconnect)
+  const handleNewSession = (newSessionId: string) => {
+    if (activeClassroom) {
+      setLiveSessionMap(prev => ({ ...prev, [activeClassroom]: newSessionId }));
+    }
+  };
+
+  // Auto-refresh page data every 20s (picks up new enrollments, schedule changes)
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 20000);
     return () => clearInterval(interval);
   }, [router]);
 
@@ -174,9 +216,10 @@ export default function StudentClassroomClient({
         const enrollment = enrollments.find((e: any) => e.class.id === activeClassroom);
         if (!enrollment) return null;
         const cls = enrollment.class;
+        // Use LIVE session map (polled every 10s) instead of stale server data
+        const currentSessionId = liveSessionMap[cls.id] || cls.liveSessions?.[0]?.id || "";
         const liveSession = cls.liveSessions?.[0];
-        const isLive = !!liveSession;
-        const sessionId = liveSession?.id || "";
+        const isLive = !!currentSessionId;
 
         // Verify this class belongs to student's grade
         if (cls.schoolGrade?.gradeLevel !== studentGrade) {
@@ -210,20 +253,22 @@ export default function StudentClassroomClient({
               </h2>
               <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">Leave</button>
             </div>
-            {isLive && sessionId ? (
+            {isLive && currentSessionId ? (
               <VisualClassroom
-                sessionId={sessionId} classId={cls.id}
+                sessionId={currentSessionId} classId={cls.id}
                 subjectName={cls.subject?.name || cls.name}
                 teacherName={cls.teacher?.user?.name || "Teacher"}
                 students={students} isTeacher={false} isLive={true}
                 topic={liveSession?.topic} isKG={isKG}
                 studentId={studentId} studentName={studentName}
+                onSessionEnd={handleSessionEnd}
+                onNewSession={handleNewSession}
               />
             ) : (
               <div className={`rounded-2xl p-8 text-center border-2 border-dashed ${isKG ? "bg-yellow-50 border-yellow-300" : "bg-gray-50 border-gray-300"}`}>
                 <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p className="text-gray-500 font-medium">Waiting for teacher to start class...</p>
-                <p className="text-xs text-gray-400 mt-1">Auto-refreshes every 15 seconds</p>
+                <p className="text-xs text-gray-400 mt-1">Checking for class every 10 seconds...</p>
                 {/* Rate teacher if there was a previous session */}
                 {!showRating && (
                   <button onClick={() => setShowRating({

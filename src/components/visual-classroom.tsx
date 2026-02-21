@@ -14,6 +14,8 @@ interface Props {
   students: { id: string; name: string; image?: string }[];
   isTeacher: boolean; isLive: boolean; topic?: string; isKG?: boolean;
   studentId?: string; studentName?: string;
+  onSessionEnd?: () => void;
+  onNewSession?: (newSessionId: string) => void;
 }
 
 // ============ TOOL PANELS ============
@@ -224,8 +226,17 @@ const TEXT_COLORS = [
 
 // ============ MAIN COMPONENT ============
 export default function VisualClassroom(props: Props) {
-  const { sessionId, classId, subjectName, teacherName, students,
-    isTeacher, isLive, topic, isKG = false, studentId, studentName } = props;
+  const { sessionId: initialSessionId, classId, subjectName, teacherName, students,
+    isTeacher, isLive, topic, isKG = false, studentId, studentName,
+    onSessionEnd, onNewSession } = props;
+
+  const [sessionId, setSessionId] = useState(initialSessionId);
+  const [sessionStatus, setSessionStatus] = useState<"active"|"ended"|"reconnecting">("active");
+  const [pollErrors, setPollErrors] = useState(0);
+  const onSessionEndRef = useRef(onSessionEnd);
+  const onNewSessionRef = useRef(onNewSession);
+  useEffect(() => { onSessionEndRef.current = onSessionEnd; }, [onSessionEnd]);
+  useEffect(() => { onNewSessionRef.current = onNewSession; }, [onNewSession]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -279,11 +290,63 @@ export default function VisualClassroom(props: Props) {
 
   // ===== POLL SERVER =====
   const pollServer = useCallback(async () => {
-    if (!sessionId) return;
+    if (!sessionId || sessionStatus === "ended") return;
     try {
       const r = await fetch(`/api/classroom/${sessionId}?role=${isTeacher ? "teacher" : "student"}`);
-      if (!r.ok) return;
+      if (!r.ok) {
+        setPollErrors(e => e + 1);
+        // After 5 consecutive errors, try to find a new session
+        if (!isTeacher && pollErrors >= 4) {
+          setSessionStatus("reconnecting");
+          try {
+            const ar = await fetch(`/api/classroom/active?classId=${classId}`);
+            if (ar.ok) {
+              const ad = await ar.json();
+              if (ad.session && ad.session.id !== sessionId) {
+                setSessionId(ad.session.id);
+                setSessionStatus("active");
+                setPollErrors(0);
+                if (onNewSessionRef.current) onNewSessionRef.current(ad.session.id);
+                return;
+              }
+            }
+          } catch {}
+          // No new session found — session truly ended
+          setSessionStatus("ended");
+          if (onSessionEndRef.current) onSessionEndRef.current();
+        }
+        return;
+      }
       const d = await r.json();
+      setPollErrors(0); // Reset error counter on success
+
+      // CHECK IF SESSION ENDED
+      if (d.status === "ENDED" || d.status === "WAITING") {
+        if (!isTeacher) {
+          // Try to find a new session for this class (teacher may have started a new one)
+          setSessionStatus("reconnecting");
+          try {
+            const ar = await fetch(`/api/classroom/active?classId=${classId}`);
+            if (ar.ok) {
+              const ad = await ar.json();
+              if (ad.session && ad.session.id !== sessionId) {
+                // New session found! Switch to it
+                setSessionId(ad.session.id);
+                setSessionStatus("active");
+                if (onNewSessionRef.current) onNewSessionRef.current(ad.session.id);
+                return;
+              }
+            }
+          } catch {}
+          // No new session — session ended for real
+          setSessionStatus("ended");
+          if (onSessionEndRef.current) onSessionEndRef.current();
+        }
+        return;
+      }
+
+      // Normal update — session is active
+      setSessionStatus("active");
       setBoardLines(Array.isArray(d.boardContent) ? d.boardContent : []);
       setRaisedHands(Array.isArray(d.raisedHands) ? d.raisedHands : []);
       setChatMessages(Array.isArray(d.chatMessages) ? d.chatMessages : []);
@@ -299,10 +362,21 @@ export default function VisualClassroom(props: Props) {
       if (!isTeacher && handRaised && !(d.raisedHands||[]).find((h:any) => h.studentId === studentId)) {
         setHandRaised(false); setHandAccepted(true);
       }
-    } catch {}
-  }, [sessionId, handRaised, studentId, isTeacher]);
+    } catch {
+      setPollErrors(e => e + 1);
+    }
+  }, [sessionId, handRaised, studentId, isTeacher, classId, sessionStatus, pollErrors]);
 
-  useEffect(() => { pollServer(); const i = setInterval(pollServer, 2000); return () => clearInterval(i); }, [pollServer]);
+  // Update sessionId when prop changes (e.g. parent switches)
+  useEffect(() => {
+    if (initialSessionId && initialSessionId !== sessionId) {
+      setSessionId(initialSessionId);
+      setSessionStatus("active");
+      setPollErrors(0);
+    }
+  }, [initialSessionId]);
+
+  useEffect(() => { pollServer(); const i = setInterval(pollServer, 3000); return () => clearInterval(i); }, [pollServer]);
 
   // Auto-scroll chat only on new messages & user hasn't scrolled up
   useEffect(() => {
@@ -452,7 +526,43 @@ export default function VisualClassroom(props: Props) {
   ];
 
   return (
-    <div className={`rounded-2xl overflow-hidden shadow-xl border-2 ${isKG?"border-yellow-400":"border-gray-400"} ${fullscreen?"fixed inset-0 z-50 rounded-none":""}`}>
+    <div className={`rounded-2xl overflow-hidden shadow-xl border-2 ${isKG?"border-yellow-400":"border-gray-400"} ${fullscreen?"fixed inset-0 z-50 rounded-none":""} relative`}>
+      {/* SESSION ENDED OVERLAY */}
+      {sessionStatus === "ended" && !isTeacher && (
+        <div className="absolute inset-0 z-[70] bg-black/80 flex items-center justify-center">
+          <div className="text-center p-8 max-w-sm">
+            <div className="text-5xl mb-4">📚</div>
+            <h3 className="text-xl font-bold text-white mb-2">Class Has Ended</h3>
+            <p className="text-sm text-gray-300 mb-4">The teacher has ended this session. Great job today!</p>
+            <button onClick={() => { setSessionStatus("reconnecting"); setPollErrors(0); pollServer(); }}
+              className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-bold mr-2 hover:bg-brand-700">
+              Check for New Session
+            </button>
+            {onSessionEnd && (
+              <button onClick={onSessionEnd}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-bold hover:bg-gray-500">
+                Back to Classes
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {/* RECONNECTING OVERLAY */}
+      {sessionStatus === "reconnecting" && !isTeacher && (
+        <div className="absolute inset-0 z-[70] bg-black/60 flex items-center justify-center">
+          <div className="text-center p-6">
+            <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-white font-medium">Looking for class session...</p>
+            <p className="text-[10px] text-gray-300 mt-1">Please wait</p>
+          </div>
+        </div>
+      )}
+      {/* CONNECTION WARNING */}
+      {pollErrors > 2 && sessionStatus === "active" && (
+        <div className="absolute top-2 right-2 z-[70] bg-amber-500 text-white text-[9px] px-2 py-1 rounded-full animate-pulse font-bold">
+          ⚠️ Weak connection
+        </div>
+      )}
       {/* Floating reactions */}
       {floatingReactions.map(r => (
         <div key={r.id} className="fixed z-[60] text-3xl animate-bounce pointer-events-none"

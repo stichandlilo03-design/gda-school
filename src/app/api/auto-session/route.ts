@@ -121,7 +121,7 @@ export async function GET() {
         const sessionMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
         const sessionLimit = school.sessionDurationMin || 40;
 
-        if (localNowMin > endMin + 2 || sessionMin >= sessionLimit + 5) {
+        if (localNowMin > endMin + 5 || sessionMin >= sessionLimit + 10) {
           const durationMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
           await db.liveClassSession.update({
             where: { id: session.id },
@@ -145,7 +145,7 @@ export async function GET() {
       if (!school) continue;
       const sessionMin = session.startedAt ? Math.round((now.getTime() - session.startedAt.getTime()) / 60000) : 0;
       const limit = school.sessionDurationMin || 40;
-      if (sessionMin > limit * 1.5) {
+      if (sessionMin > limit * 2.5) {
         await db.liveClassSession.update({
           where: { id: session.id },
           data: { status: "ENDED", endedAt: now, durationMin: sessionMin },
