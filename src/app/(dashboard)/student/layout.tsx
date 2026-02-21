@@ -34,45 +34,18 @@ export default async function StudentLayout({ children }: { children: React.Reac
   if (!session) redirect("/login");
   if (session.user.role !== "STUDENT") redirect("/login");
 
+  // Determine if student is fully enrolled (approved + fees met)
   let links = fullLinks;
-
   try {
     const student = await db.student.findUnique({
       where: { userId: session.user.id },
-      include: { school: true, payments: true },
+      select: { approvalStatus: true, feePaid: true },
     });
-
     if (student && student.approvalStatus !== "APPROVED") {
       links = limitedLinks;
-    } else if (student && !student.feePaid) {
-      // Check fee percentage
-      const policy = student.school.feePaymentPolicy || "PERCENTAGE";
-      if (policy !== "FLEXIBLE") {
-        const completedPayments = student.payments.filter((p: any) => p.status === "COMPLETED");
-        const paidAmount = completedPayments.reduce((s: number, p: any) => s + p.amount, 0);
-
-        let totalFees = 0;
-        try {
-          const sg = await db.schoolGrade.findFirst({
-            where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
-          });
-          if (sg) {
-            const fs = await db.feeStructure.findMany({ where: { schoolGradeId: sg.id, isActive: true } });
-            totalFees = fs.reduce((s, f) => s + f.tuitionFee + f.registrationFee + f.examFee + f.technologyFee, 0);
-          }
-        } catch (_e) {}
-
-        if (totalFees > 0) {
-          const pct = Math.round((paidAmount / totalFees) * 100);
-          const threshold = student.school.feePaymentThreshold ?? 70;
-          const met = policy === "FULL" ? pct >= 100 : pct >= threshold;
-          if (!met) links = limitedLinks;
-        }
-      }
     }
-  } catch (e) {
-    console.error("Layout access check error:", e);
-    // Default to full links on error
+  } catch (_e) {
+    // On any error, default to full links
   }
 
   return (

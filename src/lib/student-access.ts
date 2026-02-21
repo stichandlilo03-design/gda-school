@@ -15,41 +15,48 @@ export type StudentAccessStatus = {
 
 export async function checkStudentAccess(userId: string): Promise<StudentAccessStatus | null> {
   try {
+    // Single query to get all needed data
     const student = await db.student.findUnique({
       where: { userId },
-      include: {
-        school: true,
-        payments: true,
+      select: {
+        id: true,
+        approvalStatus: true,
+        feePaid: true,
+        schoolId: true,
+        gradeLevel: true,
+        school: {
+          select: { feePaymentThreshold: true, feePaymentPolicy: true },
+        },
+        payments: {
+          where: { status: "COMPLETED" },
+          select: { amount: true },
+        },
       },
     });
-
     if (!student) return null;
 
     const isApproved = student.approvalStatus === "APPROVED";
-    const reasons: string[] = [];
-
-    // Filter completed payments in JS
-    const completedPayments = student.payments.filter((p: any) => p.status === "COMPLETED");
-    const paidAmount = completedPayments.reduce((s: number, p: any) => s + p.amount, 0);
-
-    let totalFees = 0;
-    try {
-      const schoolGrade = await db.schoolGrade.findFirst({
-        where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
-      });
-      if (schoolGrade) {
-        const feeStructures = await db.feeStructure.findMany({
-          where: { schoolGradeId: schoolGrade.id, isActive: true },
-        });
-        totalFees = feeStructures.reduce((s, f) => s + f.tuitionFee + f.registrationFee + f.examFee + f.technologyFee, 0);
-      }
-    } catch (_e) {
-      // Fee calculation failed, skip
-    }
-
-    const feePercent = totalFees > 0 ? Math.round((paidAmount / totalFees) * 100) : 100;
     const feeThreshold = student.school.feePaymentThreshold ?? 70;
     const feePolicy = student.school.feePaymentPolicy || "PERCENTAGE";
+    const paidAmount = student.payments.reduce((s: number, p: { amount: number }) => s + p.amount, 0);
+
+    // Get total fees
+    let totalFees = 0;
+    try {
+      const sg = await db.schoolGrade.findFirst({
+        where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
+        select: { id: true },
+      });
+      if (sg) {
+        const fees = await db.feeStructure.findMany({
+          where: { schoolGradeId: sg.id, isActive: true },
+          select: { tuitionFee: true, registrationFee: true, examFee: true, technologyFee: true },
+        });
+        totalFees = fees.reduce((s, f) => s + f.tuitionFee + f.registrationFee + f.examFee + f.technologyFee, 0);
+      }
+    } catch (_e2) { /* fee calc failed */ }
+
+    const feePercent = totalFees > 0 ? Math.round((paidAmount / totalFees) * 100) : 100;
 
     let feesMet = student.feePaid;
     if (!feesMet) {
@@ -59,32 +66,24 @@ export async function checkStudentAccess(userId: string): Promise<StudentAccessS
     }
     if (totalFees === 0) feesMet = true;
 
+    const reasons: string[] = [];
     if (!isApproved) {
-      if (student.approvalStatus === "PENDING") reasons.push("Your admission is pending principal approval.");
-      else if (student.approvalStatus === "INTERVIEW_SCHEDULED") reasons.push("You have an interview scheduled. Please attend it.");
-      else if (student.approvalStatus === "INTERVIEWED") reasons.push("Your interview is complete. Awaiting principal decision.");
-      else if (student.approvalStatus === "REJECTED") reasons.push("Your admission was not approved. Contact the school for details.");
-      else reasons.push("Your admission needs principal approval.");
+      const labels: Record<string, string> = {
+        PENDING: "Your admission is pending principal approval.",
+        INTERVIEW_SCHEDULED: "You have an interview scheduled.",
+        INTERVIEWED: "Interview complete. Awaiting decision.",
+        REJECTED: "Admission not approved. Contact the school.",
+      };
+      reasons.push(labels[student.approvalStatus] || "Admission needs approval.");
     }
     if (!feesMet && totalFees > 0) {
-      if (feePolicy === "FULL") reasons.push("Full fee payment required. You have paid " + feePercent + "% so far.");
-      else reasons.push("You need to pay at least " + feeThreshold + "% of fees. Currently at " + feePercent + "%.");
+      reasons.push(feePolicy === "FULL"
+        ? "Full payment required (" + feePercent + "% paid)."
+        : "Pay at least " + feeThreshold + "% (" + feePercent + "% paid).");
     }
 
-    return {
-      hasFullAccess: isApproved && feesMet,
-      isApproved,
-      approvalStatus: student.approvalStatus,
-      feesMet,
-      feePercent,
-      totalFees,
-      paidAmount,
-      feePolicy,
-      feeThreshold,
-      reasons,
-    };
-  } catch (e) {
-    console.error("checkStudentAccess error:", e);
+    return { hasFullAccess: isApproved && feesMet, isApproved, approvalStatus: student.approvalStatus, feesMet, feePercent, totalFees, paidAmount, feePolicy, feeThreshold, reasons };
+  } catch (_e) {
     return null;
   }
 }
