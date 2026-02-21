@@ -21,10 +21,36 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
     include: { teacher: { include: { user: { select: { name: true } } } } },
   });
   if (existingSession) {
-    return { error: `Another teacher (${existingSession.teacher.user.name}) already has an active session in this class. Please wait until they end their session.` };
+    return { error: `Another teacher (${existingSession.teacher.user.name}) already has an active session in this class.` };
   }
 
-  // Check if there's an auto-started session for this class by THIS teacher - just join it
+  // If teacher wants PREP: end any existing sessions first, then create fresh prep
+  if (isPrep) {
+    // End any existing sessions (auto-started or not) for this class
+    await db.liveClassSession.updateMany({
+      where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] } },
+      data: { status: "ENDED", endedAt: new Date() },
+    });
+
+    const live = await db.liveClassSession.create({
+      data: {
+        classId, teacherId: teacher.id,
+        topic: `[PREP] ${topic || "Class Setup"}`,
+        status: "IN_PROGRESS", startedAt: new Date(),
+        teacherJoinedAt: new Date(), lateMinutes: 0,
+        isPrep: true,
+        durationMin: prepDurationMin || 30,
+        boardContent: [], boardHistory: [],
+        raisedHands: [], chatMessages: [],
+        whispers: [], questions: [], reactions: [], polls: [], teachingMode: "board",
+      },
+    });
+
+    // NO revalidatePath — students poll every 3-10 seconds and will find the session
+    return { success: true, sessionId: live.id };
+  }
+
+  // REAL CLASS: Check if there's an auto-started session to join
   const autoSession = await db.liveClassSession.findFirst({
     where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] }, autoStarted: true, teacherJoinedAt: null },
   });
@@ -38,62 +64,56 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
       where: { id: autoSession.id },
       data: { teacherJoinedAt: nowJ, lateMinutes: lateMins, topic: topic || autoSession.topic },
     });
-    revalidatePath("/teacher/classroom");
-    revalidatePath("/student/classroom");
+    // NO revalidatePath — polling handles updates
     return { success: true, sessionId: autoSession.id, lateMinutes: lateMins };
   }
 
-  // Check for existing PREP session — carry over board content if starting real class
+  // Check for existing PREP session — carry over board content to new real class
   let carryOverBoard: any[] = [];
   let carryOverHistory: any[] = [];
   const existingPrep = await db.liveClassSession.findFirst({
     where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] }, isPrep: true },
   });
-  if (existingPrep && !isPrep) {
-    // Starting a REAL class after prep — save prep board content
+  if (existingPrep) {
     carryOverBoard = Array.isArray(existingPrep.boardContent) ? existingPrep.boardContent as any[] : [];
     carryOverHistory = Array.isArray(existingPrep.boardHistory) ? existingPrep.boardHistory as any[] : [];
-    // End the prep session
     await db.liveClassSession.update({
       where: { id: existingPrep.id },
       data: { status: "ENDED", endedAt: new Date() },
     });
   } else {
-    // Close any existing non-prep sessions for this class by THIS teacher
-    // IMPORTANT: Do NOT close prep sessions here — only close real classes
+    // Close any existing non-prep sessions
     await db.liveClassSession.updateMany({
       where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] }, isPrep: false },
       data: { status: "ENDED", endedAt: new Date() },
     });
   }
 
-  // Check if this is a timetable-scheduled class and calculate late minutes
+  // Calculate late minutes from timetable
   const DAYS = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const today = DAYS[now.getDay()];
   let lateMinutes = 0;
 
-  if (!isPrep) {
-    const schedule = await db.classSchedule.findFirst({
-      where: { classId, dayOfWeek: today as any },
-    });
-    if (schedule) {
-      const schedStart = parseInt(schedule.startTime.split(":")[0]) * 60 + parseInt(schedule.startTime.split(":")[1] || "0");
-      if (nowMin > schedStart + 2) {
-        lateMinutes = nowMin - schedStart;
-      }
+  const schedule = await db.classSchedule.findFirst({
+    where: { classId, dayOfWeek: today as any },
+  });
+  if (schedule) {
+    const schedStart = parseInt(schedule.startTime.split(":")[0]) * 60 + parseInt(schedule.startTime.split(":")[1] || "0");
+    if (nowMin > schedStart + 2) {
+      lateMinutes = nowMin - schedStart;
     }
   }
 
   const live = await db.liveClassSession.create({
     data: {
       classId, teacherId: teacher.id,
-      topic: isPrep ? `[PREP] ${topic || "Class Setup"}` : topic,
+      topic: topic || "Live Class",
       status: "IN_PROGRESS", startedAt: new Date(),
-      teacherJoinedAt: new Date(), lateMinutes: isPrep ? 0 : lateMinutes,
-      isPrep: isPrep || false,
-      durationMin: isPrep ? (prepDurationMin || 30) : 0,
+      teacherJoinedAt: new Date(), lateMinutes,
+      isPrep: false,
+      durationMin: 0,
       boardContent: carryOverBoard.length > 0 ? carryOverBoard : [],
       boardHistory: carryOverHistory.length > 0 ? carryOverHistory : [],
       raisedHands: [], chatMessages: [],
@@ -101,9 +121,7 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
     },
   });
 
-  revalidatePath("/teacher/classroom");
-  revalidatePath("/student/classroom");
-  revalidatePath("/principal");
+  // NO revalidatePath — polling handles everything
   return { success: true, sessionId: live.id };
 }
 

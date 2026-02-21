@@ -118,8 +118,9 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     } else if (result.sessionId) {
       setActiveVisual(classId);
       setActiveSessionId(result.sessionId);
+      setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: true, isPrep: false, sessionId: result.sessionId! } }));
       if ((result as any).lateMinutes > 0) {
-        setClassMessage(`⏰ You joined ${(result as any).lateMinutes} minutes late. This has been recorded. You'll still be credited for the time you teach.`);
+        setClassMessage(`⏰ You joined ${(result as any).lateMinutes} minutes late. This has been recorded.`);
       }
     }
     setLoading("");
@@ -135,7 +136,8 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     } else if (result.sessionId) {
       setActiveVisual(classId);
       setActiveSessionId(result.sessionId);
-      setClassMessage(`📋 Prep session started (${prepDuration} min). Set up your board, materials, and polls. Students can join to prepare. Click "Go Live" when ready to start the real class.`);
+      setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: true, isPrep: true, sessionId: result.sessionId! } }));
+      setClassMessage(`📋 Prep session started (${prepDuration} min). Click "Go Live" when ready.`);
     }
     setLoading("");
   };
@@ -148,8 +150,8 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       setClassMessage("Error: " + result.error);
     } else {
       setClassMessage("🔴 Class is now LIVE! Board content preserved. Payment credits started.");
-      // Don't call router.refresh() — it disrupts the classroom
-      // The visual classroom polls every 3 seconds and will see isPrep=false
+      // Immediately update polled state so UI reflects LIVE
+      setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: true, isPrep: false, sessionId } }));
     }
     setLoading("");
   };
@@ -160,6 +162,9 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     const result = await endLiveClass(sessionId);
     setActiveVisual(null);
     setActiveSessionId(null);
+    // Clear polled state for this class
+    const classId = Object.entries(sessionStatusMap).find(([_, v]) => v.sessionId === sessionId)?.[0];
+    if (classId) setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: false, isPrep: false, sessionId: "" } }));
     // Trigger break timer
     setOnBreak(true);
     setBreakCountdown(breakDurationMin * 60);
