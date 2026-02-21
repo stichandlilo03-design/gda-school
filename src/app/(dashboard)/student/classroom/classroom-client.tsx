@@ -98,9 +98,9 @@ export default function StudentClassroomClient({
   const isAttended = (classId: string) => todayAttendance.some((a: any) => a.classId === classId);
   const getStatus = (classId: string) => todayAttendance.find((a: any) => a.classId === classId)?.status || null;
 
-  // Auto-open first LIVE (non-prep) class
+  // Auto-open first LIVE class (including prep — students need to see prep too)
   useEffect(() => {
-    const live = sorted.find((e) => e.class.liveSessions?.length > 0 && !e.class.liveSessions?.[0]?.isPrep);
+    const live = sorted.find((e) => e.class.liveSessions?.length > 0);
     if (live && !activeClassroom) setActiveClassroom(live.class.id);
   }, []);
 

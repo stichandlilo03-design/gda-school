@@ -8,7 +8,7 @@ export async function GET() {
     const results: string[] = [];
 
     // ============================================================
-    // 1. SCHOOL CLOSE — end everything past close time
+    // 1. SCHOOL CLOSE — end ALL sessions (including prep) after close
     // ============================================================
     const schools = await db.school.findMany({ where: { isActive: true }, select: { id: true, schoolCloseTime: true, schoolOpenTime: true, sessionDurationMin: true, sessionsPerDay: true, currency: true, timezone: true } });
     for (const school of schools) {
@@ -16,7 +16,7 @@ export async function GET() {
       const sNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
       const sMin = sNow.getHours() * 60 + sNow.getMinutes();
       const closeMin = parseInt((school.schoolCloseTime || "15:00").split(":")[0]) * 60 + parseInt((school.schoolCloseTime || "15:00").split(":")[1] || "0");
-      if (sMin > closeMin + 10) {
+      if (sMin > closeMin + 15) {
         const active = await db.liveClassSession.findMany({
           where: { status: { in: ["WAITING", "IN_PROGRESS"] }, class: { schoolGrade: { schoolId: school.id } } },
         });
@@ -30,22 +30,8 @@ export async function GET() {
     }
 
     // ============================================================
-    // 2. PREP TIMEOUT — end preps past teacher's chosen duration. That's it.
-    // ============================================================
-    const preps = await db.liveClassSession.findMany({
-      where: { status: "IN_PROGRESS", isPrep: true },
-    });
-    for (const p of preps) {
-      const mins = p.startedAt ? Math.round((now.getTime() - p.startedAt.getTime()) / 60000) : 0;
-      const limit = p.durationMin || 30;
-      if (mins >= limit) {
-        await db.liveClassSession.update({ where: { id: p.id }, data: { status: "ENDED", endedAt: now, durationMin: mins } });
-        results.push(`Prep ended ${mins}min (limit ${limit}min)`);
-      }
-    }
-
-    // ============================================================
-    // 3. TIMETABLE AUTO-START & AUTO-END
+    // 2. TIMETABLE AUTO-START & AUTO-END
+    //    RULE: NEVER auto-start if this class has ANY active or recent prep/session today
     // ============================================================
     const today = DAYS[now.getDay()];
     const possibleDays = [...new Set([today, DAYS[(now.getDay() + 1) % 7], DAYS[(now.getDay() + 6) % 7]])];
@@ -80,31 +66,42 @@ export async function GET() {
       const startMin = parseInt(sched.startTime.split(":")[0]) * 60 + parseInt(sched.startTime.split(":")[1] || "0");
       const endMin = parseInt(sched.endTime.split(":")[0]) * 60 + parseInt(sched.endTime.split(":")[1] || "0");
 
-      // ============================================================
-      // PREP RUNNING? → SKIP EVERYTHING. Teacher controls prep.
-      // CRON never converts, never ends, never touches prep sessions.
-      // Only section 2 (prep timeout) handles prep expiry.
-      // ============================================================
-      if (cls.liveSessions.length > 0 && cls.liveSessions[0].isPrep) {
-        continue; // Do nothing — teacher is in control
+      // If ANY session is active (prep or real) → skip this class entirely
+      if (cls.liveSessions.length > 0) {
+        const s = cls.liveSessions[0];
+
+        // If it's prep → do NOTHING. Teacher is in control.
+        if (s.isPrep) continue;
+
+        // If it's a real class → check if it should auto-end
+        const dur = s.startedAt ? Math.round((now.getTime() - s.startedAt.getTime()) / 60000) : 0;
+        const limit = school.sessionDurationMin || 40;
+        if (localMin > endMin + 5 || dur >= limit + 10) {
+          await db.liveClassSession.update({ where: { id: s.id }, data: { status: "ENDED", endedAt: now, durationMin: dur } });
+          await creditTeacher(s, school.id, dur, now, school);
+          results.push(`Auto-ended: ${cls.name} (${dur}min)`);
+        }
+        continue;
       }
 
-      // ---- AUTO-START (only if NO active session) ----
-      if (localMin >= startMin && localMin <= startMin + 2 && cls.liveSessions.length === 0) {
-        // Check if prep ENDED recently — teacher may want to start manually
-        const recentEndedPrep = await db.liveClassSession.findFirst({
+      // No active session — should we auto-start?
+      if (localMin >= startMin && localMin <= startMin + 2) {
+        // BLOCK: Check if ANY session (prep or real) was created for this class today
+        // This is the SAFEST check — query the DB fresh, not cached data
+        const todayStart = new Date(localNow);
+        todayStart.setHours(0, 0, 0, 0);
+        const anySessionToday = await db.liveClassSession.findFirst({
           where: {
             classId: cls.id,
-            isPrep: true,
-            status: "ENDED",
-            endedAt: { gte: new Date(now.getTime() - 60 * 60 * 1000) },
+            createdAt: { gte: todayStart },
           },
         });
-        if (recentEndedPrep) {
-          results.push(`Skip auto-start ${cls.name} — prep ended recently, teacher starts manually`);
+        if (anySessionToday) {
+          results.push(`Skip auto-start ${cls.name} — session already existed today`);
           continue;
         }
 
+        // Check teacher not busy
         const busy = await db.liveClassSession.findFirst({
           where: { teacherId: cls.teacherId, status: "IN_PROGRESS" },
         });
@@ -122,23 +119,10 @@ export async function GET() {
         });
         results.push(`Auto-started: ${cls.name} P${sched.periodNumber}`);
       }
-
-      // ---- AUTO-END (real classes only, NOT prep) ----
-      if (cls.liveSessions.length > 0) {
-        const s = cls.liveSessions[0];
-        if (s.isPrep) continue;
-        const dur = s.startedAt ? Math.round((now.getTime() - s.startedAt.getTime()) / 60000) : 0;
-        const limit = school.sessionDurationMin || 40;
-        if (localMin > endMin + 5 || dur >= limit + 10) {
-          await db.liveClassSession.update({ where: { id: s.id }, data: { status: "ENDED", endedAt: now, durationMin: dur } });
-          await creditTeacher(s, school.id, dur, now, school);
-          results.push(`Auto-ended: ${cls.name} (${dur}min)`);
-        }
-      }
     }
 
     // ============================================================
-    // 4. ORPHANED real sessions (3x limit)
+    // 3. ORPHANED real sessions only (3x limit) — never touch prep
     // ============================================================
     const orphaned = await db.liveClassSession.findMany({
       where: { status: "IN_PROGRESS", isPrep: false },
