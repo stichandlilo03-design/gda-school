@@ -37,6 +37,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
   const [topicInput, setTopicInput] = useState("");
   const [activeVisual, setActiveVisual] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [isInPrep, setIsInPrep] = useState(false);
   const [onBreak, setOnBreak] = useState(false);
   const [breakCountdown, setBreakCountdown] = useState(0);
   const [prepDuration, setPrepDuration] = useState(15);
@@ -61,6 +62,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     if (liveClass && !activeVisual) {
       setActiveVisual(liveClass.id);
       setActiveSessionId(liveClass.liveSessions[0].id);
+      setIsInPrep(!!liveClass.liveSessions[0].isPrep);
     }
   }, []);  // Run once on mount only
 
@@ -119,6 +121,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       setActiveVisual(classId);
       setActiveSessionId(result.sessionId);
       setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: true, isPrep: false, sessionId: result.sessionId! } }));
+      setIsInPrep(false);
       if ((result as any).lateMinutes > 0) {
         setClassMessage(`⏰ You joined ${(result as any).lateMinutes} minutes late. This has been recorded.`);
       }
@@ -138,6 +141,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       setActiveSessionId(result.sessionId);
       setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: true, isPrep: true, sessionId: result.sessionId! } }));
       setClassMessage(`📋 Prep session started (${prepDuration} min). Click "Go Live" when ready.`);
+      setIsInPrep(true);
     }
     setLoading("");
   };
@@ -150,8 +154,10 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       setClassMessage("Error: " + result.error);
     } else {
       setClassMessage("🔴 Class is now LIVE! Board content preserved. Payment credits started.");
+      setIsInPrep(false);
       // Immediately update polled state so UI reflects LIVE
       setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: true, isPrep: false, sessionId } }));
+      setIsInPrep(false);
     }
     setLoading("");
   };
@@ -162,7 +168,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     const result = await endLiveClass(sessionId);
     setActiveVisual(null);
     setActiveSessionId(null);
-    // Clear polled state for this class
+    setIsInPrep(false);
     const classId = Object.entries(sessionStatusMap).find(([_, v]) => v.sessionId === sessionId)?.[0];
     if (classId) setSessionStatusMap(prev => ({ ...prev, [classId]: { isLive: false, isPrep: false, sessionId: "" } }));
     // Trigger break timer
@@ -242,25 +248,23 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
           image: e.student?.user?.image,
         }));
         const isKG = ["K1","K2","K3"].includes(cls.schoolGrade?.gradeLevel || "");
-        const boardPolled = sessionStatusMap[cls.id];
-        const boardIsPrep = boardPolled ? boardPolled.isPrep : !!cls.liveSessions?.[0]?.isPrep;
         return (
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                <Monitor className="w-4 h-4" /> {boardIsPrep ? "Prep —" : "Teaching —"} {cls.subject?.name || cls.name}
-                <span className={`text-[10px] text-white px-2 py-0.5 rounded-full ${boardIsPrep ? "bg-amber-500" : "bg-red-500 animate-pulse"}`}>{boardIsPrep ? "PREP" : "LIVE"}</span>
-                {boardIsPrep && cls.liveSessions?.[0]?.startedAt && (
-                  <PrepTimer startedAt={cls.liveSessions[0].startedAt} durationMin={cls.liveSessions[0].durationMin || 15} />
-                )}
+                <Monitor className="w-4 h-4" /> {cls.subject?.name || cls.name}
               </h2>
               <div className="flex items-center gap-2">
-                {boardIsPrep && (
-                  <button onClick={() => handleGoLive(boardPolled?.sessionId || cls.liveSessions?.[0]?.id || activeSessionId || "", cls.id)} disabled={!!loading}
+                {isInPrep && (
+                  <button onClick={() => handleGoLive(activeSessionId || "", cls.id)} disabled={!!loading}
                     className="text-xs px-3 py-1 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1 animate-pulse">
-                    <Play className="w-3 h-3" /> Go Live
+                    {loading?.startsWith("golive") ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Go Live
                   </button>
                 )}
+                <button onClick={() => handleEndClass(activeSessionId || "")} disabled={!!loading}
+                  className="text-xs px-3 py-1 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-700 flex items-center gap-1">
+                  {loading?.startsWith("end") ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} End
+                </button>
                 <button onClick={() => { setActiveVisual(null); setActiveSessionId(null); }} className="text-xs text-gray-500 hover:text-red-500">Close Board</button>
               </div>
             </div>
