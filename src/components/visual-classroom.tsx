@@ -289,63 +289,62 @@ export default function VisualClassroom(props: Props) {
   const [prepHidden, setPrepHidden] = useState<Record<string, boolean>>({});
 
   // ===== POLL SERVER =====
+  const reconnectAttempts = useRef(0);
+
   const pollServer = useCallback(async () => {
-    if (!sessionId || sessionStatus === "ended") return;
+    if (!sessionId) return;
+
+    // === RECONNECTING: keep looking for new session (up to 60s) ===
+    if (sessionStatus === "reconnecting") {
+      reconnectAttempts.current++;
+      try {
+        const ar = await fetch(`/api/classroom/active?classId=${classId}`);
+        if (ar.ok) {
+          const ad = await ar.json();
+          if (ad.session) {
+            setSessionId(ad.session.id);
+            setSessionStatus("active");
+            setPollErrors(0);
+            reconnectAttempts.current = 0;
+            if (onNewSessionRef.current) onNewSessionRef.current(ad.session.id);
+            return;
+          }
+        }
+      } catch {}
+      if (reconnectAttempts.current > 20) {
+        setSessionStatus("ended");
+        if (onSessionEndRef.current) onSessionEndRef.current();
+      }
+      return;
+    }
+
+    // === ENDED: stop ===
+    if (sessionStatus === "ended") return;
+
+    // === ACTIVE: normal poll ===
     try {
       const r = await fetch(`/api/classroom/${sessionId}?role=${isTeacher ? "teacher" : "student"}`);
       if (!r.ok) {
         setPollErrors(e => e + 1);
-        // After 5 consecutive errors, try to find a new session
-        if (!isTeacher && pollErrors >= 20) {
+        if (!isTeacher && pollErrors >= 15) {
           setSessionStatus("reconnecting");
-          try {
-            const ar = await fetch(`/api/classroom/active?classId=${classId}`);
-            if (ar.ok) {
-              const ad = await ar.json();
-              if (ad.session && ad.session.id !== sessionId) {
-                setSessionId(ad.session.id);
-                setSessionStatus("active");
-                setPollErrors(0);
-                if (onNewSessionRef.current) onNewSessionRef.current(ad.session.id);
-                return;
-              }
-            }
-          } catch {}
-          // No new session found — session truly ended
-          setSessionStatus("ended");
-          if (onSessionEndRef.current) onSessionEndRef.current();
+          reconnectAttempts.current = 0;
         }
         return;
       }
       const d = await r.json();
-      setPollErrors(0); // Reset error counter on success
+      setPollErrors(0);
 
-      // CHECK IF SESSION ENDED
+      // Session ended — start reconnecting (keep trying for 60s)
       if (d.status === "ENDED" || d.status === "WAITING") {
         if (!isTeacher) {
-          // Try to find a new session for this class (teacher may have started a new one)
           setSessionStatus("reconnecting");
-          try {
-            const ar = await fetch(`/api/classroom/active?classId=${classId}`);
-            if (ar.ok) {
-              const ad = await ar.json();
-              if (ad.session && ad.session.id !== sessionId) {
-                // New session found! Switch to it
-                setSessionId(ad.session.id);
-                setSessionStatus("active");
-                if (onNewSessionRef.current) onNewSessionRef.current(ad.session.id);
-                return;
-              }
-            }
-          } catch {}
-          // No new session — session ended for real
-          setSessionStatus("ended");
-          if (onSessionEndRef.current) onSessionEndRef.current();
+          reconnectAttempts.current = 0;
         }
         return;
       }
 
-      // Normal update — session is active
+      // Session active — update everything
       setSessionStatus("active");
       setBoardLines(Array.isArray(d.boardContent) ? d.boardContent : []);
       setRaisedHands(Array.isArray(d.raisedHands) ? d.raisedHands : []);
@@ -367,16 +366,18 @@ export default function VisualClassroom(props: Props) {
     }
   }, [sessionId, handRaised, studentId, isTeacher, classId, sessionStatus, pollErrors]);
 
-  // Update sessionId when prop changes (e.g. parent switches)
+  // Update sessionId when prop changes
   useEffect(() => {
     if (initialSessionId && initialSessionId !== sessionId) {
       setSessionId(initialSessionId);
       setSessionStatus("active");
       setPollErrors(0);
+      reconnectAttempts.current = 0;
     }
   }, [initialSessionId]);
 
   useEffect(() => { pollServer(); const i = setInterval(pollServer, 3000); return () => clearInterval(i); }, [pollServer]);
+
 
   // Auto-scroll chat only on new messages & user hasn't scrolled up
   useEffect(() => {
@@ -552,8 +553,8 @@ export default function VisualClassroom(props: Props) {
         <div className="absolute inset-0 z-[70] bg-black/60 flex items-center justify-center">
           <div className="text-center p-6">
             <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-white font-medium">Looking for class session...</p>
-            <p className="text-[10px] text-gray-300 mt-1">Please wait</p>
+            <p className="text-sm text-white font-medium">Connecting to class...</p>
+            <p className="text-[10px] text-gray-300 mt-1">Please wait, finding your session</p>
           </div>
         </div>
       )}
