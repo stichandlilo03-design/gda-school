@@ -70,7 +70,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     const poll = async () => {
       for (const cls of classes) {
         try {
-          const r = await fetch(\`/api/classroom/active?classId=\${cls.id}\`);
+          const r = await fetch(`/api/classroom/active?classId=${cls.id}`);
           if (r.ok) {
             const d = await r.json();
             if (d.session) {
