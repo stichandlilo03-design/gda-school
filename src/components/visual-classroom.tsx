@@ -1008,14 +1008,14 @@ export default function VisualClassroom(props: Props) {
               <div className="overflow-y-auto rounded-b-lg" style={{maxHeight: fullscreen ? "50vh" : "300px"}}>
                 <canvas ref={canvasRef} width={800} height={260} className="w-full shadow-inner" />
               </div>
-              {isTeacher && (
+              {isTeacher && (<>
                 <div className="flex gap-2 mt-1.5">
                   <input className="flex-1 input-field text-sm" placeholder="Write on board..."
                     value={boardText} onChange={e => setBoardText(e.target.value)} onKeyDown={e => e.key==="Enter"&&writeBoard()} />
                   <button onClick={() => setShowBoardMath(!showBoardMath)} className={`text-xs px-2 py-1 rounded-lg font-bold ${showBoardMath ? "bg-green-500 text-white" : "bg-green-800 text-green-200 hover:bg-green-700"}`} title="Math symbols">∑</button>
                   <button onClick={writeBoard} className="btn-primary text-xs px-3"><Type className="w-3 h-3 mr-1" />Write</button>
                 </div>
-                {showBoardMath && isTeacher && (
+                {showBoardMath && (
                   <div className="flex flex-wrap gap-0.5 mt-1 p-1.5 bg-gray-900 rounded-lg border border-green-700">
                     {BOARD_MATH.map(sym => (
                       <button key={sym} onClick={() => setBoardText(prev => prev + sym)}
@@ -1023,8 +1023,7 @@ export default function VisualClassroom(props: Props) {
                     ))}
                   </div>
                 )}
-                </div>
-              )}
+              </>)}
             </div>
 
             {/* Polls hidden during prep */}
