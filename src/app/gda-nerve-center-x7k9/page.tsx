@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const API = "/api/gda-admin";
-type Tab = "dashboard"|"schools"|"users"|"live"|"features"|"tickets"|"logs"|"broadcast"|"health"|"config"|"database";
+type Tab = "dashboard"|"schools"|"users"|"live"|"features"|"tickets"|"inbox"|"logs"|"broadcast"|"health"|"config"|"database";
 
 export default function GdaNerveCenter() {
   const [key, setKey] = useState("");
@@ -11,6 +11,8 @@ export default function GdaNerveCenter() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [unread, setUnread] = useState({ messages: 0, tickets: 0 });
+  const [lastUnread, setLastUnread] = useState(0);
 
   const api = useCallback(async (action: string, params?: Record<string, string>) => {
     const qs = new URLSearchParams({ action, key, ...params }).toString();
@@ -37,6 +39,7 @@ export default function GdaNerveCenter() {
       else if (tab === "live") setData(await api("live_sessions"));
       else if (tab === "features") setData(await api("features"));
       else if (tab === "tickets") setData(await api("tickets"));
+      else if (tab === "inbox") setData(await api("inbox"));
       else if (tab === "logs") setData(await api("logs"));
       else if (tab === "health") setData(await api("health"));
       else if (tab === "config") setData(await api("env"));
@@ -47,6 +50,38 @@ export default function GdaNerveCenter() {
   }, [tab, api]);
 
   useEffect(() => { if (authed) loadTab(); }, [authed, tab, loadTab]);
+
+  // Poll for unread messages + tickets with sound alert
+  useEffect(() => {
+    if (!authed) return;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${API}?action=unread&key=${key}`);
+        if (r.ok) {
+          const d = await r.json();
+          const total = (d.messages || 0) + (d.tickets || 0);
+          if (total > lastUnread && lastUnread > 0) {
+            // Play alert sound
+            try {
+              const ac = new AudioContext();
+              const osc = ac.createOscillator();
+              const gain = ac.createGain();
+              osc.connect(gain); gain.connect(ac.destination);
+              osc.frequency.value = 880;
+              gain.gain.value = 0.3;
+              osc.start(); osc.stop(ac.currentTime + 0.15);
+              setTimeout(() => { const o2 = ac.createOscillator(); o2.connect(gain); o2.frequency.value = 1100; o2.start(); o2.stop(ac.currentTime + 0.15); }, 200);
+            } catch {}
+          }
+          setUnread(d);
+          setLastUnread(total);
+        }
+      } catch {}
+    };
+    poll();
+    const i = setInterval(poll, 10000);
+    return () => clearInterval(i);
+  }, [authed, key, lastUnread]);
 
   // ===== LOGIN SCREEN =====
   if (!authed) return (
@@ -70,6 +105,7 @@ export default function GdaNerveCenter() {
     { id: "live", label: "Live Sessions", icon: "🔴" },
     { id: "features", label: "Feature Flags", icon: "🚀" },
     { id: "tickets", label: "Support", icon: "🎫" },
+    { id: "inbox", label: "Inbox", icon: "💬" },
     { id: "logs", label: "Logs & Debug", icon: "📋" },
     { id: "broadcast", label: "Broadcast", icon: "📢" },
     { id: "health", label: "Health", icon: "🏥" },
@@ -90,6 +126,8 @@ export default function GdaNerveCenter() {
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-2 ${tab === t.id ? "bg-blue-600/20 text-blue-400 border-r-2 border-blue-400" : "text-gray-400 hover:bg-gray-800"}`}>
               <span>{t.icon}</span> {t.label}
+              {t.id === "inbox" && unread.messages > 0 && <span className="ml-auto bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full animate-pulse">{unread.messages}</span>}
+              {t.id === "tickets" && unread.tickets > 0 && <span className="ml-auto bg-amber-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">{unread.tickets}</span>}
             </button>
           ))}
         </div>
@@ -122,6 +160,8 @@ export default function GdaNerveCenter() {
         {tab === "features" && data && <FeaturesTab data={data} post={post} setMsg={setMsg} loadTab={loadTab} />}
         {/* TICKETS */}
         {tab === "tickets" && data && <TicketsTab data={data} post={post} setMsg={setMsg} loadTab={loadTab} />}
+        {/* INBOX */}
+        {tab === "inbox" && data && <InboxTab data={data} post={post} setMsg={setMsg} loadTab={loadTab} />}
         {/* LOGS */}
         {tab === "logs" && data && <LogsTab data={data} api={api} post={post} setData={setData} setMsg={setMsg} />}
         {/* BROADCAST */}
@@ -419,6 +459,90 @@ function TicketsTab({ data, post, setMsg, loadTab }: any) {
         </div>
       ))}
       {data.length === 0 && <p className="text-gray-600 text-center py-12">No support tickets</p>}
+    </div>
+  );
+}
+
+function InboxTab({ data, post, setMsg, loadTab }: any) {
+  const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [chatMsgs, setChatMsgs] = useState<any[]>([]);
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+  const conversations = data?.conversations || [];
+  const adminUserId = data?.adminUserId;
+
+  const openChat = async (conv: any) => {
+    setActiveChat(conv.partnerId);
+    setChatMsgs(conv.messages.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+    if (conv.unread > 0) {
+      await post({ action: "admin_mark_read", partnerId: conv.partnerId });
+      loadTab();
+    }
+  };
+
+  const sendReply = async () => {
+    if (!reply.trim() || !activeChat) return;
+    setSending(true);
+    await post({ action: "admin_reply", receiverId: activeChat, content: reply });
+    setReply("");
+    setSending(false);
+    loadTab();
+  };
+
+  if (activeChat) {
+    const conv = conversations.find((c: any) => c.partnerId === activeChat);
+    return (
+      <div className="flex flex-col h-[70vh]">
+        <div className="flex items-center gap-3 pb-3 border-b border-gray-700 mb-3">
+          <button onClick={() => setActiveChat(null)} className="text-xs text-gray-400 hover:text-white">← Back</button>
+          <h3 className="text-sm font-bold">{conv?.partner?.name || "Unknown"}</h3>
+          <span className="text-[9px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">{conv?.partner?.role}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+          {chatMsgs.map((m: any) => (
+            <div key={m.id} className={`flex ${m.senderId === adminUserId ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[70%] px-3 py-2 rounded-xl text-xs ${m.senderId === adminUserId ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-200"}`}>
+                {m.subject && <p className="text-[9px] font-bold opacity-70 mb-0.5">{m.subject}</p>}
+                <p>{m.content}</p>
+                <p className={`text-[8px] mt-1 ${m.senderId === adminUserId ? "text-blue-200" : "text-gray-500"}`}>{new Date(m.createdAt).toLocaleString()}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 mt-3 pt-3 border-t border-gray-700">
+          <input className="flex-1 bg-gray-700 text-white px-3 py-2.5 rounded-lg text-xs border border-gray-600" placeholder="Type reply..."
+            value={reply} onChange={e => setReply(e.target.value)} onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendReply()} />
+          <button onClick={sendReply} disabled={sending || !reply.trim()} className="px-4 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50">
+            {sending ? "..." : "Send"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-500 mb-3">{conversations.length} conversations</p>
+      {conversations.map((c: any) => (
+        <button key={c.partnerId} onClick={() => openChat(c)}
+          className={`w-full text-left bg-gray-800/50 rounded-xl p-4 border hover:bg-gray-800 transition ${c.unread > 0 ? "border-blue-500" : "border-gray-700"}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">{c.partner?.name?.[0] || "?"}</div>
+              <div>
+                <p className="text-xs font-bold">{c.partner?.name || "Unknown"}</p>
+                <p className="text-[10px] text-gray-500">{c.partner?.role}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              {c.unread > 0 && <span className="bg-red-500 text-white text-[9px] px-2 py-0.5 rounded-full animate-pulse">{c.unread} new</span>}
+              <p className="text-[9px] text-gray-600 mt-0.5">{new Date(c.lastMessage.createdAt).toLocaleString()}</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1.5 truncate">{c.lastMessage.subject ? `${c.lastMessage.subject}: ` : ""}{c.lastMessage.content}</p>
+        </button>
+      ))}
+      {conversations.length === 0 && <p className="text-gray-600 text-center py-12">No messages yet. Send a broadcast first!</p>}
     </div>
   );
 }

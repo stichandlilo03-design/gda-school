@@ -178,6 +178,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(counts);
     }
 
+    // ===== ADMIN INBOX (Messages to GDA Admin) =====
+    if (action === "inbox") {
+      let adminUser = await db.user.findFirst({ where: { email: "admin@gdaschools.sbs" } });
+      if (!adminUser) return NextResponse.json([]);
+      const messages = await db.message.findMany({
+        where: { OR: [{ receiverId: adminUser.id }, { senderId: adminUser.id }] },
+        orderBy: { createdAt: "desc" },
+        include: {
+          sender: { select: { id: true, name: true, role: true } },
+          receiver: { select: { id: true, name: true, role: true } },
+        },
+        take: 200,
+      });
+      // Group into conversations
+      const convMap = new Map<string, any>();
+      for (const msg of messages) {
+        const partnerId = msg.senderId === adminUser.id ? msg.receiverId : msg.senderId;
+        const partner = msg.senderId === adminUser.id ? msg.receiver : msg.sender;
+        if (!convMap.has(partnerId)) {
+          const unread = messages.filter(m => m.senderId === partnerId && m.receiverId === adminUser!.id && !m.isRead).length;
+          convMap.set(partnerId, { partnerId, partner, lastMessage: msg, unread, messages: [] });
+        }
+        convMap.get(partnerId).messages.push(msg);
+      }
+      return NextResponse.json({ conversations: Array.from(convMap.values()), adminUserId: adminUser.id });
+    }
+
+    // ===== ADMIN UNREAD COUNT =====
+    if (action === "unread") {
+      let adminUser = await db.user.findFirst({ where: { email: "admin@gdaschools.sbs" } });
+      if (!adminUser) return NextResponse.json({ messages: 0, tickets: 0 });
+      const [unreadMsgs, openTickets] = await Promise.all([
+        db.message.count({ where: { receiverId: adminUser.id, isRead: false } }),
+        db.supportTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
+      ]);
+      return NextResponse.json({ messages: unreadMsgs, tickets: openTickets });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
@@ -268,22 +306,27 @@ export async function POST(req: NextRequest) {
 
     // ===== BROADCAST MESSAGE =====
     if (action === "broadcast") {
-      const { target, title, message } = body; // target: "all" | "principals" | "teachers" | "students" | "parents"
+      const { target, title, message } = body;
       let where: any = {};
       if (target === "principals") where = { role: "PRINCIPAL" };
       else if (target === "teachers") where = { role: "TEACHER" };
       else if (target === "students") where = { role: "STUDENT" };
       else if (target === "parents") where = { role: "PARENT" };
       const users = await db.user.findMany({ where, select: { id: true } });
-      // Send as Messages from the first principal (system admin proxy)
-      const adminUser = await db.user.findFirst({ where: { role: "PRINCIPAL" }, select: { id: true } });
-      const senderId = adminUser?.id || users[0]?.id;
-      if (!senderId) return NextResponse.json({ ok: true, sent: 0 });
+      // Get or create GDA Admin system user
+      let adminUser = await db.user.findFirst({ where: { email: "admin@gdaschools.sbs" } });
+      if (!adminUser) {
+        adminUser = await db.user.create({
+          data: { name: "GDA Admin", email: "admin@gdaschools.sbs", role: "SUPER_ADMIN", isActive: true },
+        });
+      } else if ((adminUser as any).role !== "SUPER_ADMIN") {
+        await db.user.update({ where: { id: adminUser.id }, data: { role: "SUPER_ADMIN", name: "GDA Admin" } });
+      }
       let count = 0;
       for (const u of users) {
-        if (u.id === senderId) continue;
+        if (u.id === adminUser.id) continue;
         try {
-          await db.message.create({ data: { senderId, receiverId: u.id, subject: title || "System Announcement", content: message } });
+          await db.message.create({ data: { senderId: adminUser.id, receiverId: u.id, subject: `📢 ${title || "System Announcement"}`, content: message } });
           count++;
         } catch {}
       }
@@ -335,6 +378,25 @@ export async function POST(req: NextRequest) {
         try { await db.featureFlag.create({ data: f }); created++; } catch { /* already exists */ }
       }
       return NextResponse.json({ ok: true, created });
+    }
+
+    // ===== ADMIN REPLY TO MESSAGE =====
+    if (action === "admin_reply") {
+      let adminUser = await db.user.findFirst({ where: { email: "admin@gdaschools.sbs" } });
+      if (!adminUser) {
+        adminUser = await db.user.create({ data: { name: "GDA Admin", email: "admin@gdaschools.sbs", role: "SUPER_ADMIN", isActive: true } });
+      }
+      await db.message.create({ data: { senderId: adminUser.id, receiverId: body.receiverId, subject: body.subject || null, content: body.content } });
+      await db.message.updateMany({ where: { senderId: body.receiverId, receiverId: adminUser.id, isRead: false }, data: { isRead: true } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ===== ADMIN MARK CONVERSATION READ =====
+    if (action === "admin_mark_read") {
+      let adminUser = await db.user.findFirst({ where: { email: "admin@gdaschools.sbs" } });
+      if (!adminUser) return NextResponse.json({ ok: true });
+      await db.message.updateMany({ where: { senderId: body.partnerId, receiverId: adminUser.id, isRead: false }, data: { isRead: true } });
+      return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

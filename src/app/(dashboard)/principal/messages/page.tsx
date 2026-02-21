@@ -64,6 +64,13 @@ export default async function PrincipalMessagesPage() {
     }
   }
 
+  // Add GDA Admin (site support) to contacts
+  const gdaAdmin = await db.user.findFirst({ where: { email: "admin@gdaschools.sbs" }, select: { id: true, name: true } });
+  if (gdaAdmin && !seen.has(gdaAdmin.id)) {
+    contacts.unshift({ id: gdaAdmin.id, name: gdaAdmin.name || "GDA Admin", role: "SUPER_ADMIN" });
+    seen.add(gdaAdmin.id);
+  }
+
   return (
     <>
       <DashboardHeader title="Messages" subtitle="Communicate with teachers & students" />
