@@ -8,7 +8,7 @@ export async function GET() {
     const results: string[] = [];
 
     // ============================================================
-    // 1. SCHOOL CLOSE — end ALL sessions (including prep) after close
+    // 1. SCHOOL CLOSE — end real sessions after close (NEVER prep — teacher controls prep)
     // ============================================================
     const schools = await db.school.findMany({ where: { isActive: true }, select: { id: true, schoolCloseTime: true, schoolOpenTime: true, sessionDurationMin: true, sessionsPerDay: true, currency: true, timezone: true } });
     for (const school of schools) {
@@ -18,12 +18,12 @@ export async function GET() {
       const closeMin = parseInt((school.schoolCloseTime || "15:00").split(":")[0]) * 60 + parseInt((school.schoolCloseTime || "15:00").split(":")[1] || "0");
       if (sMin > closeMin + 15) {
         const active = await db.liveClassSession.findMany({
-          where: { status: { in: ["WAITING", "IN_PROGRESS"] }, class: { schoolGrade: { schoolId: school.id } } },
+          where: { status: { in: ["WAITING", "IN_PROGRESS"] }, isPrep: false, class: { schoolGrade: { schoolId: school.id } } },
         });
         for (const s of active) {
           const dur = s.startedAt ? Math.round((now.getTime() - s.startedAt.getTime()) / 60000) : 0;
           await db.liveClassSession.update({ where: { id: s.id }, data: { status: "ENDED", endedAt: now, durationMin: dur } });
-          if (!s.isPrep) await creditTeacher(s, school.id, dur, now, school);
+          await creditTeacher(s, school.id, dur, now, school);
           results.push(`School closed — ended (${dur}min)`);
         }
       }

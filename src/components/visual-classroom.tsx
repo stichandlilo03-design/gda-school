@@ -282,6 +282,10 @@ export default function VisualClassroom(props: Props) {
   const [handAccepted, setHandAccepted] = useState(false);
   const [questionText, setQuestionText] = useState("");
   const [answerText, setAnswerText] = useState<Record<string, string>>({});
+  // Track which answers student has already seen (to show notification for NEW answers)
+  const seenAnswerIds = useRef<Set<string>>(new Set());
+  const firstDataLoad = useRef(true);
+  const [answeredAlert, setAnsweredAlert] = useState<{question: string; answer: string} | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [lastPoll, setLastPoll] = useState(0);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -409,7 +413,29 @@ export default function VisualClassroom(props: Props) {
       const qJson = JSON.stringify(d.questions || []);
       if (qJson !== lastQuestionsJson.current) {
         lastQuestionsJson.current = qJson;
-        setQuestions(Array.isArray(d.questions) ? d.questions : []);
+        const serverQs = Array.isArray(d.questions) ? d.questions : [];
+        setQuestions(serverQs);
+        // Detect NEW answers to THIS student's questions
+        if (!isTeacher && studentId) {
+          if (firstDataLoad.current) {
+            // First load: mark all existing answered questions as "seen"
+            for (const q of serverQs) {
+              if (q.answered) seenAnswerIds.current.add(q.id);
+            }
+            firstDataLoad.current = false;
+          } else {
+            for (const q of serverQs) {
+              if (q.studentId === studentId && q.answered && q.answer && !seenAnswerIds.current.has(q.id)) {
+                seenAnswerIds.current.add(q.id);
+                setAnsweredAlert({ question: q.question, answer: q.answer });
+                // Auto-open Q&A panel so student sees the answer
+                setPanel("qa");
+                // Auto-dismiss after 8 seconds
+                setTimeout(() => setAnsweredAlert(null), 8000);
+              }
+            }
+          }
+        }
       }
       setReactions(Array.isArray(d.reactions) ? d.reactions : []);
       setPolls(Array.isArray(d.polls) ? d.polls : []);
@@ -726,6 +752,7 @@ export default function VisualClassroom(props: Props) {
           <button onClick={() => setPanel(panel==="qa"?null:"qa")} className="relative p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
             <HelpCircle className="w-3 h-3" />
             {unanswered>0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 text-[7px] text-white rounded-full flex items-center justify-center">{unanswered}</span>}
+            {!isTeacher && answeredAlert && <span className="absolute -top-1 -left-1 w-3.5 h-3.5 bg-emerald-500 text-[7px] text-white rounded-full flex items-center justify-center animate-bounce">!</span>}
           </button>
           <button onClick={() => setPanel(panel==="chat"?null:"chat")} className="relative p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
             <MessageSquare className="w-3 h-3" />
@@ -741,6 +768,21 @@ export default function VisualClassroom(props: Props) {
           </button>
         </div>
       </div>
+
+      {/* ANSWERED QUESTION NOTIFICATION — student sees this when teacher replies */}
+      {answeredAlert && !isTeacher && (
+        <div className="px-3 py-2.5 bg-emerald-500 text-white animate-pulse cursor-pointer" onClick={() => { setAnsweredAlert(null); setPanel("qa"); }}>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💬</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold">Teacher answered your question!</p>
+              <p className="text-[10px] opacity-90 truncate">Q: {answeredAlert.question}</p>
+              <p className="text-[10px] font-bold truncate">A: {answeredAlert.answer}</p>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); setAnsweredAlert(null); }} className="text-white/80 hover:text-white text-sm">✕</button>
+          </div>
+        </div>
+      )}
 
       {/* PREP CONTROLS BAR — Teacher can hide/show content from students */}
       {isSessionPrep && isTeacher && (
