@@ -308,7 +308,7 @@ export async function POST(
               gradedAt: new Date(),
             },
           });
-        } catch { /* skip if student doesn't exist or duplicate */ }
+        } catch (_e) { /* skip if student doesn't exist or duplicate */ }
       }
 
       return NextResponse.json({ ok: true, assessmentId: assessment.id, studentCount: Object.keys(studentScores).length });

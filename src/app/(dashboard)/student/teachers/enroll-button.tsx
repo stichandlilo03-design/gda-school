@@ -22,7 +22,7 @@ export default function EnrollButton({ classId, studentId }: { classId: string; 
       } else {
         router.refresh();
       }
-    } catch {
+    } catch (_e) {
       alert("Failed to enroll. Please try again.");
     } finally {
       setLoading(false);

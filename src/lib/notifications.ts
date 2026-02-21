@@ -69,7 +69,7 @@ export async function notifySchoolRole(
       userIds = students.map(s => s.userId);
     }
     return notifyMany(userIds, subject, content, senderUserId);
-  } catch {
+  } catch (_e) {
     return 0;
   }
 }

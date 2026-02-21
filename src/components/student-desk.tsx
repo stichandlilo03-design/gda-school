@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   BookOpen, Download, FileText, Pencil, Save, Trash2, Plus, ChevronLeft,
-  ChevronRight, X, BookMarked, FolderOpen, Clock, Bookmark,
+  ChevronRight, X, BookMarked, FolderOpen, Clock, Bookmark, Loader2,
 } from "lucide-react";
 
 interface DeskProps {
@@ -28,7 +28,7 @@ function Notebook({ subjectName, studentName, isKG, onClose }: {
       const stored = localStorage.getItem(getKey());
       if (stored) { setPages(JSON.parse(stored)); }
       else { setPages([{ id: "1", content: "", date: new Date().toLocaleDateString() }]); }
-    } catch {
+    } catch (_e) {
       setPages([{ id: "1", content: "", date: new Date().toLocaleDateString() }]);
     }
   }, []);
@@ -151,6 +151,8 @@ export default function StudentDesk({ studentName, subjectName, boardLines, isKG
   const [showDesk, setShowDesk] = useState(false);
   const [savedBoards, setSavedBoards] = useState<{subject:string;lines:any[];date:string}[]>([]);
   const [savedNotes, setSavedNotes] = useState<{subject:string;text:string;date:string}[]>([]);
+  const [homework, setHomework] = useState<any[]>([]);
+  const [hwLoading, setHwLoading] = useState(false);
 
   // Load desk from localStorage
   useEffect(() => {
@@ -161,6 +163,15 @@ export default function StudentDesk({ studentName, subjectName, boardLines, isKG
       if (notes) setSavedNotes(JSON.parse(notes));
     } catch (_e) {}
   }, [studentName]);
+
+  // Fetch homework when desk opens
+  useEffect(() => {
+    if (!showDesk) return;
+    setHwLoading(true);
+    fetch("/api/homework").then(r => r.json()).then(d => {
+      setHomework(d.homework || []);
+    }).catch(() => {}).finally(() => setHwLoading(false));
+  }, [showDesk]);
 
   // Save board content to desk
   const saveBoardToDesk = () => {
@@ -300,6 +311,53 @@ export default function StudentDesk({ studentName, subjectName, boardLines, isKG
               <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3">
                 <BookMarked className="w-4 h-4" /> Quick Access
               </h4>
+
+              {/* 📝 HOMEWORK SECTION */}
+              {homework.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-3">
+                    <FileText className="w-4 h-4" /> My Homework
+                    <span className="text-[9px] bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded-full">{homework.filter((h: any) => !h.submitted).length} pending</span>
+                  </h4>
+                  <div className="space-y-2 mb-4">
+                    {homework.filter((h: any) => !h.submitted).slice(0, 5).map((hw: any) => (
+                      <a key={hw.id} href="/student/grades" className="block p-3 bg-brand-50 border border-brand-200 rounded-xl hover:bg-brand-100 transition group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-brand-200 text-brand-700 flex items-center justify-center text-lg shrink-0">
+                            {hw.type === "QUIZ" ? "📝" : hw.type === "ASSIGNMENT" ? "📋" : "📚"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-gray-800 truncate">{hw.title}</p>
+                            <p className="text-[10px] text-gray-500">{hw.subjectName || hw.className}</p>
+                            {hw.description && <p className="text-[10px] text-gray-400 truncate mt-0.5">{hw.description}</p>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            {hw.dueDate && (
+                              <p className={`text-[9px] font-bold ${hw.overdue ? "text-red-600" : "text-amber-600"}`}>
+                                {hw.overdue ? "⚠️ OVERDUE" : `Due: ${new Date(hw.dueDate).toLocaleDateString()}`}
+                              </p>
+                            )}
+                            {hw.hasQuestions && <p className="text-[9px] text-brand-500">{hw.questionCount} questions</p>}
+                            <p className="text-[9px] text-brand-600 font-medium group-hover:underline">Open →</p>
+                          </div>
+                        </div>
+                      </a>
+                    ))}
+                    {homework.filter((h: any) => h.submitted).length > 0 && (
+                      <div className="text-[10px] text-emerald-600 bg-emerald-50 p-2 rounded-lg">
+                        ✅ {homework.filter((h: any) => h.submitted).length} homework submitted
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {hwLoading && (
+                <div className="text-center py-3 mb-4">
+                  <Loader2 className="w-4 h-4 animate-spin mx-auto text-gray-400" />
+                  <p className="text-[10px] text-gray-400 mt-1">Loading homework...</p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <button onClick={() => { setShowDesk(false); setShowNotebook(true); }}
                   className="p-4 bg-orange-50 rounded-xl border border-orange-200 hover:bg-orange-100 text-center transition">
@@ -317,10 +375,15 @@ export default function StudentDesk({ studentName, subjectName, boardLines, isKG
                   <p className="text-xs font-bold text-emerald-800 mt-1">Grades</p>
                   <p className="text-[9px] text-emerald-500">My scores</p>
                 </a>
-                <a href="/student/schedule" className="p-4 bg-purple-50 rounded-xl border border-purple-200 hover:bg-purple-100 text-center transition">
-                  <span className="text-2xl">📅</span>
-                  <p className="text-xs font-bold text-purple-800 mt-1">Schedule</p>
-                  <p className="text-[9px] text-purple-500">Class times</p>
+                <a href="/student/grades" className="p-4 bg-rose-50 rounded-xl border border-rose-200 hover:bg-rose-100 text-center transition relative">
+                  <span className="text-2xl">📝</span>
+                  <p className="text-xs font-bold text-rose-800 mt-1">Homework</p>
+                  <p className="text-[9px] text-rose-500">Do homework</p>
+                  {homework.filter((h: any) => !h.submitted).length > 0 && (
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center font-bold">
+                      {homework.filter((h: any) => !h.submitted).length}
+                    </span>
+                  )}
                 </a>
               </div>
             </div>

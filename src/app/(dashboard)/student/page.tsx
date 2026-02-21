@@ -17,32 +17,50 @@ export default async function StudentDashboard() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const student = await db.student.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      school: true,
-      enrollments: {
-        where: { status: "ACTIVE" },
-        include: {
-          class: {
-            include: {
-              subject: true,
-              teacher: { include: { user: { select: { name: true, image: true } } } },
-              schedules: true,
-              requirements: { orderBy: { createdAt: "asc" } },
-              enrollments: {
-                where: { status: "ACTIVE" },
-                include: { student: { include: { user: { select: { name: true, image: true } } } } },
+  let student: any = null;
+  try {
+    student = await db.student.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        school: true,
+        enrollments: {
+          where: { status: "ACTIVE" },
+          include: {
+            class: {
+              include: {
+                subject: true,
+                teacher: { include: { user: { select: { name: true, image: true } } } },
+                schedules: true,
+                requirements: { orderBy: { createdAt: "asc" } },
+                enrollments: {
+                  where: { status: "ACTIVE" },
+                  include: { student: { include: { user: { select: { name: true, image: true } } } } },
+                },
+                _count: { select: { materials: true, assessments: true } },
               },
-              _count: { select: { materials: true, assessments: true } },
             },
           },
         },
+        payments: true,
+        certificates: { orderBy: { issuedAt: "desc" }, take: 3 },
       },
-      payments: true,
-      certificates: { orderBy: { issuedAt: "desc" }, take: 3 },
-    },
-  });
+    });
+  } catch (dbErr: any) {
+    console.error("Student dashboard DB error:", dbErr?.message || dbErr);
+    return (
+      <>
+        <DashboardHeader title="Student Dashboard" subtitle="Loading..." />
+        <div className="p-6 lg:p-8">
+          <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl text-center">
+            <div className="text-4xl mb-3">⚠️</div>
+            <h3 className="text-base font-bold text-amber-800 mb-1">Dashboard Loading Issue</h3>
+            <p className="text-sm text-amber-600 mb-4">There was a temporary issue loading your data. Please try refreshing.</p>
+            <a href="/student" className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-bold hover:bg-brand-700">Refresh</a>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (!student) return null;
 
@@ -101,7 +119,7 @@ export default async function StudentDashboard() {
   const currency = student.school.currency;
   const fmt = (n: number) => {
     try { return new Intl.NumberFormat("en", { style: "currency", currency }).format(n); }
-    catch { return `${currency} ${n.toLocaleString()}`; }
+    catch (_e) { return `${currency} ${n.toLocaleString()}`; }
   };
 
   // Collect all requirements across classes

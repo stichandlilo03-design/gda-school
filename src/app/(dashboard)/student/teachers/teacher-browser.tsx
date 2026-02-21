@@ -46,7 +46,7 @@ export default function TeacherBrowser({
       const data = await res.json();
       if (data.error) alert(data.error);
       else router.refresh();
-    } catch { alert("Failed to enroll"); }
+    } catch (_e) { alert("Failed to enroll"); }
     setLoading("");
   };
 

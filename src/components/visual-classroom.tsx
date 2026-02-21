@@ -129,7 +129,7 @@ function DictionaryTool({ onClose }: { onClose: () => void }) {
     try {
       const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.trim()}`);
       if (r.ok) { const d = await r.json(); setResult(d[0]); } else setResult({ error: "Word not found" });
-    } catch { setResult({ error: "Could not connect" }); }
+    } catch (_e) { setResult({ error: "Could not connect" }); }
     setLoading(false);
   };
   return (
@@ -504,7 +504,7 @@ export default function VisualClassroom(props: Props) {
       if (!isTeacher && handRaised && !(d.raisedHands||[]).find((h:any) => h.studentId === studentId)) {
         setHandRaised(false); setHandAccepted(true);
       }
-    } catch {
+    } catch (_e) {
       pollErrorsRef.current++;
     }
   };

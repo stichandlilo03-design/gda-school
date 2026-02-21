@@ -13,7 +13,7 @@ export async function GET() {
       take: 50,
     });
     return NextResponse.json(vacancies);
-  } catch {
+  } catch (_e) {
     return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
 }

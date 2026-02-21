@@ -18,7 +18,7 @@ export async function GET() {
     });
 
     return NextResponse.json({ messages });
-  } catch {
+  } catch (_e) {
     return NextResponse.json({ messages: [] });
   }
 }

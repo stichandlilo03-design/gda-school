@@ -57,7 +57,7 @@ export default function ParentFeeClient({ parent, feeStructures, bankAccounts }:
     setLoading(false);
   };
 
-  const fmt = (n: number, c: string) => { try { return new Intl.NumberFormat("en", { style: "currency", currency: c }).format(n); } catch { return `${c} ${n.toLocaleString()}`; } };
+  const fmt = (n: number, c: string) => { try { return new Intl.NumberFormat("en", { style: "currency", currency: c }).format(n); } catch (_e) { return `${c} ${n.toLocaleString()}`; } };
 
   return (
     <div className="space-y-6">

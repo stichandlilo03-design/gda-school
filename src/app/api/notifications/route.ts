@@ -13,7 +13,7 @@ export async function GET() {
     });
 
     return NextResponse.json({ count });
-  } catch {
+  } catch (_e) {
     return NextResponse.json({ count: 0 });
   }
 }

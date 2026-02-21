@@ -40,7 +40,7 @@ export default function LoginPage() {
         else if (role === "PARENT") router.push("/parent");
         else router.push("/student");
       }
-    } catch {
+    } catch (_e) {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);

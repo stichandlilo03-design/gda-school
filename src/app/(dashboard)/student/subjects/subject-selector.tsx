@@ -85,7 +85,7 @@ export default function SubjectSelector({
       const res = await fetch("/api/enrollments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId, studentId }) });
       const data = await res.json();
       if (data.error) alert(data.error); else router.refresh();
-    } catch { alert("Failed to enroll"); }
+    } catch (_e) { alert("Failed to enroll"); }
     setLoading("");
   };
 

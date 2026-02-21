@@ -48,7 +48,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
     try {
       const r = await fetch(`/api/classroom/${sessionId}`);
       return r.ok ? await r.json() : null;
-    } catch { return null; }
+    } catch (_e) { return null; }
   }, [sessionId]);
 
   // Wait for ALL ICE candidates before returning SDP
@@ -96,7 +96,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
       const sdp = await gatherComplete(pc);
       if (sdp) await api("rtc_signal", { from: userId, to: rid, type: "offer", data: { sdp: sdp.sdp, type: sdp.type }, fromName: userName, fromIsTeacher: isTeacher });
       else offered.current.delete(rid);
-    } catch { offered.current.delete(rid); }
+    } catch (_e) { offered.current.delete(rid); }
   }, [userId, userName, isTeacher, api, attachRemote, removePeer]);
 
   // Handle incoming offer
@@ -117,7 +117,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
       const sdp = await gatherComplete(pc);
       if (sdp) await api("rtc_signal", { from: userId, to: sig.from, type: "answer", data: { sdp: sdp.sdp, type: sdp.type }, fromName: userName, fromIsTeacher: isTeacher });
       else answered.current.delete(sig.from);
-    } catch { answered.current.delete(sig.from); }
+    } catch (_e) { answered.current.delete(sig.from); }
   }, [userId, userName, isTeacher, api, attachRemote, removePeer]);
 
   // Handle incoming answer

@@ -75,7 +75,7 @@ export async function createAssignment(data: {
   const questions = data.questions || [];
   const totalPoints = questions.reduce((sum: number, q: any) => sum + (q.points || 1), 0);
 
-  await db.assignment.create({
+  const assignment = await db.assignment.create({
     data: {
       classId: data.classId,
       title: data.title,
@@ -88,9 +88,32 @@ export async function createAssignment(data: {
     },
   });
 
+  // Send notification to all enrolled students in this class
+  try {
+    const enrollments = await db.enrollment.findMany({
+      where: { classId: data.classId, status: "ACTIVE" },
+      include: { student: { select: { userId: true } }, class: { select: { name: true } } },
+    });
+    const className = enrollments[0]?.class?.name || "your class";
+    const dueStr = data.dueDate ? ` Due: ${new Date(data.dueDate).toLocaleDateString()}` : "";
+    const studentUserIds = enrollments.map(e => e.student.userId);
+    if (studentUserIds.length > 0) {
+      const { notifyMany } = await import("@/lib/notifications");
+      await notifyMany(
+        studentUserIds,
+        `📝 New ${data.type || "Homework"}: ${data.title}`,
+        `Your teacher assigned "${data.title}" in ${className}.${dueStr} Check your Grades & Assignments page to complete it.`,
+        sess.user.id
+      );
+    }
+  } catch (_e) {
+    // Notification failed, but assignment was created
+  }
+
   revalidatePath("/teacher/gradebook");
+  revalidatePath("/teacher/classes");
   revalidatePath("/student/grades");
-  return { success: true };
+  return { success: true, assignmentId: assignment.id };
 }
 
 export async function gradeAssignment(submissionId: string, score: number, feedback?: string) {

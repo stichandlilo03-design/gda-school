@@ -26,7 +26,7 @@ export default function PaymentReviewer({
 
   const fmt = (n: number) => {
     try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n); }
-    catch { return `${currency} ${n.toLocaleString()}`; }
+    catch (_e) { return `${currency} ${n.toLocaleString()}`; }
   };
 
   const current = tab === "pending" ? pending : tab === "approved" ? approved : rejected;

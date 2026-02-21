@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { createClass, deleteClass } from "@/lib/actions/teacher";
 import { addClassRequirement, deleteClassRequirement } from "@/lib/actions/class-requirements";
+import { createAssignment } from "@/lib/actions/grading";
 import { useRouter } from "next/navigation";
 import { to12h } from "@/lib/time-utils";
 import {
   Plus, Trash2, Users, Clock, Loader2, BookOpen, ChevronDown, ChevronUp,
-  Package, AlertCircle, CheckCircle, Settings, Calendar
+  Package, AlertCircle, CheckCircle, Settings, Calendar, FileText, Send
 } from "lucide-react";
 
 const SESSIONS = [
@@ -38,6 +39,8 @@ export default function ClassManager({ classes, availableGrades }: { classes: an
   const [showForm, setShowForm] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showReqForm, setShowReqForm] = useState<string | null>(null);
+  const [showHwForm, setShowHwForm] = useState<string | null>(null);
+  const [hwForm, setHwForm] = useState({ title: "", description: "", dueDate: "", type: "HOMEWORK" });
   const [reqForm, setReqForm] = useState({ item: "", description: "", category: "GENERAL", isRequired: true });
   const [form, setForm] = useState({ name: "", description: "", schoolGradeId: "", session: "SESSION_A", maxStudents: 40 });
 
@@ -71,6 +74,19 @@ export default function ClassManager({ classes, availableGrades }: { classes: an
     setLoading("delreq-" + id);
     await deleteClassRequirement(id);
     router.refresh();
+    setLoading("");
+  };
+
+  const handleAssignHw = async (classId: string) => {
+    if (!hwForm.title) { alert("Enter homework title"); return; }
+    setLoading("hw-" + classId);
+    const result = await createAssignment({ classId, title: hwForm.title, description: hwForm.description || undefined, dueDate: hwForm.dueDate || undefined, type: hwForm.type });
+    if (result.error) alert(result.error);
+    else {
+      setHwForm({ title: "", description: "", dueDate: "", type: "HOMEWORK" });
+      setShowHwForm(null);
+      router.refresh();
+    }
     setLoading("");
   };
 
@@ -145,7 +161,11 @@ export default function ClassManager({ classes, availableGrades }: { classes: an
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setShowReqForm(showReqForm === cls.id ? null : cls.id)}
+                    <button onClick={() => { setShowHwForm(showHwForm === cls.id ? null : cls.id); setShowReqForm(null); }}
+                      className="text-[10px] px-2 py-1.5 rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> Homework
+                    </button>
+                    <button onClick={() => { setShowReqForm(showReqForm === cls.id ? null : cls.id); setShowHwForm(null); }}
                       className="text-[10px] px-2 py-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 flex items-center gap-1">
                       <Package className="w-3 h-3" /> Requirements
                     </button>
@@ -162,6 +182,39 @@ export default function ClassManager({ classes, availableGrades }: { classes: an
                 </div>
 
                 {cls.description && <p className="text-[10px] text-gray-500 mt-2">{cls.description}</p>}
+
+                {/* Homework Form */}
+                {showHwForm === cls.id && (
+                  <div className="mt-3 pt-3 border-t p-3 bg-brand-50 rounded-lg space-y-3">
+                    <h4 className="text-xs font-bold text-brand-800 flex items-center gap-2">
+                      <FileText className="w-4 h-4" /> Assign Homework
+                    </h4>
+                    <p className="text-[10px] text-brand-600">Students will receive a notification and see this in their Grades page. For structured questions (MCQ, Math, etc), use the <a href="/teacher/gradebook" className="underline font-bold">Gradebook</a>.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input className="input-field text-xs col-span-full" placeholder="Homework title *" value={hwForm.title} onChange={(e) => setHwForm({ ...hwForm, title: e.target.value })} />
+                      <textarea className="input-field text-xs col-span-full" rows={2} placeholder="Description / instructions (optional)" value={hwForm.description} onChange={(e) => setHwForm({ ...hwForm, description: e.target.value })} />
+                      <div>
+                        <label className="text-[10px] text-gray-500 block mb-0.5">Due Date</label>
+                        <input type="date" className="input-field text-xs" value={hwForm.dueDate} onChange={(e) => setHwForm({ ...hwForm, dueDate: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 block mb-0.5">Type</label>
+                        <select className="input-field text-xs" value={hwForm.type} onChange={(e) => setHwForm({ ...hwForm, type: e.target.value })}>
+                          <option value="HOMEWORK">Homework</option>
+                          <option value="ASSIGNMENT">Assignment</option>
+                          <option value="QUIZ">Quiz</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleAssignHw(cls.id)} disabled={loading === "hw-" + cls.id} className="btn-primary text-xs px-4 py-2 flex items-center gap-1">
+                        {loading === "hw-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Assign to {cls.enrollments.length} Students
+                      </button>
+                      <button onClick={() => setShowHwForm(null)} className="btn-ghost text-xs">Cancel</button>
+                      <a href="/teacher/gradebook" className="ml-auto text-[10px] text-brand-600 hover:underline">Advanced Builder →</a>
+                    </div>
+                  </div>
+                )}
 
                 {/* Requirements Form */}
                 {showReqForm === cls.id && (

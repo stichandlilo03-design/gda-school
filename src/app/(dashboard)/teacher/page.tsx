@@ -13,7 +13,9 @@ export default async function TeacherDashboard() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({
+  let teacher: any = null;
+  try {
+  teacher = await db.teacher.findUnique({
     where: { userId: session.user.id },
     include: {
       user: true,
@@ -52,6 +54,25 @@ export default async function TeacherDashboard() {
       },
     },
   });
+  } catch (dbErr: any) {
+    console.error("Teacher dashboard DB error:", dbErr?.message || dbErr);
+    return (
+      <>
+        <DashboardHeader title={`Welcome!`} subtitle="Teacher Dashboard" />
+        <div className="p-6 lg:p-8">
+          <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl text-center">
+            <div className="text-4xl mb-3">⚠️</div>
+            <h3 className="text-base font-bold text-amber-800 mb-1">Dashboard Loading Issue</h3>
+            <p className="text-sm text-amber-600 mb-4">There was a temporary issue loading your data. This usually resolves on refresh.</p>
+            <div className="flex items-center justify-center gap-3">
+              <a href="/teacher" className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-bold hover:bg-brand-700">Refresh</a>
+              <a href="/teacher/classroom" className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Go to Classroom</a>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (!teacher) return <div className="p-8">Teacher profile not found.</div>;
 
@@ -95,12 +116,15 @@ export default async function TeacherDashboard() {
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   // Session credits from live sessions
-  const sessionCredits = await db.sessionCredit.findMany({
-    where: {
-      teacherId: teacher.id,
-      createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) },
-    },
-  });
+  let sessionCredits: any[] = [];
+  try {
+    sessionCredits = await db.sessionCredit.findMany({
+      where: {
+        teacherId: teacher.id,
+        createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) },
+      },
+    });
+  } catch (_e) {}
   const creditTotal = sessionCredits.reduce((s, c) => s + c.creditAmount, 0);
   const combinedEarned = monthlyEarned + creditTotal;
 

@@ -40,7 +40,7 @@ export default function StudentFeeClient({
   const paidPercent = totalFees > 0 ? Math.min(100, Math.round((totalPaid / totalFees) * 100)) : 0;
   const fmt = (n: number) => {
     try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n); }
-    catch { return `${currency} ${n.toLocaleString()}`; }
+    catch (_e) { return `${currency} ${n.toLocaleString()}`; }
   };
 
   // Form state - auto-fills with balance due

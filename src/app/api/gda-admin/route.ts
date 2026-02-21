@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
       ];
       const counts: Record<string, number> = {};
       for (const m of models) {
-        try { counts[m] = await (db as any)[m.charAt(0).toLowerCase() + m.slice(1)].count(); } catch { counts[m] = -1; }
+        try { counts[m] = await (db as any)[m.charAt(0).toLowerCase() + m.slice(1)].count(); } catch (_e) { counts[m] = -1; }
       }
       return NextResponse.json(counts);
     }
@@ -384,7 +384,7 @@ export async function POST(req: NextRequest) {
       ];
       let created = 0;
       for (const f of features) {
-        try { await db.featureFlag.create({ data: f }); created++; } catch { /* already exists */ }
+        try { await db.featureFlag.create({ data: f }); created++; } catch (_e) { /* already exists */ }
       }
       return NextResponse.json({ ok: true, created });
     }
