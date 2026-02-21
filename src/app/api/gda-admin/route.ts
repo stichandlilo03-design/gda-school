@@ -162,12 +162,14 @@ export async function GET(req: NextRequest) {
       const models = [
         "User", "School", "Principal", "Teacher", "Student", "Parent",
         "SchoolTeacher", "SchoolGrade", "Class", "Subject", "Enrollment",
-        "ClassSchedule", "LiveClassSession", "SessionCredit", "Attendance",
+        "ClassSchedule", "LiveClassSession", "SessionCredit", "AttendanceRecord",
         "Assessment", "Score", "Assignment", "PayrollRecord", "TeacherSalary",
-        "FeeStructure", "PaymentRecord", "Announcement", "Message",
-        "Interview", "Vacancy", "Application", "BankAccount", "AcademicEvent",
-        "FeatureFlag", "SupportTicket", "SystemLog", "SiteConfig",
-        "TeacherMaterial", "ParentStudent", "TermReport",
+        "FeeStructure", "Payment", "Announcement", "Message",
+        "Interview", "Vacancy", "VacancyApplication", "SchoolBankAccount", "TeacherBankAccount",
+        "AcademicEvent", "FeatureFlag", "SupportTicket", "SystemLog", "SiteConfig",
+        "ClassMaterial", "ParentStudent", "TermReport", "EnrollmentRequest",
+        "ClassAnnouncement", "ClassRequirement", "Certificate", "TeacherRating",
+        "Term", "SubjectReport", "GradeSubject", "AssignmentSubmission",
       ];
       const counts: Record<string, number> = {};
       for (const m of models) {
