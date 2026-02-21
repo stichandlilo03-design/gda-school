@@ -291,12 +291,21 @@ export async function POST(req: NextRequest) {
 
     // ===== SUPPORT TICKETS =====
     if (action === "reply_ticket") {
-      await db.supportTicket.update({ where: { id: body.ticketId }, data: { adminReply: body.reply, status: body.close ? "RESOLVED" : "IN_PROGRESS", resolvedAt: body.close ? new Date() : undefined, adminNote: body.note } });
-      // Notify the user
       const ticket = await db.supportTicket.findUnique({ where: { id: body.ticketId } });
-      if (ticket) {
-        await db.systemLog.create({ data: { level: "INFO", source: "support", message: `Ticket "${ticket.subject}" ${body.close ? "resolved" : "replied to"}`, userId: ticket.userId } });
+      if (!ticket) return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+      // Build thread
+      let thread: any[] = [];
+      try { if (ticket.adminNote) thread = JSON.parse(ticket.adminNote); } catch {}
+      if (thread.length === 0) {
+        thread.push({ from: "principal", text: ticket.message, at: ticket.createdAt });
+        if (ticket.adminReply) thread.push({ from: "admin", text: ticket.adminReply, at: ticket.updatedAt });
       }
+      thread.push({ from: "admin", text: body.reply, at: new Date().toISOString() });
+      await db.supportTicket.update({
+        where: { id: body.ticketId },
+        data: { adminReply: body.reply, status: body.close ? "RESOLVED" : "IN_PROGRESS", resolvedAt: body.close ? new Date() : undefined, adminNote: JSON.stringify(thread) },
+      });
+      await db.systemLog.create({ data: { level: "INFO", source: "support", message: `Ticket "${ticket.subject}" ${body.close ? "resolved" : "replied to"}`, userId: ticket.userId } });
       return NextResponse.json({ ok: true });
     }
     if (action === "close_ticket") {

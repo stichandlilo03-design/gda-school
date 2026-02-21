@@ -427,45 +427,82 @@ function FeaturesTab({ data, post, setMsg, loadTab }: any) {
 
 function TicketsTab({ data, post, setMsg, loadTab }: any) {
   const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
   const statusColors: Record<string, string> = { OPEN: "bg-blue-500/20 text-blue-400", IN_PROGRESS: "bg-amber-500/20 text-amber-400", RESOLVED: "bg-emerald-500/20 text-emerald-400", CLOSED: "bg-gray-500/20 text-gray-400" };
   const prioColors: Record<string, string> = { LOW: "text-gray-400", NORMAL: "text-blue-400", HIGH: "text-amber-400", URGENT: "text-red-400" };
+
+  const getThread = (t: any) => {
+    let thread: any[] = [];
+    try { if (t.adminNote) thread = JSON.parse(t.adminNote); } catch {}
+    if (thread.length === 0) {
+      thread.push({ from: "principal", text: t.message, at: t.createdAt });
+      if (t.adminReply) thread.push({ from: "admin", text: t.adminReply, at: t.updatedAt || t.createdAt });
+    }
+    return thread;
+  };
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500">{data.length} tickets</p>
-      {data.map((t: any) => (
-        <div key={t.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-          <div className="flex items-start justify-between">
-            <div>
-              <h4 className="text-sm font-bold">{t.subject}</h4>
-              <p className="text-[10px] text-gray-500">From: {t.userName} ({t.userRole}) {t.school?.name ? `| School: ${t.school.name}` : ""} | {new Date(t.createdAt).toLocaleString()}</p>
-            </div>
-            <div className="flex gap-2">
-              <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${prioColors[t.priority]}`}>{t.priority}</span>
-              <span className={`text-[9px] px-2 py-0.5 rounded-full ${statusColors[t.status]}`}>{t.status}</span>
-            </div>
+      {data.map((t: any) => {
+        const thread = getThread(t);
+        const isOpen = expanded === t.id;
+        const lastMsg = thread[thread.length - 1];
+        const needsReply = lastMsg?.from === "principal";
+        return (
+          <div key={t.id} className={`rounded-xl border overflow-hidden ${needsReply ? "bg-blue-900/20 border-blue-700" : "bg-gray-800/50 border-gray-700"}`}>
+            <button onClick={() => setExpanded(isOpen ? null : t.id)} className="w-full text-left px-4 py-3 flex items-start justify-between hover:bg-gray-700/20">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold">{t.subject}</h4>
+                  {needsReply && <span className="text-[8px] bg-red-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">NEEDS REPLY</span>}
+                </div>
+                <p className="text-[10px] text-gray-500">From: {t.userName} ({t.userRole}) {t.school?.name ? `| ${t.school.name}` : ""} | {thread.length} messages</p>
+                <p className="text-[10px] text-gray-400 mt-0.5 truncate">{lastMsg.from === "admin" ? "You: " : `${t.userName}: `}{lastMsg.text}</p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${prioColors[t.priority]}`}>{t.priority}</span>
+                <span className={`text-[9px] px-2 py-0.5 rounded-full ${statusColors[t.status]}`}>{t.status}</span>
+                <span className="text-gray-500">{isOpen ? "▼" : "▶"}</span>
+              </div>
+            </button>
+            {isOpen && (
+              <div className="border-t border-gray-700/50">
+                <div className="p-4 space-y-2 max-h-60 overflow-y-auto bg-gray-900/30">
+                  {thread.map((msg: any, i: number) => (
+                    <div key={i} className={`flex ${msg.from === "admin" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[75%] rounded-xl px-3 py-2 text-xs ${msg.from === "admin" ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-200"}`}>
+                        <p className={`text-[8px] font-bold mb-0.5 ${msg.from === "admin" ? "text-blue-200" : "text-gray-400"}`}>
+                          {msg.from === "admin" ? "You (Admin)" : t.userName}
+                        </p>
+                        <p>{msg.text}</p>
+                        <p className={`text-[7px] mt-0.5 ${msg.from === "admin" ? "text-blue-300" : "text-gray-500"}`}>{new Date(msg.at).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {t.status !== "CLOSED" && (
+                  <div className="flex gap-2 p-3 border-t border-gray-700/50">
+                    <input className="flex-1 bg-gray-700 text-white px-3 py-2 rounded-lg text-xs border border-gray-600" placeholder="Reply..."
+                      value={replyText[t.id] || ""} onChange={(e: any) => setReplyText((p: any) => ({ ...p, [t.id]: e.target.value }))}
+                      onKeyDown={(e: any) => { if (e.key === "Enter" && replyText[t.id]?.trim()) { post({ action: "reply_ticket", ticketId: t.id, reply: replyText[t.id], close: false }).then(() => { setReplyText((p: any) => ({ ...p, [t.id]: "" })); setMsg("Replied"); loadTab(); }); } }} />
+                    <button onClick={async () => { if (!replyText[t.id]?.trim()) return; await post({ action: "reply_ticket", ticketId: t.id, reply: replyText[t.id], close: false }); setReplyText((p: any) => ({ ...p, [t.id]: "" })); setMsg("Replied"); loadTab(); }}
+                      className="text-xs bg-blue-600 text-white px-3 rounded-lg">Reply</button>
+                    <button onClick={async () => { await post({ action: "reply_ticket", ticketId: t.id, reply: replyText[t.id] || "Resolved.", close: true }); setReplyText((p: any) => ({ ...p, [t.id]: "" })); setMsg("Resolved"); loadTab(); }}
+                      className="text-xs bg-emerald-600 text-white px-3 rounded-lg">Resolve</button>
+                    <button onClick={async () => { await post({ action: "close_ticket", ticketId: t.id }); loadTab(); }}
+                      className="text-xs text-gray-400 hover:text-gray-300">Close</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <p className="text-xs text-gray-300 mt-2 bg-gray-700/50 p-3 rounded-lg">{t.message}</p>
-          {t.adminReply && <p className="text-xs text-emerald-300 mt-2 bg-emerald-900/20 p-3 rounded-lg border border-emerald-800">Admin: {t.adminReply}</p>}
-          {t.status !== "CLOSED" && t.status !== "RESOLVED" && (
-            <div className="flex gap-2 mt-3">
-              <input className="flex-1 bg-gray-700 text-white px-3 py-2 rounded-lg text-xs border border-gray-600" placeholder="Reply..."
-                value={replyText[t.id] || ""} onChange={e => setReplyText(p => ({ ...p, [t.id]: e.target.value }))} />
-              <button onClick={async () => { await post({ action: "reply_ticket", ticketId: t.id, reply: replyText[t.id], close: false }); setMsg("Replied"); loadTab(); }}
-                className="text-xs bg-blue-600 text-white px-3 rounded-lg">Reply</button>
-              <button onClick={async () => { await post({ action: "reply_ticket", ticketId: t.id, reply: replyText[t.id] || "Resolved.", close: true }); setMsg("Resolved"); loadTab(); }}
-                className="text-xs bg-emerald-600 text-white px-3 rounded-lg">Resolve</button>
-              <button onClick={async () => { await post({ action: "close_ticket", ticketId: t.id }); loadTab(); }}
-                className="text-xs text-gray-400 hover:text-gray-300">Close</button>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
       {data.length === 0 && <p className="text-gray-600 text-center py-12">No support tickets</p>}
     </div>
   );
 }
-
 function InboxTab({ data, post, setMsg, loadTab }: any) {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [chatMsgs, setChatMsgs] = useState<any[]>([]);
