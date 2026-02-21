@@ -241,15 +241,6 @@ export default function VisualClassroom(props: Props) {
   useEffect(() => { onNewSessionRef.current = onNewSession; }, [onNewSession]);
   useEffect(() => { onPrepChangeRef.current = onPrepChange; }, [onPrepChange]);
 
-  // Notify parent when prep status changes
-  const prevPrepRef = useRef(isSessionPrep);
-  useEffect(() => {
-    if (prevPrepRef.current !== isSessionPrep) {
-      prevPrepRef.current = isSessionPrep;
-      if (onPrepChangeRef.current) onPrepChangeRef.current(isSessionPrep);
-    }
-  }, [isSessionPrep]);
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -299,6 +290,15 @@ export default function VisualClassroom(props: Props) {
   // Prep visibility controls
   const [isSessionPrep, setIsSessionPrep] = useState(false);
   const [prepHidden, setPrepHidden] = useState<Record<string, boolean>>({});
+
+  // Notify parent when prep status changes
+  const prevPrepRef = useRef(isSessionPrep);
+  useEffect(() => {
+    if (prevPrepRef.current !== isSessionPrep) {
+      prevPrepRef.current = isSessionPrep;
+      if (onPrepChangeRef.current) onPrepChangeRef.current(isSessionPrep);
+    }
+  }, [isSessionPrep]);
 
   // ===== POLL SERVER (ROCK SOLID) =====
   // States: "searching" (looking for session), "active" (connected), "ended" (class over)
