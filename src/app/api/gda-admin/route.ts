@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
         "SchoolTeacher", "SchoolGrade", "Class", "Subject", "Enrollment",
         "ClassSchedule", "LiveClassSession", "SessionCredit", "Attendance",
         "Assessment", "Score", "Assignment", "PayrollRecord", "TeacherSalary",
-        "FeeStructure", "PaymentRecord", "Announcement", "Message", "Notification",
+        "FeeStructure", "PaymentRecord", "Announcement", "Message",
         "Interview", "Vacancy", "Application", "BankAccount", "AcademicEvent",
         "FeatureFlag", "SupportTicket", "SystemLog", "SiteConfig",
         "TeacherMaterial", "ParentStudent", "TermReport",
@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
       // Notify the user
       const ticket = await db.supportTicket.findUnique({ where: { id: body.ticketId } });
       if (ticket) {
-        await db.notification.create({ data: { userId: ticket.userId, title: "Support Reply", message: `Your ticket "${ticket.subject}" has been ${body.close ? "resolved" : "updated"}. ${body.reply}`, type: "SYSTEM" } });
+        await db.systemLog.create({ data: { level: "INFO", source: "support", message: `Ticket "${ticket.subject}" ${body.close ? "resolved" : "replied to"}`, userId: ticket.userId } });
       }
       return NextResponse.json({ ok: true });
     }
@@ -273,10 +273,18 @@ export async function POST(req: NextRequest) {
       else if (target === "students") where = { role: "STUDENT" };
       else if (target === "parents") where = { role: "PARENT" };
       const users = await db.user.findMany({ where, select: { id: true } });
-      const notifs = users.map(u => ({ userId: u.id, title: title || "System Announcement", message, type: "SYSTEM" as const }));
-      // Batch create
+      // Send as Messages from the first principal (system admin proxy)
+      const adminUser = await db.user.findFirst({ where: { role: "PRINCIPAL" }, select: { id: true } });
+      const senderId = adminUser?.id || users[0]?.id;
+      if (!senderId) return NextResponse.json({ ok: true, sent: 0 });
       let count = 0;
-      for (const n of notifs) { await db.notification.create({ data: n }); count++; }
+      for (const u of users) {
+        if (u.id === senderId) continue;
+        try {
+          await db.message.create({ data: { senderId, receiverId: u.id, subject: title || "System Announcement", content: message } });
+          count++;
+        } catch {}
+      }
       await db.systemLog.create({ data: { level: "INFO", source: "admin", message: `Broadcast sent to ${count} ${target} users: ${title}` } });
       return NextResponse.json({ ok: true, sent: count });
     }
