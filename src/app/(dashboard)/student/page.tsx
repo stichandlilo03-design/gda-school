@@ -87,11 +87,11 @@ export default async function StudentDashboard() {
   }
 
   const approvedPaid = student.payments
-    .filter((p) => p.status === "COMPLETED")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter((p: any) => p.status === "COMPLETED")
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
   const pendingAmount = student.payments
-    .filter((p) => p.status === "UNDER_REVIEW")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter((p: any) => p.status === "UNDER_REVIEW")
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
 
   const feePercent = totalFees > 0 ? Math.round((approvedPaid / totalFees) * 100) : 100;
   const feeThreshold = student.school.feePaymentThreshold ?? 70;
