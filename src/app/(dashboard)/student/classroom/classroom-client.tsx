@@ -144,9 +144,9 @@ export default function StudentClassroomClient({
   };
 
   // Handle when VisualClassroom finds a new session (auto-reconnect)
-  const handleNewSession = (newSessionId: string) => {
+  const handleNewSession = (newSessionId: string, isPrep?: boolean) => {
     if (activeClassroom) {
-      setLiveSessionMap(prev => ({ ...prev, [activeClassroom]: { id: newSessionId, isPrep: false } }));
+      setLiveSessionMap(prev => ({ ...prev, [activeClassroom]: { id: newSessionId, isPrep: !!isPrep } }));
     }
   };
 

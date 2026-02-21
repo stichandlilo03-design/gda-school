@@ -15,7 +15,7 @@ interface Props {
   isTeacher: boolean; isLive: boolean; topic?: string; isKG?: boolean;
   studentId?: string; studentName?: string;
   onSessionEnd?: () => void;
-  onNewSession?: (newSessionId: string) => void;
+  onNewSession?: (newSessionId: string, isPrep?: boolean) => void;
 }
 
 // ============ TOOL PANELS ============
@@ -304,9 +304,10 @@ export default function VisualClassroom(props: Props) {
           if (d.session) {
             setSessionId(d.session.id);
             setSessionStatus("active");
+            setIsSessionPrep(!!d.session.isPrep);
             setPollErrors(0);
             searchCount.current = 0;
-            if (onNewSessionRef.current) onNewSessionRef.current(d.session.id);
+            if (onNewSessionRef.current) onNewSessionRef.current(d.session.id, !!d.session.isPrep);
             return;
           }
         }
@@ -322,8 +323,9 @@ export default function VisualClassroom(props: Props) {
     if (sessionStatus === "ended") return;
 
     // === ACTIVE: normal polling ===
-    // If we don't have a sessionId yet, switch to searching
-    if (!sessionId) {
+    // Use state sessionId or fall back to prop
+    const activeId = sessionId || initialSessionId;
+    if (!activeId) {
       if (!isTeacher) {
         setSessionStatus("searching");
         searchCount.current = 0;
@@ -332,7 +334,7 @@ export default function VisualClassroom(props: Props) {
     }
 
     try {
-      const r = await fetch(`/api/classroom/${sessionId}?role=${isTeacher ? "teacher" : "student"}`);
+      const r = await fetch(`/api/classroom/${activeId}?role=${isTeacher ? "teacher" : "student"}`);
       if (!r.ok) {
         setPollErrors(e => e + 1);
         // After 10 consecutive failures, search for session (maybe ID changed)
@@ -357,6 +359,7 @@ export default function VisualClassroom(props: Props) {
 
       // Session active — update everything
       setSessionStatus("active");
+      if (!sessionId && activeId) setSessionId(activeId); // Sync state from prop fallback
       setBoardLines(Array.isArray(d.boardContent) ? d.boardContent : []);
       setRaisedHands(Array.isArray(d.raisedHands) ? d.raisedHands : []);
       setChatMessages(Array.isArray(d.chatMessages) ? d.chatMessages : []);
@@ -375,7 +378,7 @@ export default function VisualClassroom(props: Props) {
     } catch {
       setPollErrors(e => e + 1);
     }
-  }, [sessionId, handRaised, studentId, isTeacher, classId, sessionStatus, pollErrors]);
+  }, [sessionId, initialSessionId, handRaised, studentId, isTeacher, classId, sessionStatus, pollErrors]);
 
   // Sync sessionId from parent prop (when parent poll finds new session)
   useEffect(() => {
@@ -386,6 +389,13 @@ export default function VisualClassroom(props: Props) {
       searchCount.current = 0;
     }
   }, [initialSessionId]);
+
+  // SAFETY: If we have a sessionId but status is not active, force active
+  useEffect(() => {
+    if (sessionId && sessionStatus === "searching") {
+      setSessionStatus("active");
+    }
+  }, [sessionId, sessionStatus]);
 
   // Start with searching if no session
   useEffect(() => {
@@ -482,8 +492,17 @@ export default function VisualClassroom(props: Props) {
 
   // Actions
   const post = async (action: string, data: any = {}) => {
-    if (!sessionId) return;
-    try { await fetch(`/api/classroom/${sessionId}`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({action,...data}) }); setTimeout(pollServer, 200); } catch {}
+    const sid = sessionId || initialSessionId;
+    if (!sid) return;
+    try {
+      const r = await fetch(`/api/classroom/${sid}`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({action,...data}) });
+      if (!r.ok) {
+        console.warn("Classroom post failed:", action, r.status);
+      }
+      setTimeout(pollServer, 200);
+    } catch (e) {
+      console.warn("Classroom post error:", action, e);
+    }
   };
 
   const writeBoard = () => { if (boardText.trim() && isTeacher) { post("board_write", {text:boardText,color:drawColor}); setBoardText(""); }};
@@ -564,7 +583,8 @@ export default function VisualClassroom(props: Props) {
         </div>
       )}
       {/* SEARCHING FOR SESSION OVERLAY */}
-      {sessionStatus === "searching" && !isTeacher && (
+      {/* SEARCHING — only show if we truly have NO session */}
+      {sessionStatus === "searching" && !sessionId && !isTeacher && (
         <div className="absolute inset-0 z-[70] bg-black/60 flex items-center justify-center">
           <div className="text-center p-6">
             <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin mx-auto mb-3" />
