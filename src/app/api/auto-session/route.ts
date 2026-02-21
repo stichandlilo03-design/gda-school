@@ -31,12 +31,34 @@ export async function GET() {
 
     // ============================================================
     // 2. PREP TIMEOUT — end preps past teacher's chosen duration
+    //    BUT skip if timetable class start is within 5 min (section 3 will auto-convert)
     // ============================================================
-    const preps = await db.liveClassSession.findMany({ where: { status: "IN_PROGRESS", isPrep: true } });
+    const preps = await db.liveClassSession.findMany({
+      where: { status: "IN_PROGRESS", isPrep: true },
+      include: { class: { include: { schedules: true, schoolGrade: { include: { school: true } } } } },
+    });
     for (const p of preps) {
       const mins = p.startedAt ? Math.round((now.getTime() - p.startedAt.getTime()) / 60000) : 0;
       const limit = p.durationMin || 30;
       if (mins >= limit) {
+        // Check if timetable class starts within 5 min — if so, keep prep alive for auto-convert
+        const school = p.class?.schoolGrade?.school;
+        const tz = (school as any)?.timezone || "UTC";
+        const localNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+        const localMin = localNow.getHours() * 60 + localNow.getMinutes();
+        const localDay = DAYS[localNow.getDay()];
+
+        const upcomingSlot = (p.class?.schedules || []).find((s: any) => {
+          if (s.dayOfWeek !== localDay) return false;
+          const sStart = parseInt(s.startTime.split(":")[0]) * 60 + parseInt(s.startTime.split(":")[1] || "0");
+          return sStart >= localMin && sStart <= localMin + 5; // Class starts within 5 min
+        });
+
+        if (upcomingSlot) {
+          results.push(`Prep ${mins}min past limit but timetable starts soon — keeping alive for auto-convert`);
+          continue; // Don't end — section 3 will convert it
+        }
+
         await db.liveClassSession.update({ where: { id: p.id }, data: { status: "ENDED", endedAt: now, durationMin: mins } });
         results.push(`Prep ended ${mins}min (limit ${limit}min)`);
       }
@@ -78,21 +100,44 @@ export async function GET() {
       const startMin = parseInt(sched.startTime.split(":")[0]) * 60 + parseInt(sched.startTime.split(":")[1] || "0");
       const endMin = parseInt(sched.endTime.split(":")[0]) * 60 + parseInt(sched.endTime.split(":")[1] || "0");
 
-      // ---- AUTO-START ----
+      // ============================================================
+      // SMART PREP→LIVE: If prep is RUNNING and timetable says class time → auto-convert
+      // Same session ID = students stay connected, board content preserved
+      // ============================================================
+      if (cls.liveSessions.length > 0 && cls.liveSessions[0].isPrep) {
+        const prepSession = cls.liveSessions[0];
+        // Convert when we're at or past the timetable start time
+        if (localMin >= startMin && localMin <= startMin + 2) {
+          const newTopic = (prepSession.topic || "").replace("[PREP] ", "");
+          await db.liveClassSession.update({
+            where: { id: prepSession.id },
+            data: {
+              isPrep: false,
+              durationMin: 0,
+              topic: newTopic || `${cls.name} — Period ${sched.periodNumber}`,
+              startedAt: now, // Reset for credit calculation
+              lateMinutes: 0, // On time — timetable triggered it
+            },
+          });
+          results.push(`Smart convert: ${cls.name} prep → LIVE (timetable ${sched.startTime})`);
+        }
+        // Don't do anything else for this class (no auto-start, no auto-end of prep here)
+        continue;
+      }
+
+      // ---- AUTO-START (only if NO active session) ----
       if (localMin >= startMin && localMin <= startMin + 2 && cls.liveSessions.length === 0) {
-        // BLOCK: Don't auto-start if there's ANY prep session today (active OR recently ended)
-        const prepToday = await db.liveClassSession.findFirst({
+        // Check if prep ENDED recently — teacher may want to start manually
+        const recentEndedPrep = await db.liveClassSession.findFirst({
           where: {
             classId: cls.id,
             isPrep: true,
-            OR: [
-              { status: "IN_PROGRESS" },
-              { status: "ENDED", endedAt: { gte: new Date(now.getTime() - 60 * 60 * 1000) } },
-            ],
+            status: "ENDED",
+            endedAt: { gte: new Date(now.getTime() - 60 * 60 * 1000) },
           },
         });
-        if (prepToday) {
-          results.push(`Skip auto-start ${cls.name} — prep exists, teacher controls when to go live`);
+        if (recentEndedPrep) {
+          results.push(`Skip auto-start ${cls.name} — prep ended recently, teacher starts manually`);
           continue;
         }
 

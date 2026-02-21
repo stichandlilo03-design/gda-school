@@ -104,16 +104,16 @@ export default function StudentClassroomClient({
     if (live && !activeClassroom) setActiveClassroom(live.class.id);
   }, []);
 
-  // Track current session IDs per class (for auto-reconnect)
-  const [liveSessionMap, setLiveSessionMap] = useState<Record<string, string>>(() => {
-    const map: Record<string, string> = {};
+  // Track current session IDs + prep status per class (for auto-reconnect + live badges)
+  const [liveSessionMap, setLiveSessionMap] = useState<Record<string, { id: string; isPrep: boolean }>>(() => {
+    const map: Record<string, { id: string; isPrep: boolean }> = {};
     enrollments.forEach((e: any) => {
-      if (e.class.liveSessions?.[0]) map[e.class.id] = e.class.liveSessions[0].id;
+      if (e.class.liveSessions?.[0]) map[e.class.id] = { id: e.class.liveSessions[0].id, isPrep: !!e.class.liveSessions[0].isPrep };
     });
     return map;
   });
 
-  // Poll for active sessions every 10 seconds (catches new sessions when teacher starts class)
+  // Poll for active sessions every 10 seconds (catches new sessions + prep→live changes)
   useEffect(() => {
     const poll = async () => {
       for (const e of enrollments) {
@@ -122,7 +122,7 @@ export default function StudentClassroomClient({
           if (r.ok) {
             const d = await r.json();
             if (d.session) {
-              setLiveSessionMap(prev => ({ ...prev, [e.class.id]: d.session.id }));
+              setLiveSessionMap(prev => ({ ...prev, [e.class.id]: { id: d.session.id, isPrep: !!d.session.isPrep } }));
             } else {
               setLiveSessionMap(prev => { const n = { ...prev }; delete n[e.class.id]; return n; });
             }
@@ -142,7 +142,7 @@ export default function StudentClassroomClient({
   // Handle when VisualClassroom finds a new session (auto-reconnect)
   const handleNewSession = (newSessionId: string) => {
     if (activeClassroom) {
-      setLiveSessionMap(prev => ({ ...prev, [activeClassroom]: newSessionId }));
+      setLiveSessionMap(prev => ({ ...prev, [activeClassroom]: { id: newSessionId, isPrep: false } }));
     }
   };
 
@@ -214,9 +214,11 @@ export default function StudentClassroomClient({
         if (!enrollment) return null;
         const cls = enrollment.class;
         // Use LIVE session map (polled every 10s) instead of stale server data
-        const currentSessionId = liveSessionMap[cls.id] || cls.liveSessions?.[0]?.id || "";
+        const liveInfo = liveSessionMap[cls.id];
+        const currentSessionId = liveInfo?.id || cls.liveSessions?.[0]?.id || "";
         const liveSession = cls.liveSessions?.[0];
         const isLive = !!currentSessionId;
+        const isCurrentPrep = liveInfo ? liveInfo.isPrep : !!liveSession?.isPrep;
 
         // Verify this class belongs to student's grade
         if (cls.schoolGrade?.gradeLevel !== studentGrade) {
@@ -241,12 +243,12 @@ export default function StudentClassroomClient({
               <h2 className={`font-bold ${isKG ? "text-xl text-amber-800" : "text-sm text-gray-700"}`}>
                 {isKG ? "🏫 " : ""}Active Classroom
                 <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
-                {isLive && liveSession?.isPrep && (
+                {isLive && isCurrentPrep && (
                   <span className="ml-2 text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
-                    PREP {liveSession.startedAt && <StudentPrepTimer startedAt={liveSession.startedAt} durationMin={liveSession.durationMin || 15} />}
+                    PREP {liveSession?.startedAt && <StudentPrepTimer startedAt={liveSession.startedAt} durationMin={liveSession?.durationMin || 15} />}
                   </span>
                 )}
-                {isLive && !liveSession?.isPrep && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
+                {isLive && !isCurrentPrep && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
               </h2>
               <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">Leave</button>
             </div>
@@ -297,7 +299,7 @@ export default function StudentClassroomClient({
           <div className={isKG ? "grid md:grid-cols-2 gap-4" : "space-y-3"}>
             {sorted.map((e: any) => {
               const cls = e.class;
-              const isLive = cls.liveSessions?.length > 0;
+              const isLive = cls.liveSessions?.length > 0 || !!liveSessionMap[cls.id];
               const attended = isAttended(cls.id);
               const status = getStatus(cls.id);
 
@@ -318,8 +320,8 @@ export default function StudentClassroomClient({
                         <h3 className="text-lg font-extrabold text-gray-800">{cls.subject?.name || cls.name}</h3>
                         <p className="text-sm text-gray-500">Teacher {cls.teacher?.user?.name?.split(" ")[0]}</p>
                         {!isMyGrade && <span className="text-xs text-red-500 font-bold">Not your level ({getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)})</span>}
-                        {isLive && isMyGrade && cls.liveSessions?.[0]?.isPrep && <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1">📋 PREP SESSION</span>}
-                        {isLive && isMyGrade && !cls.liveSessions?.[0]?.isPrep && <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">🔴 LIVE NOW</span>}
+                        {isLive && isMyGrade && (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1">📋 PREP SESSION</span>}
+                        {isLive && isMyGrade && !(liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">🔴 LIVE NOW</span>}
                         {attended && <span className="text-xs text-emerald-600 font-bold mt-1 block">✅ Attended!</span>}
                       </div>
                     </div>
@@ -338,8 +340,8 @@ export default function StudentClassroomClient({
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
                         <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
-                        {isLive && isMyGrade && cls.liveSessions?.[0]?.isPrep && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">PREP</span>}
-                        {isLive && isMyGrade && !cls.liveSessions?.[0]?.isPrep && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
+                        {isLive && isMyGrade && (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">PREP</span>}
+                        {isLive && isMyGrade && !(liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
                         {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
                         {!isMyGrade && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Wrong Grade</span>}
                       </div>
