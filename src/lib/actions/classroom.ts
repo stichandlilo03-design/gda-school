@@ -60,8 +60,9 @@ export async function startLiveClass(classId: string, topic?: string, isPrep?: b
     });
   } else {
     // Close any existing non-prep sessions for this class by THIS teacher
+    // IMPORTANT: Do NOT close prep sessions here — only close real classes
     await db.liveClassSession.updateMany({
-      where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] } },
+      where: { classId, teacherId: teacher.id, status: { in: ["WAITING", "IN_PROGRESS"] }, isPrep: false },
       data: { status: "ENDED", endedAt: new Date() },
     });
   }

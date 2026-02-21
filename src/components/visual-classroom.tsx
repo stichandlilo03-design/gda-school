@@ -231,7 +231,7 @@ export default function VisualClassroom(props: Props) {
     onSessionEnd, onNewSession } = props;
 
   const [sessionId, setSessionId] = useState(initialSessionId);
-  const [sessionStatus, setSessionStatus] = useState<"active"|"ended"|"searching">("active");
+  const [sessionStatus, setSessionStatus] = useState<"active"|"ended"|"searching">(initialSessionId ? "active" : (isTeacher ? "active" : "searching"));
   const [pollErrors, setPollErrors] = useState(0);
   const onSessionEndRef = useRef(onSessionEnd);
   const onNewSessionRef = useRef(onNewSession);

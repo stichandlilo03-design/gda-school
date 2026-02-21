@@ -267,6 +267,18 @@ export default function StudentClassroomClient({
               onSessionEnd={handleSessionEnd}
               onNewSession={handleNewSession}
             />
+            {/* Rate teacher button — always visible below classroom */}
+            {!showRating && (
+              <div className="mt-3 text-center">
+                <button onClick={() => setShowRating({
+                  teacherId: cls.teacherId,
+                  teacherName: cls.teacher?.user?.name || "Teacher",
+                  classId: cls.id,
+                })} className="px-4 py-2 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-200 inline-flex items-center gap-1.5">
+                  ⭐ Rate your teacher
+                </button>
+              </div>
+            )}
           </div>
         );
       })()}

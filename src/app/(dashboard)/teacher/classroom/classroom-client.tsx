@@ -62,13 +62,30 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       setActiveVisual(liveClass.id);
       setActiveSessionId(liveClass.liveSessions[0].id);
     }
-  }, [classes]);
+  }, []);  // Run once on mount only
 
-  // Auto-refresh every 15s
+  // Poll for session status changes every 10s (replaces router.refresh which caused instability)
+  const [sessionStatusMap, setSessionStatusMap] = useState<Record<string, { isLive: boolean; isPrep: boolean; sessionId: string }>>({});
   useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 15000);
-    return () => clearInterval(interval);
-  }, [router]);
+    const poll = async () => {
+      for (const cls of classes) {
+        try {
+          const r = await fetch(\`/api/classroom/active?classId=\${cls.id}\`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d.session) {
+              setSessionStatusMap(prev => ({ ...prev, [cls.id]: { isLive: true, isPrep: !!d.session.isPrep, sessionId: d.session.id } }));
+            } else {
+              setSessionStatusMap(prev => ({ ...prev, [cls.id]: { isLive: false, isPrep: false, sessionId: "" } }));
+            }
+          }
+        } catch {}
+      }
+    };
+    poll(); // Initial poll
+    const i = setInterval(poll, 10000);
+    return () => clearInterval(i);
+  }, [classes.length]);
 
   // Trigger auto-session check
   useEffect(() => {
@@ -105,7 +122,6 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
         setClassMessage(`⏰ You joined ${(result as any).lateMinutes} minutes late. This has been recorded. You'll still be credited for the time you teach.`);
       }
     }
-    router.refresh();
     setLoading("");
   };
 
@@ -121,7 +137,6 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       setActiveSessionId(result.sessionId);
       setClassMessage(`📋 Prep session started (${prepDuration} min). Set up your board, materials, and polls. Students can join to prepare. Click "Go Live" when ready to start the real class.`);
     }
-    router.refresh();
     setLoading("");
   };
 
@@ -148,7 +163,6 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
     // Trigger break timer
     setOnBreak(true);
     setBreakCountdown(breakDurationMin * 60);
-    router.refresh();
     setLoading("");
   };
 
@@ -223,19 +237,21 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
           image: e.student?.user?.image,
         }));
         const isKG = ["K1","K2","K3"].includes(cls.schoolGrade?.gradeLevel || "");
+        const boardPolled = sessionStatusMap[cls.id];
+        const boardIsPrep = boardPolled ? boardPolled.isPrep : !!cls.liveSessions?.[0]?.isPrep;
         return (
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                <Monitor className="w-4 h-4" /> {cls.liveSessions?.[0]?.isPrep ? "Prep —" : "Teaching —"} {cls.subject?.name || cls.name}
-                <span className={`text-[10px] text-white px-2 py-0.5 rounded-full ${cls.liveSessions?.[0]?.isPrep ? "bg-amber-500" : "bg-red-500 animate-pulse"}`}>{cls.liveSessions?.[0]?.isPrep ? "PREP" : "LIVE"}</span>
-                {cls.liveSessions?.[0]?.isPrep && cls.liveSessions?.[0]?.startedAt && (
+                <Monitor className="w-4 h-4" /> {boardIsPrep ? "Prep —" : "Teaching —"} {cls.subject?.name || cls.name}
+                <span className={`text-[10px] text-white px-2 py-0.5 rounded-full ${boardIsPrep ? "bg-amber-500" : "bg-red-500 animate-pulse"}`}>{boardIsPrep ? "PREP" : "LIVE"}</span>
+                {boardIsPrep && cls.liveSessions?.[0]?.startedAt && (
                   <PrepTimer startedAt={cls.liveSessions[0].startedAt} durationMin={cls.liveSessions[0].durationMin || 15} />
                 )}
               </h2>
               <div className="flex items-center gap-2">
-                {cls.liveSessions?.[0]?.isPrep && (
-                  <button onClick={() => handleGoLive(cls.liveSessions[0].id, cls.id)} disabled={!!loading}
+                {boardIsPrep && (
+                  <button onClick={() => handleGoLive(boardPolled?.sessionId || cls.liveSessions?.[0]?.id || activeSessionId || "", cls.id)} disabled={!!loading}
                     className="text-xs px-3 py-1 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1 animate-pulse">
                     <Play className="w-3 h-3" /> Go Live
                   </button>
@@ -262,7 +278,10 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
       {classes.map((cls: any) => {
         const isExp = expanded === cls.id;
         const liveSession = cls.liveSessions?.[0];
-        const isLive = !!liveSession;
+        const polled = sessionStatusMap[cls.id];
+        // Use polled data (10s) as primary, fall back to server data
+        const isLive = polled ? polled.isLive : !!liveSession;
+        const isPrep = polled ? polled.isPrep : !!liveSession?.isPrep;
         const todayScheds = cls.schedules?.filter((s: any) => s.dayOfWeek === today) || [];
         const isKG = ["K1","K2","K3"].includes(cls.schoolGrade?.gradeLevel || "");
 
@@ -276,8 +295,8 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
                   <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{cls.schoolGrade?.gradeLevel}</span>
-                  {isLive && liveSession?.isPrep && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">PREP</span>}
-                  {isLive && !liveSession?.isPrep && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
+                  {isLive && isPrep && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">PREP</span>}
+                  {isLive && !isPrep && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
                   {isKG && <span className="text-[10px] bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded-full">🧒 KG</span>}
                 </div>
                 <p className="text-[10px] text-gray-500">{cls.enrollments.length} students • {cls._count?.materials || 0} materials</p>
@@ -302,21 +321,21 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
                   </div>
                 ) : (
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => { setActiveVisual(cls.id); setActiveSessionId(liveSession.id); }}
+                    <button onClick={() => { setActiveVisual(cls.id); setActiveSessionId(polled?.sessionId || liveSession?.id || ""); }}
                       className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
                       <Monitor className="w-3 h-3 inline mr-0.5" /> Board
                     </button>
-                    {liveSession.isPrep && (
-                      <button onClick={() => handleGoLive(liveSession.id, cls.id)} disabled={loading === "golive-" + liveSession.id}
+                    {isPrep && (
+                      <button onClick={() => handleGoLive(polled?.sessionId || liveSession?.id || "", cls.id)} disabled={loading === "golive-" + (polled?.sessionId || liveSession?.id || "")}
                         className="text-[10px] px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1 animate-pulse">
-                        {loading === "golive-" + liveSession.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Go Live
+                        {loading === "golive-" + (polled?.sessionId || liveSession?.id || "") ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Go Live
                       </button>
                     )}
-                    <button onClick={() => handleEndClass(liveSession.id)} disabled={loading === "end-" + liveSession.id}
+                    <button onClick={() => handleEndClass(polled?.sessionId || liveSession?.id || "")} disabled={loading === "end-" + (polled?.sessionId || liveSession?.id || "")}
                       className="text-[10px] px-2.5 py-1.5 bg-gray-700 text-white rounded-lg font-bold hover:bg-gray-800 flex items-center gap-1">
-                      {loading === "end-" + liveSession.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} End
+                      {loading === "end-" + (polled?.sessionId || liveSession?.id || "") ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />} End
                     </button>
-                    {liveSession.isPrep && liveSession.startedAt && (
+                    {isPrep && liveSession?.startedAt && (
                       <PrepTimer startedAt={liveSession.startedAt} durationMin={liveSession.durationMin || 15} />
                     )}
                   </div>
