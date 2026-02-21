@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const API = "/api/gda-admin";
-type Tab = "dashboard"|"schools"|"users"|"live"|"features"|"tickets"|"inbox"|"logs"|"broadcast"|"health"|"config"|"database";
+type Tab = "dashboard"|"schools"|"users"|"live"|"features"|"tickets"|"inbox"|"logs"|"broadcast"|"health"|"config"|"database"|"framework";
 
 export default function GdaNerveCenter() {
   const [key, setKey] = useState("");
@@ -111,6 +111,7 @@ export default function GdaNerveCenter() {
     { id: "health", label: "Health", icon: "🏥" },
     { id: "config", label: "Config & ENV", icon: "⚙️" },
     { id: "database", label: "Database", icon: "🗄️" },
+    { id: "framework", label: "Framework Map", icon: "🗺️" },
   ];
 
   return (
@@ -172,6 +173,8 @@ export default function GdaNerveCenter() {
         {tab === "config" && data && <ConfigTab data={data} />}
         {/* DATABASE */}
         {tab === "database" && data && <DatabaseTab data={data} />}
+        {/* FRAMEWORK */}
+        {tab === "framework" && <FrameworkTab />}
       </div>
     </div>
   );
@@ -715,6 +718,406 @@ function DatabaseTab({ data }: any) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function FrameworkTab() {
+  const [openSection, setOpenSection] = useState<string | null>("architecture");
+  const toggle = (s: string) => setOpenSection(openSection === s ? null : s);
+
+  const Section = ({ id, title, icon, children }: { id: string; title: string; icon: string; children: React.ReactNode }) => (
+    <div className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden">
+      <button onClick={() => toggle(id)} className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-700/30">
+        <span className="text-sm font-bold">{icon} {title}</span>
+        <span className="text-gray-500">{openSection === id ? "▼" : "▶"}</span>
+      </button>
+      {openSection === id && <div className="px-4 pb-4 text-xs text-gray-300 space-y-3 border-t border-gray-700/50 pt-3">{children}</div>}
+    </div>
+  );
+
+  const Code = ({ children }: { children: string }) => (
+    <pre className="bg-gray-900 rounded-lg p-3 overflow-x-auto text-[11px] font-mono text-green-400 border border-gray-700">{children}</pre>
+  );
+
+  const Row = ({ label, value, color = "text-blue-400" }: { label: string; value: string; color?: string }) => (
+    <div className="flex items-start gap-2 py-1 border-b border-gray-700/30 last:border-0">
+      <span className="text-gray-500 w-40 flex-shrink-0">{label}</span>
+      <span className={`font-mono text-[11px] ${color}`}>{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3 max-w-4xl">
+      <div className="bg-blue-900/20 rounded-xl p-4 border border-blue-700">
+        <h3 className="text-sm font-bold text-blue-400 mb-1">🗺️ GDA Schools — Complete System Framework</h3>
+        <p className="text-[10px] text-blue-300">Every route, API, connection, and flow documented. Click any section to expand.</p>
+      </div>
+
+      <Section id="architecture" title="System Architecture" icon="🏗️">
+        <Code>{`GDA SCHOOLS ARCHITECTURE
+========================
+Next.js 14 (App Router) + Prisma + PostgreSQL + NextAuth
+
+┌──────────────────────────────────────────────────┐
+│  FRONTEND (React Server Components + Client)     │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐    │
+│  │Student │ │Teacher │ │Princpl │ │Parent  │    │
+│  │Portal  │ │Portal  │ │Portal  │ │Portal  │    │
+│  └────┬───┘ └────┬───┘ └────┬───┘ └────┬───┘    │
+│       └──────────┴──────────┴──────────┘         │
+│                      │                            │
+│  ┌───────────────────┴───────────────────┐       │
+│  │  Server Actions (/lib/actions/*.ts)   │       │
+│  │  19 action files, ~100 functions      │       │
+│  └───────────────────┬───────────────────┘       │
+│                      │                            │
+│  ┌───────────────────┴───────────────────┐       │
+│  │  API Routes (/api/*)                  │       │
+│  │  11 endpoints                         │       │
+│  └───────────────────┬───────────────────┘       │
+├──────────────────────┼───────────────────────────┤
+│  ┌───────────────────┴───────────────────┐       │
+│  │  Prisma ORM + PostgreSQL              │       │
+│  │  55 models, 46 tables                 │       │
+│  └───────────────────────────────────────┘       │
+│                                                   │
+│  ┌─────────────────┐  ┌──────────────────┐       │
+│  │ Auto-Session    │  │ Nerve Center     │       │
+│  │ (CRON endpoint) │  │ (Super Admin)    │       │
+│  └─────────────────┘  └──────────────────┘       │
+└──────────────────────────────────────────────────┘`}</Code>
+      </Section>
+
+      <Section id="portals" title="4 Portals — All Pages" icon="🖥️">
+        <p className="font-bold text-white mb-2">STUDENT PORTAL (15 pages)</p>
+        <Row label="/student" value="Dashboard — today's classes, schedule, term info, classmates" />
+        <Row label="/student/classroom" value="Live classroom — join sessions, blackboard, chat, polls, exams" />
+        <Row label="/student/subjects" value="Enrolled subjects list" />
+        <Row label="/student/teachers" value="Browse & enroll in teacher classes" />
+        <Row label="/student/messages" value="Chat with teachers, principal, GDA Admin" />
+        <Row label="/student/timetable" value="Personal weekly schedule with session badges" />
+        <Row label="/student/grades" value="View approved grades and report cards" />
+        <Row label="/student/attendance" value="Attendance record per class" />
+        <Row label="/student/materials" value="Teacher-uploaded materials" />
+        <Row label="/student/fees" value="Fee breakdown + payment upload" />
+        <Row label="/student/profile" value="Photo, ID card, public profile" />
+        <Row label="/student/calendar" value="Academic calendar" />
+        <Row label="/student/certificates" value="Awarded certificates" />
+        <Row label="/student/schedule" value="Today's to-do and reminders" />
+        <Row label="/student/help" value="Help & FAQ" />
+        <p className="font-bold text-white mb-2 mt-4">TEACHER PORTAL (15 pages)</p>
+        <Row label="/teacher" value="Dashboard — salary balance, today's classes, stats" />
+        <Row label="/teacher/classroom" value="Start sessions, prep mode, board, polls, exams" />
+        <Row label="/teacher/classes" value="Assigned classes, requirements, equipment" />
+        <Row label="/teacher/students" value="Enrolled students, manage enrollment" />
+        <Row label="/teacher/messages" value="Chat with students, principal, parents, GDA Admin" />
+        <Row label="/teacher/gradebook" value="Create assessments, enter grades" />
+        <Row label="/teacher/attendance" value="Mark attendance per session" />
+        <Row label="/teacher/materials" value="Upload teaching materials" />
+        <Row label="/teacher/timetable" value="Personal teaching schedule" />
+        <Row label="/teacher/payroll" value="Earnings, session credits, payment history" />
+        <Row label="/teacher/vacancies" value="Browse/apply for jobs" />
+        <Row label="/teacher/profile" value="Bio, photo, public profile, ID card" />
+        <Row label="/teacher/calendar" value="Academic calendar" />
+        <Row label="/teacher/schedule" value="Today's teaching plan" />
+        <Row label="/teacher/help" value="Help & FAQ" />
+        <p className="font-bold text-white mb-2 mt-4">PRINCIPAL PORTAL (17 pages)</p>
+        <Row label="/principal" value="Dashboard — school stats, revenue, quick actions" />
+        <Row label="/principal/monitor" value="Live classroom monitor — all active sessions" />
+        <Row label="/principal/teachers" value="Manage teachers, ratings, assign classes" />
+        <Row label="/principal/students" value="Approve enrollments, promote, manage grades" />
+        <Row label="/principal/messages" value="Chat with all users + GDA Admin" />
+        <Row label="/principal/interviews" value="Schedule teacher interviews" />
+        <Row label="/principal/vacancies" value="Create job postings" />
+        <Row label="/principal/payroll" value="Teacher payroll, session credits, payment" />
+        <Row label="/principal/fees" value="Fee structures per grade" />
+        <Row label="/principal/bank-accounts" value="School payment accounts" />
+        <Row label="/principal/payments" value="Review student/parent payment proof" />
+        <Row label="/principal/curriculum" value="Subjects, grades, teacher assignment" />
+        <Row label="/principal/timetable" value="Weekly timetable editor per grade" />
+        <Row label="/principal/calendar" value="Academic calendar auto-generation" />
+        <Row label="/principal/grading" value="Grade approval + term report generation" />
+        <Row label="/principal/settings" value="School config — timing, fees, timezone" />
+        <Row label="/principal/support" value="Submit support tickets to GDA Admin" />
+        <Row label="/principal/help" value="Help & FAQ" />
+        <p className="font-bold text-white mb-2 mt-4">PARENT PORTAL (10 pages)</p>
+        <Row label="/parent" value="Dashboard — all children overview" />
+        <Row label="/parent/children" value="Child details, linking" />
+        <Row label="/parent/attendance" value="Children's attendance records" />
+        <Row label="/parent/grades" value="Verified grades, report cards" />
+        <Row label="/parent/fees" value="Fee payment for children" />
+        <Row label="/parent/timetable" value="Children's timetables" />
+        <Row label="/parent/teachers" value="Children's teachers" />
+        <Row label="/parent/messages" value="Chat with teachers & principal" />
+        <Row label="/parent/calendar" value="Academic calendar" />
+        <Row label="/parent/help" value="Help & FAQ" />
+      </Section>
+
+      <Section id="apis" title="API Routes (11 endpoints)" icon="🔌">
+        <Row label="GET/POST /api/auth/[...nextauth]" value="NextAuth — login, register, session management" />
+        <Row label="GET /api/auto-session" value="CRON — auto-start/end sessions, prep timeout, school close, orphan cleanup, teacher credits" color="text-red-400" />
+        <Row label="GET/POST /api/classroom/[sessionId]" value="Live classroom polling — board, chat, polls, hands, reactions, whispers, exams, prep hide" color="text-red-400" />
+        <Row label="GET/POST /api/enrollments" value="Student enrollment requests" />
+        <Row label="GET/POST /api/gda-admin" value="Super Admin — 30+ actions (stats, schools, users, features, tickets, broadcast, inbox, health)" color="text-amber-400" />
+        <Row label="GET /api/maintenance" value="Maintenance mode check (used by MaintenanceGuard)" />
+        <Row label="GET /api/notifications" value="Notification list for current user" />
+        <Row label="GET /api/notifications/previews" value="Notification previews for bell popup" />
+        <Row label="GET/POST /api/support" value="Principal support ticket submission" />
+        <Row label="GET /api/unread-count" value="Unread message count for notification bell" />
+        <Row label="GET /api/vacancies" value="Public job board data" />
+      </Section>
+
+      <Section id="actions" title="Server Actions (19 files, ~100 functions)" icon="⚡">
+        <Row label="auth.ts" value="register, login flows" />
+        <Row label="classroom.ts" value="startLiveClass, endLiveClass, convertPrepToLive, joinSession, boardWrite, raiseHand, sendChat" color="text-red-400" />
+        <Row label="messages.ts" value="sendMessage, getMessagesWith, getConversations, markAllRead, getUnreadCount" />
+        <Row label="enrollment.ts" value="requestEnrollment, approveEnrollment, bulkEnroll, smartEnroll" />
+        <Row label="grading.ts" value="createAssessment, submitScores, approveGrades, generateTermReport, saveExamToGradebook" />
+        <Row label="payroll.ts" value="processPayroll, uploadPaymentProof, getSessionCredits" color="text-red-400" />
+        <Row label="fee-payment.ts" value="submitPayment, approvePayment, getPaymentHistory" />
+        <Row label="timetable.ts" value="addPeriod, removePeriod, autoGenerate, getTeacherTimetable" />
+        <Row label="school.ts" value="updateSchoolSettings, updateFeePolicy, updateTimezone" />
+        <Row label="student-management.ts" value="approveStudent, promoteStudent, moveStudent, removeStudent" />
+        <Row label="teacher.ts" value="assignClass, rateTeacher, approveTeacher" />
+        <Row label="teacher-profile.ts" value="updateProfile, uploadPhoto, generateIdCard" />
+        <Row label="profile.ts" value="updateStudentProfile, uploadStudentPhoto" />
+        <Row label="vacancy.ts" value="createVacancy, applyToVacancy, approveApplication" />
+        <Row label="interview.ts" value="scheduleInterview, updateInterviewStatus" />
+        <Row label="materials.ts" value="uploadMaterial, editMaterial, deleteMaterial" />
+        <Row label="bank-account.ts" value="addBankAccount, updateBankAccount" />
+        <Row label="parent.ts" value="linkChild, unlinkChild, payChildFee" />
+        <Row label="class-requirements.ts" value="addRequirement, addEquipment" />
+      </Section>
+
+      <Section id="session-flow" title="SESSION & PAYMENT FLOW (Critical Path)" icon="💰">
+        <p className="text-amber-400 font-bold">This is the money flow. Every step must work perfectly.</p>
+        <Code>{`SESSION LIFECYCLE
+=================
+
+1. TIMETABLE → AUTO-START
+   Principal sets timetable (ClassSchedule records)
+   → /api/auto-session (CRON, every 1-2 min)
+   → Checks school timezone + local time
+   → If slot startTime matches: creates LiveClassSession
+   → Status: IN_PROGRESS, autoStarted: true
+
+2. TEACHER MANUAL START
+   Teacher clicks "Start" on classroom page
+   → classroom.ts → startLiveClass(classId, topic)
+   → Creates LiveClassSession: IN_PROGRESS
+   → Records teacherJoinedAt + calculates lateMinutes
+
+3. PREP SESSION (No payment)
+   Teacher clicks "Prep" with duration (5-60 min)
+   → startLiveClass(classId, topic, isPrep=true, prepDurationMin)
+   → Creates LiveClassSession: isPrep=true
+   → /api/auto-session ends prep when timer expires
+   → NEVER auto-converts to live (just ends)
+   → Teacher can click "Go Live" → convertPrepToLive()
+     → Same session, isPrep=false, startedAt=now
+
+4. DURING SESSION
+   /api/classroom/[sessionId] polls every 3-5 sec
+   → Returns: boardContent, chatMessages, polls, questions
+   → Teacher writes → boardWrite action → DB update
+   → Students see updates on next poll
+
+5. SESSION END (3 ways)
+   a) Teacher clicks "End Session"
+      → endLiveClass(sessionId)
+   b) /api/auto-session: past timetable endTime
+   c) /api/auto-session: past school close time
+   d) /api/auto-session: orphan (1.5x duration limit)
+   → All paths: status="ENDED", endedAt=now, durationMin calculated
+
+6. CREDIT CALCULATION (auto, inside auto-session)
+   → creditTeacher(session, schoolId, durationMin)
+   → SKIPS if: session.isPrep || session.creditAwarded || durationMin < 1
+   → Gets TeacherSalary: baseSalary, sessionsPerDay, workingDays
+   → credit = (baseSalary / totalSessions) × (minutes / sessionLimit)
+   → Creates SessionCredit record
+   → Sets creditAwarded=true on session
+
+7. PAYROLL AGGREGATION (auto)
+   → Upserts PayrollRecord for teacher+month+year
+   → Adds credit to grossPay
+   → Calculates: taxDeduction, pensionDeduction
+   → netPay = grossPay - deductions
+   → Status: DRAFT (until principal processes)
+
+8. PRINCIPAL PAYS TEACHER
+   → /principal/payroll → sees earnings
+   → Uploads payment proof
+   → PayrollRecord status → PAID`}</Code>
+        <p className="mt-2 text-amber-300 font-bold">KEY FILES:</p>
+        <Row label="Session start/end" value="src/lib/actions/classroom.ts" color="text-amber-400" />
+        <Row label="Auto-session CRON" value="src/app/api/auto-session/route.ts" color="text-amber-400" />
+        <Row label="Live classroom API" value="src/app/api/classroom/[sessionId]/route.ts" color="text-amber-400" />
+        <Row label="Credit calculation" value="creditTeacher() in auto-session/route.ts" color="text-amber-400" />
+        <Row label="Payroll display" value="src/app/(dashboard)/principal/payroll/page.tsx" color="text-amber-400" />
+        <Row label="Teacher payroll view" value="src/app/(dashboard)/teacher/payroll/page.tsx" color="text-amber-400" />
+      </Section>
+
+      <Section id="grading-flow" title="GRADING & ANTI-CHEAT FLOW" icon="📝">
+        <Code>{`GRADE FLOW (Anti-Cheat Pipeline)
+================================
+
+1. TEACHER creates exam in live classroom
+   → Visual classroom → poll panel → exam mode
+   → Questions with timers, correct answers
+   → Student answers LOCKED once selected
+
+2. TEACHER saves to gradebook
+   → saveExamToGradebook() in classroom.ts
+   → Creates Assessment record (type: END_OF_TERM_EXAM / MID_TERM_TEST)
+   → Creates Score records per student
+   → Assessment status: SUBMITTED
+
+3. PRINCIPAL reviews
+   → /principal/grading → Pending tab
+   → Reviews scores → Approve or Reject
+   → Assessment status: APPROVED / REJECTED
+
+4. STUDENTS & PARENTS see grades
+   → Only APPROVED grades visible
+   → /student/grades, /parent/grades
+
+5. TERM REPORTS
+   → Principal → Generate Term Reports
+   → Auto-calculates: CA (40%) + Exam (60%)
+   → Includes attendance, assignments
+   → Principal signs → TermReport record`}</Code>
+      </Section>
+
+      <Section id="feature-flags" title="Feature Flag System" icon="🚀">
+        <Code>{`FEATURE FLAG FLOW
+=================
+
+1. ADMIN creates feature in Nerve Center
+   → FeatureFlag record: published=false (DRAFT)
+
+2. ADMIN clicks "Publish"
+   → published=true
+
+3. APP checks feature
+   → import { isFeatureEnabled } from "@/lib/features"
+   → if (await isFeatureEnabled("subscription_plans")) { ... }
+
+4. ADMIN clicks "Unpublish"
+   → Feature disappears everywhere instantly
+
+PRE-BUILT FLAGS (seed with one click):
+- subscription_plans    → Monthly/yearly billing tiers
+- ai_tutoring          → AI student tutoring
+- sms_notifications    → SMS alerts
+- offline_mode         → Offline classroom
+- mobile_app_download  → App store links
+- marketplace          → Content marketplace
+- advanced_analytics   → School analytics
+- multi_campus         → Multi-branch management
+- student_study_groups → Peer collaboration
+- parent_payment_gateway → Online payments
+- video_recording      → Session recording
+- custom_branding      → School branding`}</Code>
+        <Row label="Feature utility" value="src/lib/features.ts → isFeatureEnabled(), getFeatureConfig()" />
+        <Row label="Flag DB model" value="FeatureFlag: key, name, description, published, category, config" />
+      </Section>
+
+      <Section id="messaging" title="Messaging & Notification System" icon="💬">
+        <Code>{`MESSAGE FLOW
+============
+
+User sends message → sendMessage() server action
+→ Creates Message record (senderId, receiverId, content)
+→ Recipient's NotificationBell polls /api/unread-count every 10s
+→ Count increases → bell animates + plays sound
+→ User opens Messages page → conversations auto-refresh every 8s
+→ Opening a chat → getMessagesWith() loads + marks read
+→ Active chat polls every 5s for new messages
+
+ADMIN BROADCAST
+→ Nerve Center → Broadcast tab
+→ Creates GDA Admin user (admin@gdaschools.sbs, SUPER_ADMIN)
+→ Sends Message to every user in target group
+→ All users see "GDA Admin" in their conversations
+→ Users can reply → Admin sees in Nerve Center Inbox tab
+→ Admin Inbox polls every 10s + plays alert sound`}</Code>
+      </Section>
+
+      <Section id="countries" title="14-Country Education System" icon="🌍">
+        <Code>{`SUPPORTED COUNTRIES & GRADE STRUCTURES
+======================================
+Nigeria:     6-3-3-4 (Primary 1-6, JSS 1-3, SSS 1-3)
+Kenya:       2-6-3-3 CBC (PP1-PP2, Grade 1-6, JSS 1-3, SSS 1-3)
+Ghana:       6-3-4 (Primary 1-6, JHS 1-3, SHS 1-4)
+South Africa: Foundation-Senior (Grade R-12)
+Tanzania:    7-4-2-3 (Std 1-7, Form 1-4, Form 5-6)
+Uganda:      7-4-2 (P1-P7, S1-S4, S5-S6)
+Cameroon:    6-5 (Class 1-6, Form 1-5)
+UK:          Key Stages (Reception-Year 13)
+USA:         K-12 (Kindergarten-Grade 12)
+Canada:      K-12 (Same as USA)
+India:       10+2 (Class 1-12)
+Australia:   Foundation-Year 12
+Pakistan:    5-3-2-2 (Class 1-12)
+Egypt:       6-3-3 (Primary-Preparatory-Secondary)
+
+Config file: src/lib/education-systems.ts
+Calendar:    src/lib/academic-calendar.ts
+Payments:    src/lib/country-payments.ts`}</Code>
+      </Section>
+
+      <Section id="files" title="Key Files Quick Reference" icon="📁">
+        <p className="font-bold text-white mb-2">CRITICAL FILES (touch with care)</p>
+        <Row label="prisma/schema.prisma" value="55 models — THE source of truth for all data" color="text-red-400" />
+        <Row label="src/lib/auth.ts" value="NextAuth config — login, session, callbacks" color="text-red-400" />
+        <Row label="src/lib/db.ts" value="Prisma client singleton" color="text-red-400" />
+        <Row label="src/middleware.ts" value="Route protection — role-based access" color="text-red-400" />
+        <Row label="src/app/api/auto-session/route.ts" value="CRON — sessions, credits, payroll" color="text-red-400" />
+        <Row label="src/app/api/classroom/[sessionId]/route.ts" value="Live classroom polling + actions" color="text-red-400" />
+        <Row label="src/lib/actions/classroom.ts" value="Session start/end/prep/convert" color="text-red-400" />
+        <p className="font-bold text-white mb-2 mt-3">COMPONENTS</p>
+        <Row label="visual-classroom.tsx" value="1173 lines — THE live classroom UI (board, chat, polls, exams, video)" />
+        <Row label="messages-inbox.tsx" value="290 lines — Chat UI used by all 4 portals" />
+        <Row label="class-alarm.tsx" value="233 lines — Student class reminder alarms" />
+        <Row label="notification-bell.tsx" value="62 lines — Unread message counter + sound" />
+        <Row label="maintenance-guard.tsx" value="33 lines — Blocks site when maintenance mode on" />
+        <Row label="dashboard-sidebar.tsx" value="111 lines — Sidebar nav for all portals" />
+        <p className="font-bold text-white mb-2 mt-3">CONFIG</p>
+        <Row label=".env" value="DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, GDA_ADMIN_KEY" />
+        <Row label="next.config.js" value="Next.js config" />
+        <Row label="tailwind.config.ts" value="Tailwind + brand colors" />
+        <Row label="vercel.json" value="CRON job: /api/auto-session every 2 min" />
+      </Section>
+
+      <Section id="deployment" title="Deployment & Operations" icon="🚀">
+        <Code>{`DEPLOY COMMANDS
+===============
+git add . && git commit -m "message" && git push
+→ Vercel auto-deploys from GitHub
+
+DATABASE MIGRATION (after schema changes)
+npx prisma db push
+
+ENVIRONMENT VARIABLES (Vercel Dashboard)
+- DATABASE_URL     → PostgreSQL connection string
+- NEXTAUTH_SECRET  → Random secret for session encryption
+- NEXTAUTH_URL     → https://www.gdaschools.sbs
+- GDA_ADMIN_KEY    → Super admin panel password
+
+CRON JOB (vercel.json)
+{
+  "crons": [{ "path": "/api/auto-session", "schedule": "*/2 * * * *" }]
+}
+→ Runs every 2 minutes
+→ Handles: session auto-start, auto-end, prep timeout,
+   school close, orphan cleanup, credit calculation
+
+ADMIN PANEL ACCESS
+URL: /gda-nerve-center-x7k9
+Auth: GDA_ADMIN_KEY password`}</Code>
+      </Section>
     </div>
   );
 }

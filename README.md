@@ -1,204 +1,207 @@
-# Global Digital Academy (GDA) 🎓
+# GDA Schools — Global Digital Academy
 
-A fully digital online school platform — from Kindergarten to Senior Secondary. Built with Next.js 15, Prisma, PostgreSQL, and Tailwind CSS.
+> The all-in-one school operating system. Built for Africa, scaling worldwide.
 
-## 🚀 Quick Start
+**Live:** [www.gdaschools.sbs](https://www.gdaschools.sbs)
 
-### 1. Clone & Install
-```bash
-git clone https://github.com/YOUR_USERNAME/gda-school.git
-cd gda-school
-npm install
+---
+
+## What is GDA Schools?
+
+GDA Schools replaces paper registers, WhatsApp groups, and Excel spreadsheets with a single digital platform that runs an entire school — from enrollment to graduation.
+
+**4 portals. 14 countries. 1 platform.**
+
+| Portal | Users | Core Function |
+|--------|-------|---------------|
+| **Principal** | School owners/admins | Run the school — curriculum, staff, finance, monitoring |
+| **Teacher** | Instructors | Teach live classes, grade students, earn salary |
+| **Student** | Learners K-12 | Attend live classes, submit work, view grades |
+| **Parent** | Guardians | Track children's attendance, grades, and fees |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript |
+| Database | PostgreSQL (via Prisma ORM) |
+| Auth | NextAuth.js (credentials) |
+| Styling | Tailwind CSS |
+| Real-time | Database polling (3-10 sec intervals) |
+| Hosting | Vercel |
+| CRON | Vercel Cron Jobs (every 2 min) |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│            4 ROLE-BASED PORTALS             │
+│  Student │ Teacher │ Principal │ Parent      │
+└────────────────────┬────────────────────────┘
+                     │
+         ┌───────────┴───────────┐
+         │   Server Actions (19) │  ← Business logic
+         │   API Routes (12)     │  ← Real-time + CRON
+         └───────────┬───────────┘
+                     │
+         ┌───────────┴───────────┐
+         │   Prisma ORM          │
+         │   55 Models           │
+         │   PostgreSQL          │
+         └───────────────────────┘
 ```
 
-### 2. Set Up Database
+---
 
-**Recommended: [Neon](https://neon.tech)** (serverless PostgreSQL, perfect for Vercel)
+## Core Features
 
-1. Create a free account at [neon.tech](https://neon.tech)
-2. Create a new project → copy the connection string
-3. Create `.env` from the template:
+### Live Virtual Classroom
+- Interactive blackboard with real-time sync
+- Chat, Q&A, hand-raising, whisper messages
+- Polls and exams with locked answers (anti-cheat)
+- Multi-question timed exams auto-save to gradebook
+- Prep mode (teachers prepare before going live)
+- Video/voice via WebRTC
+- 6 board themes, 7 color overrides, student desk/notebook
 
-```bash
-cp .env.example .env
+### Earn-As-You-Teach Payroll
+- Teachers earn credits per minute of live teaching
+- Auto-calculated from salary / sessions x duration
+- Monthly payroll aggregation with tax/pension deductions
+- Principal reviews and pays with proof upload
+- Prep sessions generate zero credits
+
+### Anti-Cheat Grading
+- Exam answers lock after selection
+- Per-question countdown timers (10-600 seconds)
+- Auto-saves to gradebook as Assessment + Score records
+- Principal approval required before grades are visible
+- Term report generation with CA (40%) + Exam (60%)
+
+### Smart Timetable
+- Principal sets weekly grid per grade
+- Auto-generates avoiding teacher conflicts
+- Sessions auto-start/end based on timetable
+- AM/PM/Evening session slots with timezone support
+
+### 14-Country Education Systems
+Nigeria, Kenya, Ghana, South Africa, Tanzania, Uganda, Cameroon, UK, USA, Canada, India, Australia, Pakistan, Egypt — each with correct grade structures, curriculum grouping, and academic calendars.
+
+---
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── (auth)/              # Login + registration (4 roles)
+│   ├── (dashboard)/
+│   │   ├── principal/       # 17 pages
+│   │   ├── teacher/         # 15 pages
+│   │   ├── student/         # 15 pages
+│   │   └── parent/          # 10 pages
+│   ├── api/                 # 12 API endpoints
+│   └── gda-nerve-center-*/  # Super admin panel
+├── components/              # 16 shared components
+├── lib/
+│   ├── actions/             # 19 server action files (~100 functions)
+│   ├── auth.ts              # NextAuth configuration
+│   ├── db.ts                # Prisma client
+│   ├── education-systems.ts # 14-country grade structures
+│   └── features.ts          # Feature flag utility
+├── middleware.ts             # Role-based route protection
+└── prisma/schema.prisma     # 55 models
 ```
 
-4. Paste your database URL:
+---
+
+## Critical Data Flows
+
+### Session → Credit → Payroll (Money Flow)
+
+```
+Timetable slot matches time → auto-session CRON creates LiveClassSession
+  → Teacher joins → records joinTime, calculates lateMinutes
+  → Session ends → creditTeacher() creates SessionCredit
+    → Formula: (baseSalary ÷ totalSessions) × (minutes ÷ sessionLimit)
+  → PayrollRecord upserted → grossPay += credit
+  → Principal reviews → uploads proof → PAID
+```
+
+**Key files:** `api/auto-session/route.ts`, `lib/actions/classroom.ts`
+
+### Exam → Grade → Report Card
+
+```
+Teacher creates exam in classroom → students answer (locked on selection)
+  → Teacher saves to gradebook → Assessment + Score records
+  → Principal approves → grades visible to students/parents
+  → Term report generated → TermReport record
+```
+
+**Key files:** `lib/actions/grading.ts`, `api/classroom/[sessionId]/route.ts`
+
+---
+
+## API Routes
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/auth/[...nextauth]` | Authentication |
+| `/api/auto-session` | CRON: session lifecycle, credits, payroll |
+| `/api/classroom/[sessionId]` | Live classroom polling + actions |
+| `/api/messages` | Chat conversations + send messages |
+| `/api/gda-admin` | Super admin (30+ actions) |
+| `/api/maintenance` | Maintenance mode check |
+| `/api/support` | Support tickets |
+| `/api/unread-count` | Unread message count |
+| `/api/notifications` | Notification list |
+| `/api/enrollments` | Student enrollment |
+| `/api/vacancies` | Public job board |
+
+---
+
+## Environment Variables
+
 ```env
-DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/gda_school?sslmode=require"
-DIRECT_URL="postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/gda_school?sslmode=require"
+DATABASE_URL=postgresql://...
+NEXTAUTH_SECRET=your-random-secret
+NEXTAUTH_URL=https://www.gdaschools.sbs
+GDA_ADMIN_KEY=your-admin-password
 ```
 
-### 3. Generate Auth Secret
-```bash
-openssl rand -base64 32
-```
-Paste the output as `NEXTAUTH_SECRET` in `.env`.
+---
 
-### 4. Push Database Schema
+## Setup
+
 ```bash
+npm install
 npx prisma db push
-```
-
-### 5. Run Development Server
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) 🎉
+## Deploy
 
----
-
-## 🌐 Deploy to Vercel
-
-### Step 1: Push to GitHub
-```bash
-git init
-git add .
-git commit -m "Initial commit - GDA School Platform"
-git remote add origin https://github.com/YOUR_USERNAME/gda-school.git
-git push -u origin main
-```
-
-### Step 2: Deploy on Vercel
-1. Go to [vercel.com/new](https://vercel.com/new)
-2. Import your GitHub repo
-3. Add all environment variables from `.env`
-4. Set `NEXTAUTH_URL` to your Vercel domain (e.g., `https://gda-school.vercel.app`)
-5. Deploy!
-
-### Step 3: Run Database Migration on Vercel
-After deploy, open the Vercel terminal or run locally:
-```bash
-npx prisma db push
-```
-
----
-
-## 🗄️ Production Database Options
-
-| Provider | Type | Free Tier | Best For |
-|----------|------|-----------|----------|
-| **[Neon](https://neon.tech)** ⭐ | Serverless PostgreSQL | 0.5GB, 190 compute hrs | Vercel deployment |
-| **[Supabase](https://supabase.com)** | PostgreSQL + Auth + Storage | 500MB, 2 projects | All-in-one solution |
-| **[Railway](https://railway.app)** | Managed PostgreSQL | $5/mo credit | Simple hosting |
-| **[PlanetScale](https://planetscale.com)** | MySQL (Vitess) | 5GB, 1B row reads | High-scale apps |
-
-### Additional Services
-
-| Service | Purpose | Recommended Provider |
-|---------|---------|---------------------|
-| **File Storage** | Materials, recordings | [Uploadthing](https://uploadthing.com) or [Cloudflare R2](https://developers.cloudflare.com/r2) |
-| **Payments** | School fees | [Stripe](https://stripe.com) + [Paystack](https://paystack.com) (Africa) |
-| **Email** | Notifications | [Resend](https://resend.com) |
-| **Redis** | Caching, sessions | [Upstash](https://upstash.com) |
-| **Video** | Live classes | [Agora](https://agora.io) or [Jitsi](https://jitsi.org) |
-
----
-
-## 📁 Project Structure
-
-```
-gda-school/
-├── prisma/
-│   └── schema.prisma          # Full database schema (30+ models)
-├── src/
-│   ├── app/
-│   │   ├── page.tsx            # Landing page
-│   │   ├── layout.tsx          # Root layout
-│   │   ├── (auth)/
-│   │   │   ├── login/          # Login page
-│   │   │   └── register/
-│   │   │       ├── student/    # Student registration (3-step)
-│   │   │       ├── teacher/    # Teacher application (2-step)
-│   │   │       └── principal/  # School creation + principal registration
-│   │   ├── (dashboard)/
-│   │   │   ├── student/        # Student portal (7 pages)
-│   │   │   ├── teacher/        # Teacher portal (7 pages)
-│   │   │   └── principal/      # Principal portal (7 pages)
-│   │   └── api/
-│   │       ├── auth/           # NextAuth.js
-│   │       └── enrollments/    # Enrollment API
-│   ├── components/
-│   │   ├── layout/             # Sidebar, header
-│   │   └── providers.tsx       # Session provider
-│   ├── lib/
-│   │   ├── db.ts               # Prisma client
-│   │   ├── auth.ts             # NextAuth config
-│   │   ├── utils.ts            # Utility functions
-│   │   ├── validations.ts      # Zod schemas
-│   │   └── actions/
-│   │       └── auth.ts         # Server actions (register)
-│   └── middleware.ts           # Route protection
-├── .env.example                # All environment variables documented
-├── package.json
-└── README.md
-```
-
----
-
-## 🔐 User Roles
-
-| Role | Registration | Portal | Key Features |
-|------|-------------|--------|--------------|
-| **Student** | Self-register | `/student` | Choose teachers, attend classes, view grades, earn certificates |
-| **Teacher** | Apply (admin approval) | `/teacher` | Manage classes, gradebook, attendance, materials |
-| **Principal** | Creates school | `/principal` | Full school management, fees, curriculum, hire/fire |
-
----
-
-## 🗃️ Database Schema Highlights
-
-- **30+ models** covering every aspect of school operations
-- **Role-based users** with Student, Teacher, Principal profiles
-- **Multi-school** architecture — each principal runs their own school
-- **Country-adaptive** curriculum with grade mapping
-- **3-session scheduling** (Morning/Afternoon/Evening)
-- **Full assessment pipeline** (CA → Mid-Term → End-of-Term → Project)
-- **Payment tracking** with multi-currency support
-- **Blockchain-ready certificates** with verification codes
-
----
-
-## 🛠️ Development Commands
+Hosted on Vercel with auto-deploy from GitHub.
 
 ```bash
-npm run dev          # Start dev server
-npm run build        # Production build
-npx prisma studio    # Open database GUI
-npx prisma db push   # Push schema changes
-npx prisma migrate dev # Create migration
+git add . && git commit -m "message" && git push
 ```
+
+**CRON** (`vercel.json`): `/api/auto-session` runs every 2 minutes.
 
 ---
 
-## 📋 Next Steps (Build Roadmap)
+## Market
 
-### Phase 1 — Core Functionality
-- [ ] Flesh out teacher class creation UI
-- [ ] Build full gradebook with score entry
-- [ ] Implement attendance marking system
-- [ ] Build timetable generator
-- [ ] Principal teacher management (approve/reject/terminate)
-
-### Phase 2 — Classroom Engine
-- [ ] Integrate Agora/Jitsi for live video classes
-- [ ] Build virtual classroom UI (seating, whiteboard, chat)
-- [ ] Add class recording and playback
-- [ ] Implement 3x daily session rotation
-
-### Phase 3 — Assessment & Payments
-- [ ] Build assessment creation and grading UI
-- [ ] Integrate Stripe + Paystack payments
-- [ ] Generate report cards (PDF)
-- [ ] Certificate generation with QR verification
-
-### Phase 4 — Polish
-- [ ] Mobile responsive refinement
-- [ ] Email notifications (Resend)
-- [ ] Parent portal
-- [ ] School branding (logo, colors, anthem upload)
-- [ ] Admin super-admin panel
+- **TAM:** $640M-$1.1B (600,000+ private schools globally)
+- **Africa:** 200,000+ private schools, $140-210M addressable
+- **Model:** Per-school subscription ($10-80/month)
 
 ---
 

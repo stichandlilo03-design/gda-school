@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { sendMessage, getMessagesWith, markAllRead } from "@/lib/actions/messages";
 import { useRouter } from "next/navigation";
 import {
-  MessageSquare, Send, Loader2, ArrowLeft, Users, Search, Check, CheckCheck, Clock, X, Plus
+  MessageSquare, Send, Loader2, ArrowLeft, Search, Check, CheckCheck, X, Plus
 } from "lucide-react";
 
 const ROLE_COLORS: Record<string, string> = {
@@ -17,7 +16,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function MessagesInbox({
-  conversations, contacts, currentUserId,
+  conversations: initialConversations, contacts, currentUserId,
 }: {
   conversations: any[]; contacts: any[]; currentUserId: string;
 }) {
@@ -27,6 +26,7 @@ export default function MessagesInbox({
   const [activeName, setActiveName] = useState("");
   const [activeRole, setActiveRole] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
+  const [conversations, setConversations] = useState(initialConversations);
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [showCompose, setShowCompose] = useState(false);
@@ -35,53 +35,103 @@ export default function MessagesInbox({
   const [composeContent, setComposeContent] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const filteredConvs = conversations.filter((c) =>
-    c.partner.name.toLowerCase().includes(search.toLowerCase())
+  // Poll conversations every 8 seconds via API (reliable)
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/messages?action=conversations");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.conversations) setConversations(data.conversations);
+        }
+      } catch {}
+    };
+    const i = setInterval(poll, 8000);
+    return () => clearInterval(i);
+  }, []);
+
+  const filteredConvs = conversations.filter((c: any) =>
+    c.partner?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Open a chat with a user
   const openChat = async (userId: string, name: string, role: string) => {
     setActiveChat(userId);
     setActiveName(name);
     setActiveRole(role);
     setLoading("load");
-    const result = await getMessagesWith(userId);
-    if (result.messages) setMessages(result.messages);
+    try {
+      const res = await fetch("/api/messages?action=chat&with=" + userId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.messages) setMessages(data.messages);
+      }
+    } catch {}
     setLoading("");
-    router.refresh();
+    // Refresh conversation unread counts
+    try {
+      const res = await fetch("/api/messages?action=conversations");
+      if (res.ok) { const d = await res.json(); if (d.conversations) setConversations(d.conversations); }
+    } catch {}
   };
 
+  // Send a message via API
   const handleSend = async () => {
     if (!activeChat || !input.trim()) return;
-    setLoading("send");
-    await sendMessage({ receiverId: activeChat, content: input });
+    const text = input.trim();
     setInput("");
-    const result = await getMessagesWith(activeChat);
-    if (result.messages) setMessages(result.messages);
+    setLoading("send");
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiverId: activeChat, content: text }),
+      });
+      if (res.ok) {
+        // Refresh chat immediately
+        const chatRes = await fetch("/api/messages?action=chat&with=" + activeChat);
+        if (chatRes.ok) { const d = await chatRes.json(); if (d.messages) setMessages(d.messages); }
+        // Refresh conversation list
+        const convRes = await fetch("/api/messages?action=conversations");
+        if (convRes.ok) { const d = await convRes.json(); if (d.conversations) setConversations(d.conversations); }
+      }
+    } catch {}
     setLoading("");
   };
 
+  // Compose new message via API
   const handleCompose = async () => {
     if (!composeTarget || !composeContent.trim()) return;
     setLoading("compose");
-    await sendMessage({ receiverId: composeTarget, subject: composeSubject || undefined, content: composeContent });
-    setShowCompose(false);
-    setComposeTarget(""); setComposeSubject(""); setComposeContent("");
-    router.refresh();
-    // Open the new conversation
-    const contact = contacts.find((c) => c.id === composeTarget);
-    if (contact) openChat(contact.id, contact.name, contact.role);
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiverId: composeTarget, subject: composeSubject || undefined, content: composeContent }),
+      });
+      if (res.ok) {
+        setShowCompose(false);
+        setComposeTarget(""); setComposeSubject(""); setComposeContent("");
+        const convRes = await fetch("/api/messages?action=conversations");
+        if (convRes.ok) { const d = await convRes.json(); if (d.conversations) setConversations(d.conversations); }
+        const contact = contacts.find((c: any) => c.id === composeTarget);
+        if (contact) openChat(contact.id, contact.name, contact.role);
+      }
+    } catch {}
     setLoading("");
   };
 
-  // Auto-scroll
+  // Auto-scroll on new messages
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  // Poll for new messages
+  // Poll active chat every 5 seconds via API
   useEffect(() => {
     if (!activeChat) return;
     const interval = setInterval(async () => {
-      const result = await getMessagesWith(activeChat);
-      if (result.messages) setMessages(result.messages);
+      try {
+        const res = await fetch("/api/messages?action=chat&with=" + activeChat);
+        if (res.ok) { const d = await res.json(); if (d.messages) setMessages(d.messages); }
+      } catch {}
     }, 5000);
     return () => clearInterval(interval);
   }, [activeChat]);
@@ -118,7 +168,7 @@ export default function MessagesInbox({
                 className={`w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-50 text-left ${activeChat === conv.partner.id ? "bg-brand-50" : ""}`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${conv.unread > 0 ? "bg-brand-200 text-brand-700" : "bg-gray-200 text-gray-600"}`}>
-                  {conv.partner.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                  {conv.partner.name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
