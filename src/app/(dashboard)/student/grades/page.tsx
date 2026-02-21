@@ -11,11 +11,12 @@ export default async function GradesPage() {
   if (!session) return null;
 
   // Access gate: block unapproved / unpaid students
-  const access = await checkStudentAccess(session.user.id);
-  if (access && !access.hasFullAccess) {
-    return <StudentAccessGate access={access} pageName="Grades & Assignments" />;
-  }
-
+  try {
+    const access = await checkStudentAccess(session.user.id);
+    if (access && !access.hasFullAccess) {
+      return <StudentAccessGate access={access} pageName="Grades & Assignments" />;
+    }
+  } catch (_e) {}
 
   const student = await db.student.findUnique({
     where: { userId: session.user.id },
@@ -24,14 +25,14 @@ export default async function GradesPage() {
         where: { assessment: { gradeStatus: "APPROVED" } },
         include: {
           assessment: {
-            include: { class: { select: { id: true, name: true, teacher: { include: { user: { select: { name: true } } } } } } },
+            include: { class: { include: { subject: true, teacher: { include: { user: { select: { name: true } } } } } } },
           },
         },
         orderBy: { gradedAt: "desc" },
       },
       assignmentSubmissions: {
         include: {
-          assignment: { include: { class: { select: { id: true, name: true } } } },
+          assignment: { include: { class: { include: { subject: true } } } },
         },
         orderBy: { submittedAt: "desc" },
       },
@@ -45,6 +46,7 @@ export default async function GradesPage() {
         include: {
           class: {
             include: {
+              subject: true,
               assignments: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
             },
           },

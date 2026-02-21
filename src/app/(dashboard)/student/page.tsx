@@ -47,7 +47,12 @@ export default async function StudentDashboard() {
   if (!student) return null;
 
   // Enrollment access status
-  const enrollAccess = await checkStudentAccess(session.user.id);
+  let enrollAccess: any = null;
+  try {
+    enrollAccess = await checkStudentAccess(session.user.id);
+  } catch (_e) {
+    // Access check failed, allow full access
+  }
 
   // Calculate fee info
   const schoolGrade = await db.schoolGrade.findFirst({

@@ -21,7 +21,6 @@ const fullLinks = [
   { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
 
-// Limited sidebar for unapproved / unpaid students
 const limitedLinks = [
   { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
   { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
@@ -30,60 +29,51 @@ const limitedLinks = [
   { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
 
-// Pages allowed for unapproved students
-const ALLOWED_PATHS = ["/student", "/student/fees", "/student/profile", "/student/messages", "/student/help"];
-
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
   if (session.user.role !== "STUDENT") redirect("/login");
 
-  // Fetch student enrollment status
-  const student = await db.student.findUnique({
-    where: { userId: session.user.id },
-    select: {
-      approvalStatus: true,
-      feePaid: true,
-      schoolId: true,
-      gradeLevel: true,
-      school: { select: { feePaymentThreshold: true, feePaymentPolicy: true } },
-      payments: { where: { status: "COMPLETED" }, select: { amount: true } },
-    },
-  });
+  let links = fullLinks;
 
-  // Calculate if student has full access
-  let isFullyEnrolled = false;
-  if (student) {
-    const isApproved = student.approvalStatus === "APPROVED";
+  try {
+    const student = await db.student.findUnique({
+      where: { userId: session.user.id },
+      include: { school: true, payments: true },
+    });
 
-    // Fee check
-    let feesMet = student.feePaid;
-    if (!feesMet && student.school.feePaymentPolicy === "FLEXIBLE") {
-      feesMet = true; // Flexible = always access
-    }
-    if (!feesMet) {
-      const schoolGrade = await db.schoolGrade.findFirst({
-        where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
-      });
-      if (schoolGrade) {
-        const feeStructures = await db.feeStructure.findMany({
-          where: { schoolGradeId: schoolGrade.id, isActive: true },
-        });
-        const totalFees = feeStructures.reduce((s, f) => s + f.tuitionFee + f.registrationFee + f.examFee + f.technologyFee, 0);
-        const paidAmount = student.payments.reduce((s, p) => s + p.amount, 0);
-        const pct = totalFees > 0 ? Math.round((paidAmount / totalFees) * 100) : 100;
-        const threshold = student.school.feePaymentThreshold ?? 70;
-        const policy = student.school.feePaymentPolicy || "PERCENTAGE";
-        feesMet = policy === "FULL" ? pct >= 100 : pct >= threshold;
-      } else {
-        feesMet = true; // No fee structure = no fees required
+    if (student && student.approvalStatus !== "APPROVED") {
+      links = limitedLinks;
+    } else if (student && !student.feePaid) {
+      // Check fee percentage
+      const policy = student.school.feePaymentPolicy || "PERCENTAGE";
+      if (policy !== "FLEXIBLE") {
+        const completedPayments = student.payments.filter((p: any) => p.status === "COMPLETED");
+        const paidAmount = completedPayments.reduce((s: number, p: any) => s + p.amount, 0);
+
+        let totalFees = 0;
+        try {
+          const sg = await db.schoolGrade.findFirst({
+            where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
+          });
+          if (sg) {
+            const fs = await db.feeStructure.findMany({ where: { schoolGradeId: sg.id, isActive: true } });
+            totalFees = fs.reduce((s, f) => s + f.tuitionFee + f.registrationFee + f.examFee + f.technologyFee, 0);
+          }
+        } catch (_e) {}
+
+        if (totalFees > 0) {
+          const pct = Math.round((paidAmount / totalFees) * 100);
+          const threshold = student.school.feePaymentThreshold ?? 70;
+          const met = policy === "FULL" ? pct >= 100 : pct >= threshold;
+          if (!met) links = limitedLinks;
+        }
       }
     }
-
-    isFullyEnrolled = isApproved && feesMet;
+  } catch (e) {
+    console.error("Layout access check error:", e);
+    // Default to full links on error
   }
-
-  const links = isFullyEnrolled ? fullLinks : limitedLinks;
 
   return (
     <div className="min-h-screen bg-gray-50/50">

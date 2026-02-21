@@ -18,10 +18,12 @@ export default async function AttendancePage() {
   if (!session) return null;
 
   // Access gate: block unapproved / unpaid students
-  const access = await checkStudentAccess(session.user.id);
-  if (access && !access.hasFullAccess) {
-    return <StudentAccessGate access={access} pageName="Attendance" />;
-  }
+  try {
+    const access = await checkStudentAccess(session.user.id);
+    if (access && !access.hasFullAccess) {
+      return <StudentAccessGate access={access} pageName="Attendance" />;
+    }
+  } catch (_e) {}
 
 
   const student = await db.student.findUnique({

@@ -16,10 +16,12 @@ export default async function StudentTimetablePage() {
   if (!session) return null;
 
   // Access gate: block unapproved / unpaid students
-  const access = await checkStudentAccess(session.user.id);
-  if (access && !access.hasFullAccess) {
-    return <StudentAccessGate access={access} pageName="Timetable" />;
-  }
+  try {
+    const access = await checkStudentAccess(session.user.id);
+    if (access && !access.hasFullAccess) {
+      return <StudentAccessGate access={access} pageName="Timetable" />;
+    }
+  } catch (_e) {}
 
   const student = await db.student.findUnique({
     where: { userId: session.user.id },

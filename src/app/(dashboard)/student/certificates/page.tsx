@@ -11,10 +11,12 @@ export default async function CertificatesPage() {
   if (!session) return null;
 
   // Access gate: block unapproved / unpaid students
-  const access = await checkStudentAccess(session.user.id);
-  if (access && !access.hasFullAccess) {
-    return <StudentAccessGate access={access} pageName="Certificates" />;
-  }
+  try {
+    const access = await checkStudentAccess(session.user.id);
+    if (access && !access.hasFullAccess) {
+      return <StudentAccessGate access={access} pageName="Certificates" />;
+    }
+  } catch (_e) {}
 
 
   const student = await db.student.findUnique({
