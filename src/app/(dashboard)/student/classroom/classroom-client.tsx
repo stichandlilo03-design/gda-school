@@ -135,7 +135,7 @@ export default function StudentClassroomClient({
       }
     };
     poll(); // Run immediately
-    const i = setInterval(poll, 10000);
+    const i = setInterval(poll, 8000);
     return () => clearInterval(i);
   }, [enrollments, activeClassroom]);
 
