@@ -631,7 +631,14 @@ export default function VisualClassroom(props: Props) {
                 : <span className="text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">LIVE</span>
               }
             </h3>
-            <p className={`text-[9px] ${isKG?"text-yellow-800":"text-gray-400"}`}>{isTeacher?`${students.length} students`:`Teacher: ${teacherName}`}</p>
+            <p className={`text-[9px] ${isKG?"text-yellow-800":"text-gray-400"}`}>
+              {isTeacher?`${students.length} students`:`Teacher: ${teacherName}`}
+              {!isTeacher && teachingMode !== "board" && (
+                <span className="ml-1.5 bg-blue-500/80 text-white px-1.5 py-0.5 rounded text-[8px]">
+                  {teachingMode === "video" ? "📹 Video" : "🎤 Voice"}
+                </span>
+              )}
+            </p>
           </div>
         </div>
         {/* Timer */}
@@ -745,6 +752,16 @@ export default function VisualClassroom(props: Props) {
               </div>
             )}
 
+            {/* MODE BANNER — show students what mode teacher is in */}
+            {!isTeacher && (teachingMode==="video"||teachingMode==="voice") && (
+              <div className="p-2.5 bg-blue-50 border-2 border-blue-300 rounded-xl text-center">
+                <p className="text-xs font-bold text-blue-800">
+                  {teachingMode==="video" ? "📹 Teacher is on Video Call" : "🎤 Teacher is on Voice Call"}
+                </p>
+                <p className="text-[10px] text-blue-600 mt-0.5">Click &quot;Join with Video&quot; or &quot;Voice Only&quot; below to connect</p>
+              </div>
+            )}
+
             {/* Video / Voice — WebRTC */}
             {(teachingMode==="video"||teachingMode==="voice") && (
               <ClassroomVideo
@@ -753,6 +770,22 @@ export default function VisualClassroom(props: Props) {
                 userName={isTeacher ? teacherName : (studentName || "Student")}
                 isTeacher={isTeacher}
               />
+            )}
+
+            {/* RAISED HANDS — TOP of classroom so teacher sees immediately */}
+            {isTeacher && raisedHands.length > 0 && (
+              <div className="p-2.5 bg-amber-50 border-2 border-amber-300 rounded-xl animate-pulse">
+                <h4 className="text-xs font-bold text-amber-800 mb-1.5">✋ Raised Hands ({raisedHands.length})</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {raisedHands.map((h:any) => (
+                    <div key={h.studentId} className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-full shadow-sm border border-amber-200">
+                      <span className="animate-bounce text-lg">✋</span>
+                      <span className="text-xs font-bold">{h.studentName}</span>
+                      <button onClick={() => ackHand(h.studentId)} className="text-[9px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold hover:bg-emerald-600">Allow</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* BLACKBOARD */}
@@ -961,22 +994,6 @@ export default function VisualClassroom(props: Props) {
                 </div>
               );
             })}
-
-            {/* RAISED HANDS (teacher) */}
-            {isTeacher && raisedHands.length > 0 && (
-              <div className="p-2.5 bg-amber-50 border-2 border-amber-300 rounded-xl">
-                <h4 className="text-[10px] font-bold text-amber-800 mb-1.5">✋ Raised Hands ({raisedHands.length})</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {raisedHands.map((h:any) => (
-                    <div key={h.studentId} className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-full shadow-sm border border-amber-200 animate-pulse">
-                      <span className="animate-bounce">✋</span>
-                      <span className="text-[10px] font-medium">{h.studentName}</span>
-                      <button onClick={() => ackHand(h.studentId)} className="text-[8px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">Allow</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* TOOLS */}
             <div className="flex flex-wrap gap-1.5">

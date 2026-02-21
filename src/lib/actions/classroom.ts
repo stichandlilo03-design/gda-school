@@ -193,6 +193,10 @@ export async function convertPrepToLive(sessionId: string) {
     }
   }
 
+  if (outsideSchedule) {
+    return { error: `Cannot go live outside class time. ${nextClassInfo}. You can continue preparing.` };
+  }
+
   // Convert: keep ALL content, change isPrep to false, clear prepHidden
   const newTopic = (live.topic || "").replace("[PREP] ", "");
   await db.liveClassSession.update({
@@ -207,7 +211,7 @@ export async function convertPrepToLive(sessionId: string) {
     },
   });
 
-  return { success: true, sessionId, outsideSchedule, nextClassInfo };
+  return { success: true, sessionId };
 }
 
 // End a live class session + credit teacher + auto payroll
