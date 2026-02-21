@@ -297,9 +297,9 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
         const isKG = ["K1","K2","K3"].includes(cls.schoolGrade?.gradeLevel || "");
 
         return (
-          <div key={cls.id} className={`card ${isLive ? "ring-2 ring-red-400 border-red-200" : ""}`}>
+          <div key={cls.id} className={`card ${isLive && isPrep ? "ring-2 ring-amber-400 border-amber-200" : isLive ? "ring-2 ring-red-400 border-red-200" : ""}`}>
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpanded(isExp ? null : cls.id)}>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isLive ? "bg-red-100 text-red-600" : "bg-brand-100 text-brand-600"}`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isLive && isPrep ? "bg-amber-100 text-amber-600" : isLive ? "bg-red-100 text-red-600" : "bg-brand-100 text-brand-600"}`}>
                 {isLive ? <Play className="w-5 h-5 animate-pulse" /> : <BookOpen className="w-5 h-5" />}
               </div>
               <div className="flex-1">

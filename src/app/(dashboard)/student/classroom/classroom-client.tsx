@@ -134,6 +134,7 @@ export default function StudentClassroomClient({
         } catch {}
       }
     };
+    poll(); // Run immediately
     const i = setInterval(poll, 10000);
     return () => clearInterval(i);
   }, [enrollments, activeClassroom]);
@@ -155,8 +156,8 @@ export default function StudentClassroomClient({
     if (activeClassroom) {
       setLiveSessionMap(prev => {
         const existing = prev[activeClassroom];
-        if (existing) return { ...prev, [activeClassroom]: { ...existing, isPrep } };
-        return prev;
+        const id = existing?.id || "";
+        return { ...prev, [activeClassroom]: { id, isPrep } };
       });
     }
   };

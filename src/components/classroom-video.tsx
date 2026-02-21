@@ -34,6 +34,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
   const joinedRef = useRef(false);
 
   const api = useCallback(async (action: string, data: any = {}) => {
+    if (!sessionId) return;
     try {
       await fetch(`/api/classroom/${sessionId}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -43,6 +44,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
   }, [sessionId]);
 
   const fetchData = useCallback(async () => {
+    if (!sessionId) return null;
     try {
       const r = await fetch(`/api/classroom/${sessionId}`);
       return r.ok ? await r.json() : null;
