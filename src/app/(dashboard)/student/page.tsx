@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkStudentAccess } from "@/lib/student-access";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import KGDashboard from "@/components/kg-dashboard";
 import Link from "next/link";
@@ -44,6 +45,9 @@ export default async function StudentDashboard() {
   });
 
   if (!student) return null;
+
+  // Enrollment access status
+  const enrollAccess = await checkStudentAccess(session.user.id);
 
   // Calculate fee info
   const schoolGrade = await db.schoolGrade.findFirst({
@@ -127,6 +131,37 @@ export default async function StudentDashboard() {
   const isKG = ["K1", "K2", "K3"].includes(student.gradeLevel);
 
   if (isKG) {
+    // If KG student not enrolled, show limited KG dashboard
+    if (enrollAccess && !enrollAccess.hasFullAccess) {
+      return (
+        <>
+          <DashboardHeader title={`Hi ${firstName}! 🎒`} subtitle={student.school.name} />
+          <div className="p-6 lg:p-8 space-y-4">
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6">
+              <div className="text-center">
+                <div className="text-5xl mb-3">🏫</div>
+                <h3 className="text-lg font-bold text-amber-800">Almost There!</h3>
+                <p className="text-sm text-amber-700 mt-1">Your enrollment is being processed.</p>
+              </div>
+              <div className="mt-4 space-y-2">
+                <div className={`flex items-center gap-3 p-3 rounded-xl ${enrollAccess.isApproved ? "bg-emerald-100" : "bg-white"}`}>
+                  <span className="text-xl">{enrollAccess.isApproved ? "✅" : "⏳"}</span>
+                  <span className="text-sm font-medium">{enrollAccess.isApproved ? "Admission approved!" : "Waiting for principal approval"}</span>
+                </div>
+                <div className={`flex items-center gap-3 p-3 rounded-xl ${enrollAccess.feesMet ? "bg-emerald-100" : "bg-white"}`}>
+                  <span className="text-xl">{enrollAccess.feesMet ? "✅" : "💰"}</span>
+                  <span className="text-sm font-medium">{enrollAccess.feesMet ? "Fees paid!" : `Pay school fees (${enrollAccess.feePercent}% done)`}</span>
+                </div>
+              </div>
+              {!enrollAccess.feesMet && enrollAccess.totalFees > 0 && (
+                <a href="/student/fees" className="block mt-4 text-center py-3 bg-brand-600 text-white rounded-xl font-bold text-sm hover:bg-brand-700">Pay Fees Now →</a>
+              )}
+            </div>
+          </div>
+        </>
+      );
+    }
+
     // Get live sessions for KG dashboard
     const liveSessions = await db.liveClassSession.findMany({
       where: {
@@ -192,6 +227,80 @@ export default async function StudentDashboard() {
         subtitle={student.school.name}
       />
       <div className="p-6 lg:p-8 space-y-6">
+        {/* ENROLLMENT STATUS — show if not fully enrolled */}
+        {enrollAccess && !enrollAccess.hasFullAccess && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center text-2xl shrink-0">🎓</div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-amber-900">Complete Your Enrollment</h3>
+                <p className="text-xs text-amber-700 mt-0.5">You need to complete these steps to access classes, grades, timetable and more.</p>
+
+                <div className="mt-3 grid gap-2">
+                  {/* Step 1: Principal Approval */}
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                    enrollAccess.isApproved ? "bg-emerald-50 border-emerald-200" : "bg-white border-amber-200"
+                  }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      enrollAccess.isApproved ? "bg-emerald-200 text-emerald-700" : "bg-amber-200 text-amber-700"
+                    }`}>
+                      {enrollAccess.isApproved ? "✓" : "1"}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-gray-800">Principal Approval</p>
+                      <p className={`text-[11px] ${enrollAccess.isApproved ? "text-emerald-600" : "text-amber-600"}`}>
+                        {enrollAccess.isApproved ? "Approved ✅" :
+                         enrollAccess.approvalStatus === "PENDING" ? "Pending — the principal will review your application" :
+                         enrollAccess.approvalStatus === "INTERVIEW_SCHEDULED" ? "Interview scheduled — please attend your interview" :
+                         enrollAccess.approvalStatus === "INTERVIEWED" ? "Interview complete — awaiting principal's decision" :
+                         enrollAccess.approvalStatus === "REJECTED" ? "Not approved — contact the school for next steps" :
+                         "In progress..."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Fee Payment */}
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                    enrollAccess.feesMet ? "bg-emerald-50 border-emerald-200" : "bg-white border-amber-200"
+                  }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      enrollAccess.feesMet ? "bg-emerald-200 text-emerald-700" : "bg-amber-200 text-amber-700"
+                    }`}>
+                      {enrollAccess.feesMet ? "✓" : "2"}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-gray-800">Fee Payment</p>
+                      {enrollAccess.feesMet ? (
+                        <p className="text-[11px] text-emerald-600">Fees met ✅</p>
+                      ) : enrollAccess.totalFees > 0 ? (
+                        <div>
+                          <p className="text-[11px] text-amber-600">
+                            {enrollAccess.feePolicy === "FULL" ? "Full payment required" : `Minimum ${enrollAccess.feeThreshold}% required`}
+                            {" — "}currently at {enrollAccess.feePercent}%
+                          </p>
+                          <div className="w-full bg-amber-200 rounded-full h-1.5 mt-1">
+                            <div className="bg-amber-600 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(enrollAccess.feePercent, 100)}%` }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">No fees configured yet</p>
+                      )}
+                    </div>
+                    {!enrollAccess.feesMet && enrollAccess.totalFees > 0 && (
+                      <a href="/student/fees" className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-brand-700 shrink-0">
+                        Pay Now →
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-amber-600 mt-3 flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Classroom, subjects, timetable, grades, and other features are locked until enrollment is complete.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Profile Setup Prompt */}
         {(!student.profilePicture || !student.idNumber) && (
           <a href="/student/profile" className="block p-4 bg-gradient-to-r from-brand-50 to-purple-50 border-2 border-brand-200 rounded-2xl hover:shadow-md transition group">

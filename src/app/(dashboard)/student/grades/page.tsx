@@ -1,4 +1,6 @@
 import { getServerSession } from "next-auth";
+import { checkStudentAccess } from "@/lib/student-access";
+import StudentAccessGate from "@/components/student-access-gate";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
@@ -7,6 +9,13 @@ import StudentGradesClient from "./grades-client";
 export default async function GradesPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
+
+  // Access gate: block unapproved / unpaid students
+  const access = await checkStudentAccess(session.user.id);
+  if (access && !access.hasFullAccess) {
+    return <StudentAccessGate access={access} pageName="Grades & Assignments" />;
+  }
+
 
   const student = await db.student.findUnique({
     where: { userId: session.user.id },

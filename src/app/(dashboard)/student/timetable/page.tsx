@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkStudentAccess } from "@/lib/student-access";
+import StudentAccessGate from "@/components/student-access-gate";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import { to12h, formatRange, sessionLabel, sessionBadgeColor } from "@/lib/time-utils";
 
@@ -12,6 +14,12 @@ const COLORS = ["bg-blue-100 text-blue-800 border-blue-300", "bg-emerald-100 tex
 export default async function StudentTimetablePage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
+
+  // Access gate: block unapproved / unpaid students
+  const access = await checkStudentAccess(session.user.id);
+  if (access && !access.hasFullAccess) {
+    return <StudentAccessGate access={access} pageName="Timetable" />;
+  }
 
   const student = await db.student.findUnique({
     where: { userId: session.user.id },
