@@ -29,7 +29,8 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
   const [showNewAssessment, setShowNewAssessment] = useState(false);
   const [showNewAssignment, setShowNewAssignment] = useState(false);
   const [assessmentForm, setAssessmentForm] = useState({ type: "CONTINUOUS_ASSESSMENT", title: "", description: "", maxScore: 100, weight: 1, dueDate: "" });
-  const [assignmentForm, setAssignmentForm] = useState({ title: "", description: "", dueDate: "", maxScore: 100 });
+  const [assignmentForm, setAssignmentForm] = useState({ title: "", description: "", dueDate: "", maxScore: 100, type: "HOMEWORK" });
+  const [hwQuestions, setHwQuestions] = useState<any[]>([]);
   const [editingScores, setEditingScores] = useState<string | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
 
@@ -48,9 +49,9 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
   const handleCreateAssignment = async () => {
     if (!selectedClass || !assignmentForm.title) { alert("Fill in title"); return; }
     setLoading("assign");
-    const result = await createAssignment({ classId: selectedClass, ...assignmentForm });
+    const result = await createAssignment({ classId: selectedClass, ...assignmentForm, questions: hwQuestions.length > 0 ? hwQuestions : undefined });
     if (result.error) alert(result.error);
-    else { router.refresh(); setShowNewAssignment(false); setAssignmentForm({ title: "", description: "", dueDate: "", maxScore: 100 }); setMessage("Assignment created!"); }
+    else { router.refresh(); setShowNewAssignment(false); setAssignmentForm({ title: "", description: "", dueDate: "", maxScore: 100, type: "HOMEWORK" }); setHwQuestions([]); setMessage("Assignment created!"); }
     setLoading("");
   };
 
@@ -255,19 +256,103 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
 
               {showNewAssignment && (
                 <div className="card bg-blue-50 border-blue-200">
-                  <h4 className="text-sm font-semibold mb-3">Create Assignment</h4>
+                  <h4 className="text-sm font-semibold mb-3">Create Assignment / Homework</h4>
                   <div className="space-y-3">
                     <input className="input-field" placeholder="Title (e.g. Chapter 5 Homework)" value={assignmentForm.title} onChange={e => setAssignmentForm(p => ({ ...p, title: e.target.value }))} />
-                    <textarea className="input-field" rows={2} placeholder="Description / instructions" value={assignmentForm.description} onChange={e => setAssignmentForm(p => ({ ...p, description: e.target.value }))} />
-                    <div className="grid grid-cols-2 gap-3">
+                    <textarea className="input-field" rows={2} placeholder="Description / instructions for students" value={assignmentForm.description} onChange={e => setAssignmentForm(p => ({ ...p, description: e.target.value }))} />
+                    <div className="grid grid-cols-3 gap-3">
+                      <select className="input-field" value={assignmentForm.type} onChange={e => setAssignmentForm(p => ({ ...p, type: e.target.value }))}>
+                        <option value="HOMEWORK">Homework</option>
+                        <option value="ASSIGNMENT">Assignment</option>
+                        <option value="QUIZ">Quiz</option>
+                      </select>
                       <input type="date" className="input-field" value={assignmentForm.dueDate} onChange={e => setAssignmentForm(p => ({ ...p, dueDate: e.target.value }))} />
-                      <input type="number" className="input-field" placeholder="Max Score (100)" value={assignmentForm.maxScore} onChange={e => setAssignmentForm(p => ({ ...p, maxScore: parseInt(e.target.value) || 100 }))} />
+                      <input type="number" className="input-field" placeholder="Max Score" value={assignmentForm.maxScore} onChange={e => setAssignmentForm(p => ({ ...p, maxScore: parseInt(e.target.value) || 100 }))} />
                     </div>
+
+                    {/* Question Builder */}
+                    <div className="border-t border-blue-300 pt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-xs font-bold text-blue-800">Questions ({hwQuestions.length}) — auto-graded for MCQ & Math</h5>
+                        <div className="flex gap-1">
+                          {[{t:"mcq",l:"+ MCQ",c:"bg-blue-600"},{t:"short",l:"+ Short",c:"bg-gray-600"},{t:"math",l:"+ Math",c:"bg-green-600"},{t:"essay",l:"+ Essay",c:"bg-purple-600"}].map(b => (
+                            <button key={b.t} type="button" onClick={() => setHwQuestions(prev => [...prev, { id: `q${Date.now()}${Math.random().toString(36).slice(2,5)}`, type: b.t, question: "", options: b.t==="mcq" ? ["","","",""] : undefined, correctAnswer: "", points: 1 }])}
+                              className={`${b.c} text-white text-[10px] px-2 py-1 rounded font-bold hover:opacity-80`}>{b.l}</button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {hwQuestions.length === 0 && (
+                        <p className="text-[10px] text-blue-600 bg-blue-100 p-2 rounded">No questions added yet. Add questions above for structured homework, or leave empty for free-form essay submission.</p>
+                      )}
+
+                      {hwQuestions.map((q, qi) => (
+                        <div key={q.id} className="bg-white rounded-lg p-3 border mb-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">{qi+1}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${q.type==="mcq"?"bg-blue-100 text-blue-700":q.type==="math"?"bg-green-100 text-green-700":q.type==="essay"?"bg-purple-100 text-purple-700":"bg-gray-200 text-gray-600"}`}>
+                              {q.type==="mcq"?"Multiple Choice":q.type==="math"?"Math":q.type==="essay"?"Essay":"Short Answer"}
+                            </span>
+                            <input type="number" className="input-field w-16 text-[10px] py-0.5 ml-auto" min={1} placeholder="pts" value={q.points}
+                              onChange={e => setHwQuestions(prev => prev.map((qq,i) => i===qi ? {...qq, points: parseInt(e.target.value)||1} : qq))} />
+                            <span className="text-[9px] text-gray-400">pts</span>
+                            <button type="button" onClick={() => setHwQuestions(prev => prev.filter((_,i) => i!==qi))} className="text-red-400 hover:text-red-600 text-xs ml-1">✕</button>
+                          </div>
+
+                          <input className="input-field text-sm mb-2" placeholder={q.type==="math" ? "e.g. Solve: 2x + 5 = 15, find x" : "Question text..."} value={q.question}
+                            onChange={e => setHwQuestions(prev => prev.map((qq,i) => i===qi ? {...qq, question: e.target.value} : qq))} />
+
+                          {/* MCQ options */}
+                          {q.type === "mcq" && (
+                            <div className="space-y-1 mb-2">
+                              {(q.options||[]).map((opt: string, oi: number) => (
+                                <div key={oi} className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold text-gray-500 w-4">{String.fromCharCode(65+oi)}.</span>
+                                  <input className="input-field flex-1 text-xs py-1" placeholder={`Option ${String.fromCharCode(65+oi)}`} value={opt}
+                                    onChange={e => {
+                                      const newOpts = [...(q.options||[])]; newOpts[oi] = e.target.value;
+                                      setHwQuestions(prev => prev.map((qq,i) => i===qi ? {...qq, options: newOpts} : qq));
+                                    }} />
+                                  <input type="radio" name={`correct-${q.id}`} checked={q.correctAnswer === opt && opt !== ""}
+                                    onChange={() => setHwQuestions(prev => prev.map((qq,i) => i===qi ? {...qq, correctAnswer: opt} : qq))}
+                                    title="Mark as correct answer" className="text-emerald-600" />
+                                </div>
+                              ))}
+                              <button type="button" onClick={() => setHwQuestions(prev => prev.map((qq,i) => i===qi ? {...qq, options: [...(qq.options||[]), ""]} : qq))}
+                                className="text-[10px] text-blue-600 hover:text-blue-800 font-medium">+ Add option</button>
+                              {q.correctAnswer && <p className="text-[10px] text-emerald-600 font-bold">✅ Correct: {q.correctAnswer}</p>}
+                            </div>
+                          )}
+
+                          {/* Math / Short correct answer */}
+                          {(q.type === "math" || q.type === "short") && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-500 font-bold whitespace-nowrap">Correct answer:</span>
+                              <input className="input-field flex-1 text-xs py-1 font-mono" placeholder={q.type==="math" ? "e.g. 5 or x=5" : "Expected answer"} value={q.correctAnswer}
+                                onChange={e => setHwQuestions(prev => prev.map((qq,i) => i===qi ? {...qq, correctAnswer: e.target.value} : qq))} />
+                              {q.type==="math" && <span className="text-[9px] text-green-600">🤖 Auto-graded</span>}
+                            </div>
+                          )}
+
+                          {/* Essay — no correct answer */}
+                          {q.type === "essay" && (
+                            <p className="text-[10px] text-purple-600">📝 Essay — you&apos;ll grade this manually</p>
+                          )}
+                        </div>
+                      ))}
+
+                      {hwQuestions.length > 0 && (
+                        <div className="bg-blue-100 rounded-lg p-2 text-[10px] text-blue-700 font-medium">
+                          Total: {hwQuestions.reduce((s,q) => s + (q.points||1), 0)} points · {hwQuestions.filter(q => q.type==="mcq"||q.type==="math").length} auto-graded · {hwQuestions.filter(q => q.type==="essay"||q.type==="short").length} manual
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex gap-2">
                       <button onClick={handleCreateAssignment} disabled={loading === "assign"} className="btn-primary text-sm">
                         {loading === "assign" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Assignment"}
                       </button>
-                      <button onClick={() => setShowNewAssignment(false)} className="btn-ghost text-sm">Cancel</button>
+                      <button onClick={() => { setShowNewAssignment(false); setHwQuestions([]); }} className="btn-ghost text-sm">Cancel</button>
                     </div>
                   </div>
                 </div>

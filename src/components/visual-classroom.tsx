@@ -278,6 +278,8 @@ export default function VisualClassroom(props: Props) {
   const [chatMsg, setChatMsg] = useState("");
   const [boardText, setBoardText] = useState("");
   const [drawColor, setDrawColor] = useState("#FFFFFF");
+  const [showBoardMath, setShowBoardMath] = useState(false);
+  const BOARD_MATH = ["π","√","∛","²","³","⁴","÷","×","±","≠","≈","≤","≥","∞","∑","∫","Δ","θ","α","β","γ","∠","⊥","∥","½","⅓","¼","⁻¹","ⁿ","∈","∉","⊂","⊃","∪","∩","→","⟹","∀","∃","ℝ","ℤ","ℕ","°","μ","Ω","λ","σ"];
   const [handRaised, setHandRaised] = useState(false);
   const [handAccepted, setHandAccepted] = useState(false);
   const [questionText, setQuestionText] = useState("");
@@ -1010,7 +1012,17 @@ export default function VisualClassroom(props: Props) {
                 <div className="flex gap-2 mt-1.5">
                   <input className="flex-1 input-field text-sm" placeholder="Write on board..."
                     value={boardText} onChange={e => setBoardText(e.target.value)} onKeyDown={e => e.key==="Enter"&&writeBoard()} />
+                  <button onClick={() => setShowBoardMath(!showBoardMath)} className={`text-xs px-2 py-1 rounded-lg font-bold ${showBoardMath ? "bg-green-500 text-white" : "bg-green-800 text-green-200 hover:bg-green-700"}`} title="Math symbols">∑</button>
                   <button onClick={writeBoard} className="btn-primary text-xs px-3"><Type className="w-3 h-3 mr-1" />Write</button>
+                </div>
+                {showBoardMath && isTeacher && (
+                  <div className="flex flex-wrap gap-0.5 mt-1 p-1.5 bg-gray-900 rounded-lg border border-green-700">
+                    {BOARD_MATH.map(sym => (
+                      <button key={sym} onClick={() => setBoardText(prev => prev + sym)}
+                        className="w-6 h-6 bg-gray-800 hover:bg-green-700 text-white rounded text-xs font-mono flex items-center justify-center">{sym}</button>
+                    ))}
+                  </div>
+                )}
                 </div>
               )}
             </div>

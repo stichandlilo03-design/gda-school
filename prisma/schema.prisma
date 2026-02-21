@@ -74,6 +74,9 @@ model Assignment {
   termId      String?
   title       String
   description String?    @db.Text
+  type        String     @default("HOMEWORK") // HOMEWORK, ASSIGNMENT, QUIZ
+  questions   Json?      // [{id, type: "mcq"|"short"|"essay"|"math", question, options?, correctAnswer?, points}]
+  totalPoints Float      @default(0)
   dueDate     DateTime?
   maxScore    Float      @default(100)
   isActive    Boolean    @default(true)
@@ -92,6 +95,8 @@ model AssignmentSubmission {
   studentId    String
   content      String?   @db.Text
   fileUrl      String?   @db.Text
+  answers      Json?     // [{questionId, answer, isCorrect?, points?}]
+  autoScore    Float?    // Auto-graded score from MCQ/math
   score        Float?
   feedback     String?   @db.Text
   gradedAt     DateTime?

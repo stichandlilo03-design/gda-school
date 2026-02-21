@@ -66,21 +66,30 @@ export async function rejectGrades(assessmentId: string, reason: string) {
 // ============================================================
 export async function createAssignment(data: {
   classId: string; title: string; description?: string; dueDate?: string; maxScore?: number;
+  type?: string; questions?: any[];
 }) {
   const sess = await getServerSession(authOptions);
   if (!sess || sess.user.role !== "TEACHER") return { error: "Unauthorized" };
+
+  // Calculate total points from questions
+  const questions = data.questions || [];
+  const totalPoints = questions.reduce((sum: number, q: any) => sum + (q.points || 1), 0);
 
   await db.assignment.create({
     data: {
       classId: data.classId,
       title: data.title,
       description: data.description,
+      type: data.type || "HOMEWORK",
+      questions: questions.length > 0 ? questions : undefined,
+      totalPoints,
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
-      maxScore: data.maxScore || 100,
+      maxScore: data.maxScore || totalPoints || 100,
     },
   });
 
   revalidatePath("/teacher/gradebook");
+  revalidatePath("/student/grades");
   return { success: true };
 }
 
@@ -97,7 +106,7 @@ export async function gradeAssignment(submissionId: string, score: number, feedb
   return { success: true };
 }
 
-export async function submitAssignment(assignmentId: string, content?: string, fileBase64?: string) {
+export async function submitAssignment(assignmentId: string, content?: string, fileBase64?: string, answers?: any[]) {
   const sess = await getServerSession(authOptions);
   if (!sess || sess.user.role !== "STUDENT") return { error: "Unauthorized" };
 
@@ -106,15 +115,60 @@ export async function submitAssignment(assignmentId: string, content?: string, f
 
   if (fileBase64 && fileBase64.length > 10 * 1024 * 1024) return { error: "File too large (max 5MB)" };
 
+  // Auto-grade MCQ and math questions
+  let autoScore: number | null = null;
+  let gradedAnswers = answers || [];
+  if (answers && answers.length > 0) {
+    const assignment = await db.assignment.findUnique({ where: { id: assignmentId } });
+    const questions = (assignment?.questions as any[]) || [];
+    if (questions.length > 0) {
+      let earned = 0;
+      let totalAutoGradable = 0;
+      gradedAnswers = answers.map((a: any) => {
+        const q = questions.find((qq: any) => qq.id === a.questionId);
+        if (!q) return a;
+        const points = q.points || 1;
+        if (q.type === "mcq") {
+          totalAutoGradable += points;
+          const isCorrect = String(a.answer).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
+          if (isCorrect) earned += points;
+          return { ...a, isCorrect, points: isCorrect ? points : 0 };
+        }
+        if (q.type === "math") {
+          totalAutoGradable += points;
+          // Normalize math answers: remove spaces, compare numerically if possible
+          const stuAns = String(a.answer).trim().replace(/\s+/g, "");
+          const corAns = String(q.correctAnswer).trim().replace(/\s+/g, "");
+          let isCorrect = stuAns.toLowerCase() === corAns.toLowerCase();
+          // Try numeric comparison
+          if (!isCorrect) {
+            const stuNum = parseFloat(stuAns);
+            const corNum = parseFloat(corAns);
+            if (!isNaN(stuNum) && !isNaN(corNum)) {
+              isCorrect = Math.abs(stuNum - corNum) < 0.001;
+            }
+          }
+          if (isCorrect) earned += points;
+          return { ...a, isCorrect, points: isCorrect ? points : 0 };
+        }
+        // Short answer / essay — needs manual grading
+        return { ...a, isCorrect: null, points: null };
+      });
+      if (totalAutoGradable > 0) {
+        autoScore = earned;
+      }
+    }
+  }
+
   await db.assignmentSubmission.upsert({
     where: { assignmentId_studentId: { assignmentId, studentId: student.id } },
-    update: { content, fileUrl: fileBase64, submittedAt: new Date() },
-    create: { assignmentId, studentId: student.id, content, fileUrl: fileBase64 },
+    update: { content, fileUrl: fileBase64, answers: gradedAnswers.length > 0 ? gradedAnswers : undefined, autoScore, submittedAt: new Date() },
+    create: { assignmentId, studentId: student.id, content, fileUrl: fileBase64, answers: gradedAnswers.length > 0 ? gradedAnswers : undefined, autoScore },
   });
 
   revalidatePath("/student/grades");
   revalidatePath("/teacher/gradebook");
-  return { success: true };
+  return { success: true, autoScore };
 }
 
 // ============================================================
