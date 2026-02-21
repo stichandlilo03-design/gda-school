@@ -330,11 +330,12 @@ export default function VisualClassroom(props: Props) {
 
   // ============ SINGLE POLL FUNCTION — uses refs, never stale ============
   const pollRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const lastQuestionsJson = useRef("");
   pollRef.current = async () => {
     const status = statusRef.current;
     const sid = sessionIdRef.current;
 
-    // === SEARCHING ===
+    // === SEARCHING: look for an active session ===
     if (status === "searching") {
       if (isTeacher) return;
       searchCountRef.current++;
@@ -354,17 +355,14 @@ export default function VisualClassroom(props: Props) {
           }
         }
       } catch {}
-      if (searchCountRef.current > 40) {
-        statusRef.current = "ended";
-        forceRender();
-      }
+      // NEVER give up searching — student stays ready for teacher to start
       return;
     }
 
-    // === ENDED ===
+    // === ENDED: stop polling ===
     if (status === "ended") return;
 
-    // === ACTIVE ===
+    // === ACTIVE: poll the session ===
     if (!sid) {
       if (!isTeacher) {
         statusRef.current = "searching";
@@ -378,7 +376,8 @@ export default function VisualClassroom(props: Props) {
       const r = await fetch(`/api/classroom/${sid}?role=${isTeacher ? "teacher" : "student"}`);
       if (!r.ok) {
         pollErrorsRef.current++;
-        if (!isTeacher && pollErrorsRef.current >= 10) {
+        // Very tolerant — 30 consecutive errors before searching (60 seconds at 2s interval)
+        if (!isTeacher && pollErrorsRef.current >= 30) {
           statusRef.current = "searching";
           searchCountRef.current = 0;
           pollErrorsRef.current = 0;
@@ -391,6 +390,8 @@ export default function VisualClassroom(props: Props) {
 
       if (d.status === "ENDED") {
         if (!isTeacher) {
+          // Session ended — go back to searching for a new one
+          sessionIdRef.current = "";
           statusRef.current = "searching";
           searchCountRef.current = 0;
           forceRender();
@@ -398,13 +399,18 @@ export default function VisualClassroom(props: Props) {
         return;
       }
 
-      // Update all state from server data
+      // Update state from server
       statusRef.current = "active";
       setBoardLines(Array.isArray(d.boardContent) ? d.boardContent : []);
       setRaisedHands(Array.isArray(d.raisedHands) ? d.raisedHands : []);
       setChatMessages(Array.isArray(d.chatMessages) ? d.chatMessages : []);
       setWhispers(Array.isArray(d.whispers) ? d.whispers : []);
-      setQuestions(Array.isArray(d.questions) ? d.questions : []);
+      // Only update questions if server data actually changed (prevents disrupting teacher typing)
+      const qJson = JSON.stringify(d.questions || []);
+      if (qJson !== lastQuestionsJson.current) {
+        lastQuestionsJson.current = qJson;
+        setQuestions(Array.isArray(d.questions) ? d.questions : []);
+      }
       setReactions(Array.isArray(d.reactions) ? d.reactions : []);
       setPolls(Array.isArray(d.polls) ? d.polls : []);
       if (d.teachingMode) setTeachingMode(d.teachingMode);
@@ -638,22 +644,27 @@ export default function VisualClassroom(props: Props) {
             <div className="text-5xl mb-4">📚</div>
             <h3 className="text-xl font-bold text-white mb-2">Class Has Ended</h3>
             <p className="text-sm text-gray-300 mb-4">The teacher has ended this session.</p>
-            <button onClick={() => { statusRef.current = "searching"; searchCountRef.current = 0; forceRender(); }}
+            <button onClick={() => { statusRef.current = "searching"; sessionIdRef.current = ""; searchCountRef.current = 0; pollErrorsRef.current = 0; forceRender(); }}
               className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-bold mr-2 hover:bg-brand-700">
-              Check for New Session
+              Wait for Next Session
             </button>
           </div>
         </div>
       )}
       {/* SEARCHING FOR SESSION OVERLAY */}
-      {/* SEARCHING — only show if we truly have NO session */}
       {statusRef.current === "searching" && !sessionIdRef.current && !isTeacher && (
         <div className="absolute inset-0 z-[70] bg-black/60 flex items-center justify-center">
           <div className="text-center p-6">
             <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             <p className="text-sm text-white font-medium">Waiting for teacher to start class...</p>
-            <p className="text-[10px] text-gray-300 mt-1">Checking every 3 seconds</p>
+            <p className="text-[10px] text-gray-300 mt-1">Auto-checking every 2 seconds</p>
           </div>
+        </div>
+      )}
+      {/* RECONNECTING — had session but lost connection */}
+      {statusRef.current === "searching" && !!sessionIdRef.current && !isTeacher && (
+        <div className="absolute top-2 left-2 right-2 z-[70] bg-amber-500 text-white text-xs px-3 py-2 rounded-lg animate-pulse font-bold text-center">
+          ⚡ Reconnecting to class...
         </div>
       )}
       {/* CONNECTION WARNING */}
