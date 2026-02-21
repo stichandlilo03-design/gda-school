@@ -329,7 +329,7 @@ export default function VisualClassroom(props: Props) {
   };
 
   // ============ SINGLE POLL FUNCTION — uses refs, never stale ============
-  const pollRef = useRef<() => Promise<void>>();
+  const pollRef = useRef<(() => Promise<void>) | undefined>(undefined);
   pollRef.current = async () => {
     const status = statusRef.current;
     const sid = sessionIdRef.current;
