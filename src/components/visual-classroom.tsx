@@ -231,7 +231,7 @@ export default function VisualClassroom(props: Props) {
     onSessionEnd, onNewSession } = props;
 
   const [sessionId, setSessionId] = useState(initialSessionId);
-  const [sessionStatus, setSessionStatus] = useState<"active"|"ended"|"reconnecting">("active");
+  const [sessionStatus, setSessionStatus] = useState<"active"|"ended"|"searching">("active");
   const [pollErrors, setPollErrors] = useState(0);
   const onSessionEndRef = useRef(onSessionEnd);
   const onNewSessionRef = useRef(onNewSession);
@@ -288,58 +288,69 @@ export default function VisualClassroom(props: Props) {
   const [isSessionPrep, setIsSessionPrep] = useState(false);
   const [prepHidden, setPrepHidden] = useState<Record<string, boolean>>({});
 
-  // ===== POLL SERVER =====
-  const reconnectAttempts = useRef(0);
+  // ===== POLL SERVER (ROCK SOLID) =====
+  // States: "searching" (looking for session), "active" (connected), "ended" (class over)
+  const searchCount = useRef(0);
 
   const pollServer = useCallback(async () => {
-    if (!sessionId) return;
-
-    // === RECONNECTING: keep looking for new session (up to 60s) ===
-    if (sessionStatus === "reconnecting") {
-      reconnectAttempts.current++;
+    // === SEARCHING: No session or session lost — keep looking ===
+    if (sessionStatus === "searching") {
+      if (isTeacher) return; // Teacher doesn't search
+      searchCount.current++;
       try {
-        const ar = await fetch(`/api/classroom/active?classId=${classId}`);
-        if (ar.ok) {
-          const ad = await ar.json();
-          if (ad.session) {
-            setSessionId(ad.session.id);
+        const r = await fetch(`/api/classroom/active?classId=${classId}`);
+        if (r.ok) {
+          const d = await r.json();
+          if (d.session) {
+            setSessionId(d.session.id);
             setSessionStatus("active");
             setPollErrors(0);
-            reconnectAttempts.current = 0;
-            if (onNewSessionRef.current) onNewSessionRef.current(ad.session.id);
+            searchCount.current = 0;
+            if (onNewSessionRef.current) onNewSessionRef.current(d.session.id);
             return;
           }
         }
       } catch {}
-      if (reconnectAttempts.current > 20) {
+      // After 2 minutes of searching (40 attempts × 3s), show "ended" but allow retry
+      if (searchCount.current > 40) {
         setSessionStatus("ended");
-        if (onSessionEndRef.current) onSessionEndRef.current();
       }
       return;
     }
 
-    // === ENDED: stop ===
+    // === ENDED: stop but allow manual retry ===
     if (sessionStatus === "ended") return;
 
-    // === ACTIVE: normal poll ===
+    // === ACTIVE: normal polling ===
+    // If we don't have a sessionId yet, switch to searching
+    if (!sessionId) {
+      if (!isTeacher) {
+        setSessionStatus("searching");
+        searchCount.current = 0;
+      }
+      return;
+    }
+
     try {
       const r = await fetch(`/api/classroom/${sessionId}?role=${isTeacher ? "teacher" : "student"}`);
       if (!r.ok) {
         setPollErrors(e => e + 1);
-        if (!isTeacher && pollErrors >= 15) {
-          setSessionStatus("reconnecting");
-          reconnectAttempts.current = 0;
+        // After 10 consecutive failures, search for session (maybe ID changed)
+        if (!isTeacher && pollErrors >= 10) {
+          setSessionStatus("searching");
+          searchCount.current = 0;
+          setPollErrors(0);
         }
         return;
       }
       const d = await r.json();
       setPollErrors(0);
 
-      // Session ended — start reconnecting (keep trying for 60s)
-      if (d.status === "ENDED" || d.status === "WAITING") {
+      // Session ended — go to searching mode (look for new session)
+      if (d.status === "ENDED") {
         if (!isTeacher) {
-          setSessionStatus("reconnecting");
-          reconnectAttempts.current = 0;
+          setSessionStatus("searching");
+          searchCount.current = 0;
         }
         return;
       }
@@ -366,17 +377,27 @@ export default function VisualClassroom(props: Props) {
     }
   }, [sessionId, handRaised, studentId, isTeacher, classId, sessionStatus, pollErrors]);
 
-  // Update sessionId when prop changes
+  // Sync sessionId from parent prop (when parent poll finds new session)
   useEffect(() => {
     if (initialSessionId && initialSessionId !== sessionId) {
       setSessionId(initialSessionId);
       setSessionStatus("active");
       setPollErrors(0);
-      reconnectAttempts.current = 0;
+      searchCount.current = 0;
     }
   }, [initialSessionId]);
 
+  // Start with searching if no session
+  useEffect(() => {
+    if (!initialSessionId && !isTeacher) {
+      setSessionStatus("searching");
+      searchCount.current = 0;
+    }
+  }, []);
+
   useEffect(() => { pollServer(); const i = setInterval(pollServer, 3000); return () => clearInterval(i); }, [pollServer]);
+
+
 
 
   // Auto-scroll chat only on new messages & user hasn't scrolled up
@@ -534,27 +555,21 @@ export default function VisualClassroom(props: Props) {
           <div className="text-center p-8 max-w-sm">
             <div className="text-5xl mb-4">📚</div>
             <h3 className="text-xl font-bold text-white mb-2">Class Has Ended</h3>
-            <p className="text-sm text-gray-300 mb-4">The teacher has ended this session. Great job today!</p>
-            <button onClick={() => { setSessionStatus("reconnecting"); setPollErrors(0); pollServer(); }}
+            <p className="text-sm text-gray-300 mb-4">The teacher has ended this session.</p>
+            <button onClick={() => { setSessionStatus("searching"); searchCount.current = 0; }}
               className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-bold mr-2 hover:bg-brand-700">
               Check for New Session
             </button>
-            {onSessionEnd && (
-              <button onClick={onSessionEnd}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-bold hover:bg-gray-500">
-                Back to Classes
-              </button>
-            )}
           </div>
         </div>
       )}
-      {/* RECONNECTING OVERLAY */}
-      {sessionStatus === "reconnecting" && !isTeacher && (
+      {/* SEARCHING FOR SESSION OVERLAY */}
+      {sessionStatus === "searching" && !isTeacher && (
         <div className="absolute inset-0 z-[70] bg-black/60 flex items-center justify-center">
           <div className="text-center p-6">
             <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-white font-medium">Connecting to class...</p>
-            <p className="text-[10px] text-gray-300 mt-1">Please wait, finding your session</p>
+            <p className="text-sm text-white font-medium">Waiting for teacher to start class...</p>
+            <p className="text-[10px] text-gray-300 mt-1">Checking every 3 seconds</p>
           </div>
         </div>
       )}

@@ -113,7 +113,7 @@ export default function StudentClassroomClient({
     return map;
   });
 
-  // Poll for active sessions every 10 seconds (catches new sessions + prep→live changes)
+  // Poll for active sessions every 10 seconds (for class card badges only — NOT for VisualClassroom)
   useEffect(() => {
     const poll = async () => {
       for (const e of enrollments) {
@@ -124,15 +124,19 @@ export default function StudentClassroomClient({
             if (d.session) {
               setLiveSessionMap(prev => ({ ...prev, [e.class.id]: { id: d.session.id, isPrep: !!d.session.isPrep } }));
             } else {
-              setLiveSessionMap(prev => { const n = { ...prev }; delete n[e.class.id]; return n; });
+              // NEVER delete the active classroom — VisualClassroom handles its own state
+              if (e.class.id !== activeClassroom) {
+                setLiveSessionMap(prev => { const n = { ...prev }; delete n[e.class.id]; return n; });
+              }
             }
           }
+          // On fetch error: do nothing (keep existing data)
         } catch {}
       }
     };
     const i = setInterval(poll, 10000);
     return () => clearInterval(i);
-  }, [enrollments]);
+  }, [enrollments, activeClassroom]);
 
   // Handle when VisualClassroom detects session ended
   const handleSessionEnd = () => {
@@ -252,34 +256,17 @@ export default function StudentClassroomClient({
               </h2>
               <button onClick={() => setActiveClassroom(null)} className="text-xs text-gray-500 hover:text-red-500">Leave</button>
             </div>
-            {isLive && currentSessionId ? (
-              <VisualClassroom
-                sessionId={currentSessionId} classId={cls.id}
-                subjectName={cls.subject?.name || cls.name}
-                teacherName={cls.teacher?.user?.name || "Teacher"}
-                students={students} isTeacher={false} isLive={true}
-                topic={liveSession?.topic} isKG={isKG}
-                studentId={studentId} studentName={studentName}
-                onSessionEnd={handleSessionEnd}
-                onNewSession={handleNewSession}
-              />
-            ) : (
-              <div className={`rounded-2xl p-8 text-center border-2 border-dashed ${isKG ? "bg-yellow-50 border-yellow-300" : "bg-gray-50 border-gray-300"}`}>
-                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-gray-500 font-medium">Waiting for teacher to start class...</p>
-                <p className="text-xs text-gray-400 mt-1">Checking for class every 10 seconds...</p>
-                {/* Rate teacher if there was a previous session */}
-                {!showRating && (
-                  <button onClick={() => setShowRating({
-                    teacherId: cls.teacherId,
-                    teacherName: cls.teacher?.user?.name || "Teacher",
-                    classId: cls.id,
-                  })} className="mt-4 px-4 py-2 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-200 inline-flex items-center gap-1.5">
-                    ⭐ Rate your teacher
-                  </button>
-                )}
-              </div>
-            )}
+            {/* ALWAYS render VisualClassroom — it handles session finding internally */}
+            <VisualClassroom
+              sessionId={currentSessionId} classId={cls.id}
+              subjectName={cls.subject?.name || cls.name}
+              teacherName={cls.teacher?.user?.name || "Teacher"}
+              students={students} isTeacher={false} isLive={true}
+              topic={liveSession?.topic} isKG={isKG}
+              studentId={studentId} studentName={studentName}
+              onSessionEnd={handleSessionEnd}
+              onNewSession={handleNewSession}
+            />
           </div>
         );
       })()}
