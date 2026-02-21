@@ -249,7 +249,7 @@ export default function StudentClassroomClient({
                 <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
                 {isLive && isCurrentPrep && (
                   <span className="ml-2 text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
-                    PREP {liveSession?.startedAt && <StudentPrepTimer startedAt={liveSession.startedAt} durationMin={liveSession?.durationMin || 15} />}
+                    📚 REVIEW {liveSession?.startedAt && <StudentPrepTimer startedAt={liveSession.startedAt} durationMin={liveSession?.durationMin || 15} />}
                   </span>
                 )}
                 {isLive && !isCurrentPrep && <span className="ml-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">LIVE</span>}
@@ -311,6 +311,7 @@ export default function StudentClassroomClient({
                 return (
                   <div key={e.id} onClick={() => isMyGrade && setActiveClassroom(cls.id)}
                     className={`rounded-2xl p-5 border-2 shadow-md transition-all ${!isMyGrade ? "opacity-40 cursor-not-allowed" :
+                      isLive && (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) ? "bg-amber-50 border-amber-300 ring-2 ring-amber-400 cursor-pointer hover:shadow-lg" :
                       isLive ? "bg-red-50 border-red-300 ring-2 ring-red-400 animate-pulse cursor-pointer hover:shadow-lg" : "bg-white border-blue-200 cursor-pointer hover:shadow-lg hover:scale-[1.02]"
                     }`}>
                     <div className="flex items-center gap-4">
@@ -319,7 +320,7 @@ export default function StudentClassroomClient({
                         <h3 className="text-lg font-extrabold text-gray-800">{cls.subject?.name || cls.name}</h3>
                         <p className="text-sm text-gray-500">Teacher {cls.teacher?.user?.name?.split(" ")[0]}</p>
                         {!isMyGrade && <span className="text-xs text-red-500 font-bold">Not your level ({getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)})</span>}
-                        {isLive && isMyGrade && (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1">📋 PREP SESSION</span>}
+                        {isLive && isMyGrade && (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1">📚 REVIEW SESSION</span>}
                         {isLive && isMyGrade && !(liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="inline-flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">🔴 LIVE NOW</span>}
                         {attended && <span className="text-xs text-emerald-600 font-bold mt-1 block">✅ Attended!</span>}
                       </div>
@@ -328,18 +329,19 @@ export default function StudentClassroomClient({
                 );
               }
 
+              const isPrep = !!(liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep);
               const isExp = expanded === cls.id;
               return (
-                <div key={e.id} className={`card transition-all ${!isMyGrade ? "opacity-50" : isLive ? "ring-2 ring-red-400 border-red-200" : ""}`}>
+                <div key={e.id} className={`card transition-all ${!isMyGrade ? "opacity-50" : isLive && isPrep ? "ring-2 ring-amber-400 border-amber-200 bg-amber-50/30" : isLive ? "ring-2 ring-red-400 border-red-200" : ""}`}>
                   <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpanded(isExp ? null : cls.id)}>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isLive ? "bg-red-100 text-red-600" : "bg-brand-100 text-brand-600"}`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isLive && isPrep ? "bg-amber-100 text-amber-600" : isLive ? "bg-red-100 text-red-600" : "bg-brand-100 text-brand-600"}`}>
                       {isLive ? <Play className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-gray-800">{cls.subject?.name || cls.name}</h4>
                         <span className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{getGradeLabelForCountry(cls.schoolGrade?.gradeLevel || "", countryCode)}</span>
-                        {isLive && isMyGrade && (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">PREP</span>}
+                        {isLive && isMyGrade && (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">📚 REVIEW</span>}
                         {isLive && isMyGrade && !(liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>}
                         {attended && <span className={`text-[10px] px-2 py-0.5 rounded-full ${status === "PRESENT" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{status}</span>}
                         {!isMyGrade && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Wrong Grade</span>}
@@ -357,11 +359,26 @@ export default function StudentClassroomClient({
                     <div className="flex items-center gap-2">
                       {isLive && !attended && isMyGrade && (
                         <button onClick={(ev) => { ev.stopPropagation(); handleJoin(cls.id); setActiveClassroom(cls.id); }}
-                          disabled={!!loading} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 animate-pulse">
-                          {loading === cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
+                          disabled={!!loading} className={`text-xs text-white px-3 py-1.5 rounded-lg font-bold ${
+                            (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep)
+                              ? "bg-amber-500 hover:bg-amber-600"
+                              : "bg-red-600 hover:bg-red-700 animate-pulse"
+                          }`}>
+                          {loading === cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 
+                            (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) ? "📚 Join Review" : "Join"}
                         </button>
                       )}
-                      {isMyGrade && (
+                      {isLive && attended && isMyGrade && (
+                        <button onClick={(ev) => { ev.stopPropagation(); setActiveClassroom(cls.id); }}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-bold ${
+                            (liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep)
+                              ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                              : "bg-red-100 text-red-700 hover:bg-red-200"
+                          }`}>
+                          {(liveSessionMap[cls.id]?.isPrep ?? cls.liveSessions?.[0]?.isPrep) ? "📚 Open Review" : "Open Class"}
+                        </button>
+                      )}
+                      {!isLive && isMyGrade && (
                         <button onClick={(ev) => { ev.stopPropagation(); setActiveClassroom(cls.id); }}
                           className="text-[10px] px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-brand-50">Enter</button>
                       )}

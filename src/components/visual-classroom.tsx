@@ -589,9 +589,15 @@ export default function VisualClassroom(props: Props) {
       {/* HEADER */}
       <div className={`px-3 py-2 flex items-center justify-between ${isKG?"bg-gradient-to-r from-yellow-400 to-orange-400":"bg-gradient-to-r from-gray-700 to-gray-800"}`}>
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+          <span className={`w-2.5 h-2.5 rounded-full ${isSessionPrep ? "bg-amber-400 animate-pulse" : "bg-red-500 animate-pulse"}`} />
           <div>
-            <h3 className={`text-xs font-bold ${isKG?"text-yellow-900":"text-white"}`}>{isKG?"🏫 ":""}{subjectName}</h3>
+            <h3 className={`text-xs font-bold ${isKG?"text-yellow-900":"text-white"} flex items-center gap-1.5`}>
+              {isKG?"🏫 ":""}{subjectName}
+              {isSessionPrep
+                ? <span className="text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full">PREP</span>
+                : <span className="text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">LIVE</span>
+              }
+            </h3>
             <p className={`text-[9px] ${isKG?"text-yellow-800":"text-gray-400"}`}>{isTeacher?`${students.length} students`:`Teacher: ${teacherName}`}</p>
           </div>
         </div>
@@ -659,15 +665,18 @@ export default function VisualClassroom(props: Props) {
 
       {/* PREP BANNER — Student sees what's hidden */}
       {isSessionPrep && !isTeacher && (
-        <div className="px-3 py-2 bg-amber-50 border-b border-amber-200">
+        <div className="px-3 py-2.5 bg-gradient-to-r from-amber-50 to-yellow-50 border-b border-amber-200">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-amber-700">📋 Prep Session — Teacher is setting up the class</span>
+            <span className="text-xs font-bold text-amber-800">📚 Review Session — Get ready for class!</span>
           </div>
-          {Object.values(prepHidden).some(v => v) && (
-            <p className="text-[9px] text-amber-600 mt-0.5">
-              🔒 Some content is hidden: {prepHidden.board && "Board "}{prepHidden.polls && "Polls/Exams "}{prepHidden.chat && "Chat "}{prepHidden.qa && "Q&A "}
-            </p>
-          )}
+          <p className="text-[10px] text-amber-700 mt-0.5">
+            Your teacher is preparing. You can chat, ask questions, and review the board.
+            {Object.values(prepHidden).some(v => v) && (
+              <span className="ml-1 text-amber-500">
+                🔒 Hidden: {prepHidden.board && "Board "}{prepHidden.polls && "Polls "}{prepHidden.chat && "Chat "}{prepHidden.qa && "Q&A "}
+              </span>
+            )}
+          </p>
         </div>
       )}
 

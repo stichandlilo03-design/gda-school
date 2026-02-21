@@ -426,9 +426,13 @@ export async function studentJoinClass(classId: string) {
   });
   if (!live) return { error: "No active class session" };
 
-  // Check time since class started — if within 10 min, PRESENT; else LATE
-  const minutesSinceStart = live.startedAt ? (Date.now() - live.startedAt.getTime()) / 60000 : 0;
-  const status = minutesSinceStart <= 10 ? "PRESENT" : "LATE";
+  // During prep, student is EARLY — always PRESENT
+  // During real class, check timing: within 10 min = PRESENT, else LATE
+  let status = "PRESENT";
+  if (!live.isPrep) {
+    const minutesSinceStart = live.startedAt ? (Date.now() - live.startedAt.getTime()) / 60000 : 0;
+    status = minutesSinceStart <= 10 ? "PRESENT" : "LATE";
+  }
 
   const dateOnly = new Date();
   dateOnly.setHours(0, 0, 0, 0);

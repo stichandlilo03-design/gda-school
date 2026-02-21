@@ -104,8 +104,8 @@ export default function ClassAlarm({ schedules, isKG = false }: { schedules: Sch
           newAlerts.push({
             id: key,
             msg: isKG
-              ? (isPrep ? `📋 ${s.subjectName} prep is open! 🎒` : `🔴 ${s.subjectName} is LIVE! 🎈`)
-              : (isPrep ? `📋 ${s.subjectName} — Prep session open. Join to prepare!` : `${s.subjectName} is LIVE — join now`),
+              ? (isPrep ? `📚 ${s.subjectName} review is open! 🎒` : `🔴 ${s.subjectName} is LIVE! 🎈`)
+              : (isPrep ? `📚 ${s.subjectName} — Review session open. Join to prepare!` : `${s.subjectName} is LIVE — join now`),
             type: "start",
           });
         }
