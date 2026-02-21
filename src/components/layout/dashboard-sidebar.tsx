@@ -6,14 +6,14 @@ import { useState } from "react";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
   ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase,
-  Monitor, CreditCard, MessageSquare, Building2, Play, User, Shield, Bell, HelpCircle
+  Monitor, CreditCard, MessageSquare, Building2, Play, User, Shield, Bell, HelpCircle, Headphones
 } from "lucide-react";
 import NotificationBell from "@/components/notification-bell";
 
 const iconMap: Record<string, any> = {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
   ClipboardList, UserCheck, FolderOpen, Award, Calendar, Briefcase, Monitor, CreditCard,
-  MessageSquare, Building2, Play, User, Shield, HelpCircle,
+  MessageSquare, Building2, Play, User, Shield, HelpCircle, Headphones,
 };
 
 interface SidebarProps {

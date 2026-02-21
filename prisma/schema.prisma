@@ -418,6 +418,7 @@ model School {
   vacancies       Vacancy[]
   bankAccounts    SchoolBankAccount[]
   academicEvents  AcademicEvent[]
+  supportTickets  SupportTicket[]
 
   @@index([slug])
   @@index([countryCode])
@@ -1362,4 +1363,61 @@ model ParentStudent {
   @@unique([parentId, studentId])
   @@index([parentId])
   @@index([studentId])
+}
+
+// ===== SUPER ADMIN MODELS =====
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "subscription_plans", "ai_tutoring"
+  name        String   // Human-readable name
+  description String?  // What this feature does
+  published   Boolean  @default(false) // Only visible when published
+  category    String   @default("general") // general, billing, classroom, etc.
+  config      Json     @default("{}") // Feature-specific configuration
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  schoolId    String?
+  userId      String
+  userName    String
+  userRole    String
+  subject     String
+  message     String
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  adminReply  String?
+  adminNote   String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school      School?  @relation(fields: [schoolId], references: [id])
+
+  @@index([status])
+  @@index([schoolId])
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String   @default("INFO") // INFO, WARN, ERROR, CRITICAL
+  source    String   // "auth", "classroom", "payment", "system"
+  message   String
+  meta      Json?    // Additional context
+  userId    String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([level])
+  @@index([source])
+  @@index([createdAt])
+}
+
+model SiteConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
 }

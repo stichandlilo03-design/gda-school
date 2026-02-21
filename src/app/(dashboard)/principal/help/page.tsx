@@ -174,6 +174,17 @@ const sections = [
     ],
   },
   {
+    icon: "🎧", title: "Contact Support", description: "Submit support tickets to the GDA Schools admin team",
+    link: "/principal/support",
+    steps: [
+      "Go to 'Contact Support' to submit a help ticket.",
+      "Fill in the subject, priority (Low/Normal/High/Urgent), and a detailed description of your issue.",
+      "Submit the ticket. You'll receive a notification when the admin responds.",
+      "View all your past tickets in the 'My Tickets' tab with status updates.",
+    ],
+    tips: ["Use 'Urgent' priority only for issues that prevent school operations.", "Include specific details (error messages, student names, etc.) for faster resolution."],
+  },
+  {
     icon: "⚙️", title: "School Settings", description: "Configure school details, timing, fee policies, and more",
     link: "/principal/settings",
     steps: [
