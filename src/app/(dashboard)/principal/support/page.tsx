@@ -13,7 +13,7 @@ function getThread(ticket: any): Thread {
   let thread: Thread = [];
   try {
     if (ticket.adminNote) thread = JSON.parse(ticket.adminNote);
-  } catch {}
+  } catch (_e) {}
   // If no thread yet, build from existing fields
   if (thread.length === 0) {
     thread.push({ from: "principal", text: ticket.message, at: ticket.createdAt });

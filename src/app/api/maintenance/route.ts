@@ -6,7 +6,7 @@ export async function GET() {
     const config = await db.siteConfig.findUnique({ where: { key: "maintenance_mode" } });
     const val = config?.value as any;
     return NextResponse.json({ enabled: val?.enabled || false, reason: val?.reason || "" });
-  } catch {
+  } catch (_e) {
     return NextResponse.json({ enabled: false, reason: "" });
   }
 }

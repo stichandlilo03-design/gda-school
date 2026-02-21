@@ -101,7 +101,7 @@ export default function SubjectSelector({
     if (!confirm("Enroll in " + toEnroll.length + " subject(s)?")) return;
     setLoading("bulk");
     for (const cid of toEnroll) {
-      try { await fetch("/api/enrollments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId: cid, studentId }) }); } catch {}
+      try { await fetch("/api/enrollments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId: cid, studentId }) }); } catch (_e) {}
     }
     router.refresh();
     setLoading("");

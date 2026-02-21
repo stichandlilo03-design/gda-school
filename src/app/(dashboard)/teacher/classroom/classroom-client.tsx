@@ -81,7 +81,7 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
               setSessionStatusMap(prev => ({ ...prev, [cls.id]: { isLive: false, isPrep: false, sessionId: "" } }));
             }
           }
-        } catch {}
+        } catch (_e) {}
       }
     };
     poll(); // Initial poll

@@ -8,7 +8,7 @@ function getThread(ticket: any): { from: string; text: string; at: string }[] {
   let thread: any[] = [];
   try {
     if (ticket.adminNote) thread = JSON.parse(ticket.adminNote);
-  } catch {}
+  } catch (_e) {}
   if (thread.length === 0) {
     thread.push({ from: "principal", text: ticket.message, at: ticket.createdAt });
     if (ticket.adminReply) {

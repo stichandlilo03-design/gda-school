@@ -295,7 +295,7 @@ export async function POST(req: NextRequest) {
       if (!ticket) return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
       // Build thread
       let thread: any[] = [];
-      try { if (ticket.adminNote) thread = JSON.parse(ticket.adminNote); } catch {}
+      try { if (ticket.adminNote) thread = JSON.parse(ticket.adminNote); } catch (_e) {}
       if (thread.length === 0) {
         thread.push({ from: "principal", text: ticket.message, at: ticket.createdAt });
         if (ticket.adminReply) thread.push({ from: "admin", text: ticket.adminReply, at: ticket.updatedAt });
@@ -337,7 +337,7 @@ export async function POST(req: NextRequest) {
         try {
           await db.message.create({ data: { senderId: adminUser.id, receiverId: u.id, subject: `📢 ${title || "System Announcement"}`, content: message } });
           count++;
-        } catch {}
+        } catch (_e) {}
       }
       await db.systemLog.create({ data: { level: "INFO", source: "admin", message: `Broadcast sent to ${count} ${target} users: ${title}` } });
       return NextResponse.json({ ok: true, sent: count });

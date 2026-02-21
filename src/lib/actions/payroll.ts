@@ -331,7 +331,7 @@ export async function processPayroll(payrollId: string, transactionRef?: string,
       "💰 Payment Processed!",
       `Your salary for ${MONTH_NAMES[payroll.month - 1]} ${payroll.year} has been processed. Amount: ${payroll.currency} ${payroll.netPay.toLocaleString()}.${transactionRef ? ` Ref: ${transactionRef}` : ""}${paymentProof ? " Payment proof has been uploaded." : ""}`
     );
-  } catch {}
+  } catch (_e) {}
 
   revalidatePath("/principal/payroll");
   revalidatePath("/teacher");
@@ -453,7 +453,7 @@ export async function addBankAccount(data: {
         );
       }
     }
-  } catch {}
+  } catch (_e) {}
 
   return { success: true };
 }

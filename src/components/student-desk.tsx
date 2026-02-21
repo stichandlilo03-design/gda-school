@@ -35,7 +35,7 @@ function Notebook({ subjectName, studentName, isKG, onClose }: {
 
   const savePages = (p: typeof pages) => {
     setPages(p);
-    try { localStorage.setItem(getKey(), JSON.stringify(p)); } catch {}
+    try { localStorage.setItem(getKey(), JSON.stringify(p)); } catch (_e) {}
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -159,7 +159,7 @@ export default function StudentDesk({ studentName, subjectName, boardLines, isKG
       const notes = localStorage.getItem(`desk-notes-${studentName}`);
       if (boards) setSavedBoards(JSON.parse(boards));
       if (notes) setSavedNotes(JSON.parse(notes));
-    } catch {}
+    } catch (_e) {}
   }, [studentName]);
 
   // Save board content to desk
@@ -168,7 +168,7 @@ export default function StudentDesk({ studentName, subjectName, boardLines, isKG
     const entry = { subject: subjectName, lines: boardLines, date: new Date().toLocaleString() };
     const updated = [entry, ...savedBoards].slice(0, 50);
     setSavedBoards(updated);
-    try { localStorage.setItem(`desk-boards-${studentName}`, JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem(`desk-boards-${studentName}`, JSON.stringify(updated)); } catch (_e) {}
   };
 
   // Download board as text
@@ -288,7 +288,7 @@ export default function StudentDesk({ studentName, subjectName, boardLines, isKG
                         <button onClick={() => {
                           const updated = savedBoards.filter((_, idx) => idx !== i);
                           setSavedBoards(updated);
-                          try { localStorage.setItem(`desk-boards-${studentName}`, JSON.stringify(updated)); } catch {}
+                          try { localStorage.setItem(`desk-boards-${studentName}`, JSON.stringify(updated)); } catch (_e) {}
                         }} className="text-[8px] bg-red-500/50 text-white px-1.5 py-0.5 rounded">🗑</button>
                       </div>
                     </div>

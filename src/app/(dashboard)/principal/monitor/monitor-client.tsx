@@ -31,7 +31,7 @@ export default function MonitorClient({
           const data = await r.json();
           setLiveData(prev => ({...prev, [ls.id]: data}));
         }
-      } catch {}
+      } catch (_e) {}
     }
   }, [liveSessions]);
 

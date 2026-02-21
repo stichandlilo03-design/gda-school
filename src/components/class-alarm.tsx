@@ -27,7 +27,7 @@ function beep(ctx: AudioContext, freq: number, dur: number, delay: number, vol: 
     osc.start(t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
     osc.stop(t + dur + 0.05);
-  } catch {}
+  } catch (_e) {}
 }
 
 export default function ClassAlarm({ schedules, isKG = false }: { schedules: Schedule[]; isKG?: boolean }) {
@@ -48,7 +48,7 @@ export default function ClassAlarm({ schedules, isKG = false }: { schedules: Sch
       // Unlock with silent sound
       beep(ctxRef.current, 1, 0.01, 0, 0);
       setAudioReady(true);
-    } catch {}
+    } catch (_e) {}
   }, []);
 
   useEffect(() => {
@@ -157,7 +157,7 @@ export default function ClassAlarm({ schedules, isKG = false }: { schedules: Sch
       newAlerts.filter(a => a.type === "start").forEach(a => {
         const key = "notif-" + a.id;
         if (!dismissed.has(key)) {
-          try { new Notification(isKG ? "🔔 Class Time!" : "Class Starting!", { body: a.msg }); } catch {}
+          try { new Notification(isKG ? "🔔 Class Time!" : "Class Starting!", { body: a.msg }); } catch (_e) {}
           setDismissed(prev => new Set(prev).add(key));
         }
       });

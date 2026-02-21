@@ -370,7 +370,7 @@ export default function VisualClassroom(props: Props) {
             return;
           }
         }
-      } catch {}
+      } catch (_e) {}
       // NEVER give up searching — student stays ready for teacher to start
       return;
     }
@@ -699,7 +699,7 @@ export default function VisualClassroom(props: Props) {
   };
   const saveExamToGrades = async (examId: string) => {
     setExamSaving(true);
-    try { await fetch(`/api/classroom/${sessionIdRef.current}`, { method: "POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"save_exam_to_grades",examId}) }); } catch {}
+    try { await fetch(`/api/classroom/${sessionIdRef.current}`, { method: "POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({action:"save_exam_to_grades",examId}) }); } catch (_e) {}
     setExamSaving(false);
   };
 

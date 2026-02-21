@@ -40,7 +40,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...data }),
       });
-    } catch {}
+    } catch (_e) {}
   }, [sessionId]);
 
   const fetchData = useCallback(async () => {
@@ -124,7 +124,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
   const onAnswer = useCallback(async (sig: any) => {
     const pc = pcMap.current.get(sig.from);
     if (!pc || pc.signalingState !== "have-local-offer") return;
-    try { await pc.setRemoteDescription(new RTCSessionDescription(sig.data)); } catch {}
+    try { await pc.setRemoteDescription(new RTCSessionDescription(sig.data)); } catch (_e) {}
   }, []);
 
   // === Poll loop ===

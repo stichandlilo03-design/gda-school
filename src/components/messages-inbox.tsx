@@ -44,7 +44,7 @@ export default function MessagesInbox({
           const data = await res.json();
           if (data.conversations) setConversations(data.conversations);
         }
-      } catch {}
+      } catch (_e) {}
     };
     const i = setInterval(poll, 8000);
     return () => clearInterval(i);
@@ -66,13 +66,13 @@ export default function MessagesInbox({
         const data = await res.json();
         if (data.messages) setMessages(data.messages);
       }
-    } catch {}
+    } catch (_e) {}
     setLoading("");
     // Refresh conversation unread counts
     try {
       const res = await fetch("/api/messages?action=conversations");
       if (res.ok) { const d = await res.json(); if (d.conversations) setConversations(d.conversations); }
-    } catch {}
+    } catch (_e) {}
   };
 
   // Send a message via API
@@ -95,7 +95,7 @@ export default function MessagesInbox({
         const convRes = await fetch("/api/messages?action=conversations");
         if (convRes.ok) { const d = await convRes.json(); if (d.conversations) setConversations(d.conversations); }
       }
-    } catch {}
+    } catch (_e) {}
     setLoading("");
   };
 
@@ -117,7 +117,7 @@ export default function MessagesInbox({
         const contact = contacts.find((c: any) => c.id === composeTarget);
         if (contact) openChat(contact.id, contact.name, contact.role);
       }
-    } catch {}
+    } catch (_e) {}
     setLoading("");
   };
 
@@ -131,7 +131,7 @@ export default function MessagesInbox({
       try {
         const res = await fetch("/api/messages?action=chat&with=" + activeChat);
         if (res.ok) { const d = await res.json(); if (d.messages) setMessages(d.messages); }
-      } catch {}
+      } catch (_e) {}
     }, 5000);
     return () => clearInterval(interval);
   }, [activeChat]);

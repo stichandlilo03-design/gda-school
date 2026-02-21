@@ -131,7 +131,7 @@ export default function StudentClassroomClient({
             }
           }
           // On fetch error: do nothing (keep existing data)
-        } catch {}
+        } catch (_e) {}
       }
     };
     poll(); // Run immediately

@@ -48,7 +48,7 @@ export default function StudentRegisterPage() {
           setSchoolsByCountry(d.schools || {});
           setAvailableCountries(d.countries || []);
         }
-      } catch {}
+      } catch (_e) {}
       setSchoolsLoading(false);
     };
     load();

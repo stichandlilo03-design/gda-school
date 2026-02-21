@@ -30,7 +30,7 @@ export default async function HomePage() {
       orderBy: { createdAt: "desc" },
       take: 3,
     });
-  } catch {}
+  } catch (_e) {}
 
   return (
     <div className="min-h-screen bg-white">

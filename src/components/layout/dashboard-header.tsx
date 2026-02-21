@@ -28,7 +28,7 @@ export default function DashboardHeader({ title, subtitle }: DashboardHeaderProp
         const res = await fetch("/api/notifications");
         const data = await res.json();
         setUnreadCount(data.count || 0);
-      } catch {}
+      } catch (_e) {}
     };
     fetchCount();
     const interval = setInterval(fetchCount, 10000); // Poll every 10s

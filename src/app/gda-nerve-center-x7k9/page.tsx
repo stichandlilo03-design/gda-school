@@ -71,12 +71,12 @@ export default function GdaNerveCenter() {
               gain.gain.value = 0.3;
               osc.start(); osc.stop(ac.currentTime + 0.15);
               setTimeout(() => { const o2 = ac.createOscillator(); o2.connect(gain); o2.frequency.value = 1100; o2.start(); o2.stop(ac.currentTime + 0.15); }, 200);
-            } catch {}
+            } catch (_e) {}
           }
           setUnread(d);
           setLastUnread(total);
         }
-      } catch {}
+      } catch (_e) {}
     };
     poll();
     const i = setInterval(poll, 10000);
@@ -433,7 +433,7 @@ function TicketsTab({ data, post, setMsg, loadTab }: any) {
 
   const getThread = (t: any) => {
     let thread: any[] = [];
-    try { if (t.adminNote) thread = JSON.parse(t.adminNote); } catch {}
+    try { if (t.adminNote) thread = JSON.parse(t.adminNote); } catch (_e) {}
     if (thread.length === 0) {
       thread.push({ from: "principal", text: t.message, at: t.createdAt });
       if (t.adminReply) thread.push({ from: "admin", text: t.adminReply, at: t.updatedAt || t.createdAt });

@@ -159,7 +159,7 @@ export async function reinstateTeacher(schoolTeacherId: string) {
   try {
     const { notify } = await import("@/lib/notifications");
     await notify(st.teacher.userId, "🎉 Reinstated!", `You have been reinstated at ${st.school.name}. Welcome back!`);
-  } catch {}
+  } catch (_e) {}
   revalidatePath("/principal/teachers");
   return { success: true };
 }

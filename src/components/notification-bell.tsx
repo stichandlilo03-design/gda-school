@@ -34,14 +34,14 @@ export default function NotificationBell({ messagesPath }: { messagesPath: strin
                   o2.connect(g2); g2.connect(ac.destination);
                   o2.frequency.value = 1000; g2.gain.value = 0.2;
                   o2.start(); o2.stop(ac.currentTime + 0.1);
-                } catch {}
+                } catch (_e) {}
               }, 150);
-            } catch {}
+            } catch (_e) {}
           }
           prevCount.current = newCount;
           setCount(newCount);
         }
-      } catch {}
+      } catch (_e) {}
     };
     check();
     const interval = setInterval(check, 10000);
