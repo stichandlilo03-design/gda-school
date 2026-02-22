@@ -143,7 +143,7 @@ export default async function StudentDashboard() {
   const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const today = DAYS[new Date().getDay()];
   const todaysClasses = student.enrollments
-    .filter((e: any) => e.class.schedules.some((s: any any) => s.dayOfWeek === today))
+    .filter((e: any) => e.class.schedules.some((s: any) => s.dayOfWeek === today))
     .map((e: any) => ({
       ...e.class,
       todaySchedule: e.class.schedules.find((s: any) => s.dayOfWeek === today),
