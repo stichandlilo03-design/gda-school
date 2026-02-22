@@ -15,7 +15,7 @@ export async function submitGradesForApproval(assessmentId: string) {
 
   const assessment = await db.assessment.findUnique({
     where: { id: assessmentId },
-    include: { scores: true },
+    include: { scores: true, class: { include: { schoolGrade: true, subject: true } } },
   });
   if (!assessment) return { error: "Assessment not found" };
   if (assessment.scores.length === 0) return { error: "Enter scores before submitting" };
@@ -24,6 +24,18 @@ export async function submitGradesForApproval(assessmentId: string) {
     where: { id: assessmentId },
     data: { gradeStatus: "SUBMITTED", submittedAt: new Date() },
   });
+
+  // Notify principal
+  try {
+    const schoolId = assessment.class?.schoolGrade?.schoolId;
+    if (schoolId) {
+      const { notifySchoolRole } = await import("@/lib/notifications");
+      await notifySchoolRole(schoolId, "PRINCIPAL",
+        "📊 Grades Submitted for Approval",
+        `${sess.user.name || "A teacher"} submitted grades for "${assessment.title}" (${assessment.class?.subject?.name || ""}). ${assessment.scores.length} students scored. Please review in Grading → Pending.`
+      );
+    }
+  } catch (_e) {}
 
   revalidatePath("/teacher/gradebook");
   revalidatePath("/principal/grading");
@@ -42,8 +54,39 @@ export async function approveGrades(assessmentId: string) {
     data: { gradeStatus: "APPROVED", approvedAt: new Date(), approvedBy: sess.user.id },
   });
 
+  // Notify teacher + students
+  try {
+    const assessment = await db.assessment.findUnique({
+      where: { id: assessmentId },
+      include: {
+        class: { include: { subject: true, teacher: { select: { userId: true } } } },
+        scores: { include: { student: { select: { userId: true } } } },
+      },
+    });
+    if (assessment) {
+      const { notify, notifyMany } = await import("@/lib/notifications");
+      const subjectName = assessment.class?.subject?.name || "";
+      // Notify teacher
+      if (assessment.class?.teacher?.userId) {
+        await notify(assessment.class.teacher.userId,
+          "✅ Grades Approved",
+          `Your grades for "${assessment.title}" (${subjectName}) have been approved by the principal. Students can now see their scores.`
+        );
+      }
+      // Notify all scored students
+      const studentUserIds = assessment.scores.map((s: any) => s.student?.userId).filter(Boolean);
+      if (studentUserIds.length > 0) {
+        await notifyMany(studentUserIds,
+          "📊 New Grade Available",
+          `Your grade for "${assessment.title}" (${subjectName}) is now available. Check your Grades page.`
+        );
+      }
+    }
+  } catch (_e) {}
+
   revalidatePath("/principal/grading");
   revalidatePath("/teacher/gradebook");
+  revalidatePath("/student/grades");
   return { success: true };
 }
 
@@ -55,6 +98,21 @@ export async function rejectGrades(assessmentId: string, reason: string) {
     where: { id: assessmentId },
     data: { gradeStatus: "REJECTED", rejectedReason: reason || "Needs revision" },
   });
+
+  // Notify teacher
+  try {
+    const assessment = await db.assessment.findUnique({
+      where: { id: assessmentId },
+      include: { class: { include: { subject: true, teacher: { select: { userId: true } } } } },
+    });
+    if (assessment?.class?.teacher?.userId) {
+      const { notify } = await import("@/lib/notifications");
+      await notify(assessment.class.teacher.userId,
+        "❌ Grades Rejected",
+        `Your grades for "${assessment.title}" (${assessment.class?.subject?.name || ""}) were rejected by the principal. Reason: "${reason || "Needs revision"}". Please review and resubmit.`
+      );
+    }
+  } catch (_e) {}
 
   revalidatePath("/principal/grading");
   revalidatePath("/teacher/gradebook");
@@ -185,6 +243,19 @@ export async function gradeAssignment(submissionId: string, score: number, feedb
               });
             }
           }
+
+          // Notify principal that homework grades are ready for approval
+          try {
+            const schoolId = sub.assignment.class?.schoolGrade?.schoolId;
+            if (schoolId) {
+              const { notifySchoolRole } = await import("@/lib/notifications");
+              await notifySchoolRole(
+                schoolId, "PRINCIPAL",
+                "📋 Homework Grades Ready for Approval",
+                `All submissions for "${sub.assignment.title}" have been graded by the teacher. Please review and approve in Grading → Pending Grades.`
+              );
+            }
+          } catch (_e) {}
         }
       }
     }
@@ -260,6 +331,23 @@ export async function submitAssignment(assignmentId: string, content?: string, f
 
   revalidatePath("/student/grades");
   revalidatePath("/teacher/gradebook");
+
+  // Notify the teacher that a student submitted
+  try {
+    const assignment = await db.assignment.findUnique({
+      where: { id: assignmentId },
+      include: { class: { include: { teacher: { select: { userId: true } } } } },
+    });
+    if (assignment?.class?.teacher?.userId) {
+      const { notify } = await import("@/lib/notifications");
+      await notify(
+        assignment.class.teacher.userId,
+        "📝 Assignment Submitted",
+        `${sess.user.name || "A student"} submitted "${assignment.title}". Go to Gradebook to review and grade.`
+      );
+    }
+  } catch (_e) {}
+
   return { success: true, autoScore };
 }
 
@@ -291,8 +379,10 @@ export async function generateTermReports(termId: string) {
                 where: {
                   gradeStatus: "APPROVED",
                   OR: [
+                    // Explicitly tagged for this term
                     { termId },
-                    { termId: null, createdAt: { gte: term.startDate, lte: term.endDate || new Date() } },
+                    // Created during this term period (catches homework auto-assessments, any termId)
+                    { createdAt: { gte: term.startDate, lte: term.endDate || new Date() } },
                   ],
                 },
                 include: { scores: true },
@@ -353,6 +443,23 @@ export async function generateTermReports(termId: string) {
           caWeight += a.weight;
         }
       }
+
+      // Also include graded homework submissions that may not have Assessment records
+      const classAssignments = cls.assignments || [];
+      for (const hw of classAssignments) {
+        const sub = (hw.submissions || []).find((s: any) => s.studentId === student.id);
+        if (sub?.gradedAt && sub?.score != null) {
+          // Check if there's already an Assessment [HW] for this — avoid double-counting
+          const hasAssessment = caAssessments.some((a: any) => a.title === `[HW] ${hw.title}`);
+          if (!hasAssessment) {
+            const maxS = hw.maxScore || hw.totalPoints || 100;
+            const pct = maxS > 0 ? (sub.score / maxS) * 100 : 0;
+            caTotal += pct * 1; // weight 1
+            caWeight += 1;
+          }
+        }
+      }
+
       const caAvg = caWeight > 0 ? (caTotal / caWeight) * 0.4 : 0; // CA = 40%
 
       // Calculate exam average (out of 60)
@@ -491,6 +598,36 @@ export async function approveTermReport(reportId: string, remarks?: string, prom
       });
     }
   }
+
+  // Notify student + parent about report card
+  try {
+    const report = await db.termReport.findUnique({
+      where: { id: reportId },
+      include: { student: { select: { userId: true, parentEmail: true } }, term: { select: { name: true } } },
+    });
+    if (report) {
+      const { notify } = await import("@/lib/notifications");
+      const termName = report.term?.name || "Term";
+      // Notify student
+      await notify(report.student.userId,
+        "📋 Report Card Ready",
+        `Your ${termName} report card has been signed by the principal.${promote ? ` Congratulations — you've been promoted to ${nextGrade}!` : ""} Check your Grades → Report Cards.`
+      );
+      // Notify parent if parentEmail linked
+      if (report.student.parentEmail) {
+        const parent = await db.parent.findFirst({
+          where: { user: { email: report.student.parentEmail } },
+          select: { userId: true },
+        });
+        if (parent) {
+          await notify(parent.userId,
+            "📋 Child's Report Card Ready",
+            `Your child's ${termName} report card has been approved.${promote ? ` They've been promoted to ${nextGrade}!` : ""} View it in Grades → Report Cards.`
+          );
+        }
+      }
+    }
+  } catch (_e) {}
 
   revalidatePath("/principal/grading");
   return { success: true };

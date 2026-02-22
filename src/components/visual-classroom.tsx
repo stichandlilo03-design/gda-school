@@ -584,6 +584,14 @@ export default function VisualClassroom(props: Props) {
       const id = latest.id;
       setFloatingReactions(prev => [...prev, { id, emoji: latest.emoji, x: 20 + Math.random() * 60 }]);
       setTimeout(() => setFloatingReactions(prev => prev.filter(r => r.id !== id)), 3000);
+      // If it's a clap for someone, play clap sound + announce (for receiving side)
+      if (latest.type === "clap" && latest.forStudent) {
+        const fromMe = (isTeacher && latest.from === "Teacher") || (!isTeacher && latest.from === studentName);
+        if (!fromMe) {
+          // Other participants hear the clap
+          announceClap(latest.from || "Someone", latest.forStudent);
+        }
+      }
     }
   }, [reactions]);
 
@@ -736,6 +744,41 @@ export default function VisualClassroom(props: Props) {
     setWhisperMsg("");
   };
   const sendReaction = (emoji: string) => post("reaction",{from:isTeacher?"Teacher":studentName,emoji});
+
+  // === CLAP SYSTEM ===
+  const clapSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Create a clapping burst sound
+      for (let i = 0; i < 3; i++) {
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let j = 0; j < data.length; j++) data[j] = (Math.random() * 2 - 1) * Math.exp(-j / (data.length * 0.2));
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const gain = ctx.createGain();
+        gain.gain.value = 0.4;
+        src.connect(gain).connect(ctx.destination);
+        src.start(ctx.currentTime + i * 0.12);
+      }
+    } catch (_e) {}
+  };
+
+  const announceClap = (fromName: string, forName: string) => {
+    clapSound();
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      const msg = new SpeechSynthesisUtterance(`${fromName} is clapping for ${forName}! Well done ${forName}!`);
+      msg.rate = 0.95; msg.pitch = voiceGender === "female" ? 1.15 : 0.9; msg.volume = 1;
+      const voice = pickVoice(); if (voice) msg.voice = voice;
+      window.speechSynthesis.speak(msg);
+    }
+  };
+
+  const sendClap = (forStudent: string) => {
+    const fromName = isTeacher ? "Teacher" : (studentName || "A classmate");
+    post("reaction", { from: fromName, emoji: "👏", type: "clap", forStudent });
+    announceClap(fromName, forStudent);
+  };
   const togglePrepHide = (field: string) => {
     // Update local state immediately for instant UI feedback
     setPrepHidden(prev => ({ ...prev, [field]: !prev[field] }));
@@ -1087,6 +1130,7 @@ export default function VisualClassroom(props: Props) {
                       <span className="animate-bounce text-lg">✋</span>
                       <span className="text-xs font-bold">{h.studentName}</span>
                       <button onClick={() => ackHand(h.studentId)} className="text-[9px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold hover:bg-emerald-600">Allow</button>
+                      <button onClick={() => sendClap(h.studentName?.split(" ")[0] || "Student")} className="text-[9px] bg-amber-400 text-amber-900 px-2 py-0.5 rounded-full font-bold hover:bg-amber-500" title="Clap for this student">👏</button>
                     </div>
                   ))}
                 </div>
@@ -1332,15 +1376,31 @@ export default function VisualClassroom(props: Props) {
               <div className={`grid ${isKG?"grid-cols-4 md:grid-cols-6":"grid-cols-6 md:grid-cols-8"} gap-1`}>
                 {students.map(s => {
                   const hasHand = raisedHands.some((h:any) => h.studentId === s.id);
+                  const isMe = !isTeacher && s.id === studentId;
                   return (
-                    <div key={s.id} className={`relative text-center p-1 rounded-xl transition cursor-pointer ${hasHand?"bg-amber-100 ring-1 ring-amber-400 scale-105":"bg-white/50 hover:bg-white/80"}`}
-                      onClick={() => { if (!isTeacher && s.id !== studentId) { setWhisperTo(s); setPanel("whisper"); } }}>
+                    <div key={s.id} className={`relative text-center p-1 rounded-xl transition ${hasHand?"bg-amber-100 ring-1 ring-amber-400 scale-105":"bg-white/50 hover:bg-white/80"}`}>
                       <div className="w-full h-0.5 rounded-full bg-gray-200 mb-0.5" />
                       <div className={`mx-auto rounded-full w-6 h-6 flex items-center justify-center text-white font-bold text-[8px] ${isKG?"bg-gradient-to-br from-pink-400 to-purple-400":"bg-brand-400"}`}>
-                        {s.name.split(" ").map(n=>n[0]).join("").slice(0,2)}
+                        {s.name.split(" ").map((n: string)=>n[0]).join("").slice(0,2)}
                       </div>
                       <p className="text-[7px] text-gray-500 mt-0.5 truncate">{s.name.split(" ")[0]}</p>
                       {hasHand && <div className="absolute -top-1 -right-0.5 text-xs animate-bounce">✋</div>}
+                      {/* Clap & Whisper buttons */}
+                      <div className="flex justify-center gap-0.5 mt-0.5">
+                        {!isMe && (
+                          <button onClick={(e) => { e.stopPropagation(); sendClap(s.name.split(" ")[0]); }}
+                            className="text-[9px] px-1 py-0.5 rounded bg-amber-100 hover:bg-amber-200 active:scale-90 transition" title={`Clap for ${s.name}`}>
+                            👏
+                          </button>
+                        )}
+                        {!isTeacher && !isMe && (
+                          <button onClick={(e) => { e.stopPropagation(); setWhisperTo(s); setPanel("whisper"); }}
+                            className="text-[9px] px-1 py-0.5 rounded bg-blue-100 hover:bg-blue-200 transition" title={`Whisper to ${s.name}`}>
+                            💬
+                          </button>
+                        )}
+                        {isMe && <span className="text-[7px] text-emerald-500 font-bold">You</span>}
+                      </div>
                     </div>
                   );
                 })}

@@ -39,6 +39,16 @@ export async function submitPaymentProof(data: {
 
     revalidatePath("/student/fees");
     revalidatePath("/principal/payments");
+
+    // Notify principal about new payment
+    try {
+      const { notifySchoolRole } = await import("@/lib/notifications");
+      await notifySchoolRole(student.schoolId, "PRINCIPAL",
+        "💳 New Fee Payment Submitted",
+        `${session.user.name || "A student"} submitted a fee payment of ${data.currency} ${data.amount.toLocaleString()}. Please review in Payments.`
+      );
+    } catch (_e) {}
+
     return { success: true };
   } catch (err: any) {
     console.error("submitPaymentProof error:", err);
@@ -147,6 +157,16 @@ export async function approvePayment(paymentId: string) {
 
     revalidatePath("/principal/payments");
     revalidatePath("/student/fees");
+
+    // Notify student
+    try {
+      const { notify } = await import("@/lib/notifications");
+      await notify(payment.student.userId,
+        "✅ Payment Approved",
+        `Your fee payment of ${payment.currency} ${payment.amount.toLocaleString()} has been approved.`
+      );
+    } catch (_e) {}
+
     return { success: true };
   } catch (err: any) {
     return { error: err.message || "Failed to approve" };
@@ -159,10 +179,22 @@ export async function rejectPayment(paymentId: string, reason: string) {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "PRINCIPAL") return { error: "Unauthorized" };
 
+    const payment = await db.payment.findUnique({ where: { id: paymentId }, include: { student: true } });
+    if (!payment) return { error: "Payment not found" };
+
     await db.payment.update({
       where: { id: paymentId },
       data: { status: "REJECTED", rejectedReason: reason, reviewedBy: session.user.id, reviewedAt: new Date() },
     });
+
+    // Notify student
+    try {
+      const { notify } = await import("@/lib/notifications");
+      await notify(payment.student.userId,
+        "❌ Payment Rejected",
+        `Your fee payment of ${payment.currency} ${payment.amount.toLocaleString()} was rejected. Reason: "${reason}". Please resubmit with correct details.`
+      );
+    } catch (_e) {}
 
     revalidatePath("/principal/payments");
     revalidatePath("/student/fees");
@@ -212,6 +244,19 @@ export async function parentSubmitPayment(data: {
 
     revalidatePath("/parent/fees");
     revalidatePath("/principal/payments");
+
+    // Notify principal
+    try {
+      const student = await db.student.findUnique({ where: { id: data.studentId }, select: { schoolId: true } });
+      if (student) {
+        const { notifySchoolRole } = await import("@/lib/notifications");
+        await notifySchoolRole(student.schoolId, "PRINCIPAL",
+          "💳 Parent Fee Payment Submitted",
+          `${session.user.name || "A parent"} submitted a fee payment of ${data.currency} ${data.amount.toLocaleString()} for their child. Please review in Payments.`
+        );
+      }
+    } catch (_e) {}
+
     return { success: true };
   } catch (err: any) {
     return { error: err.message || "Failed to submit payment" };

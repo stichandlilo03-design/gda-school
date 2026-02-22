@@ -163,7 +163,10 @@ export async function POST(
     // REACTION (emoji reaction from anyone)
     if (action === "reaction") {
       let reactions = arr(ls.reactions);
-      reactions.push({ from: body.from, emoji: body.emoji, time: Date.now(), id: uid() });
+      const entry: any = { from: body.from, emoji: body.emoji, time: Date.now(), id: uid() };
+      if (body.type) entry.type = body.type;
+      if (body.forStudent) entry.forStudent = body.forStudent;
+      reactions.push(entry);
       if (reactions.length > 100) reactions = reactions.slice(-100);
       await db.liveClassSession.update({ where: { id: sessionId }, data: { reactions: reactions } });
       return NextResponse.json({ ok: true });

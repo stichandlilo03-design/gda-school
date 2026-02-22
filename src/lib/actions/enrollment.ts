@@ -34,6 +34,21 @@ export async function requestEnrollment(classId: string, message?: string) {
     data: { studentId: student.id, classId, message: message || null, status: "PENDING" },
   });
 
+  // Notify the teacher
+  try {
+    const classData = await db.class.findUnique({
+      where: { id: classId },
+      include: { teacher: { select: { userId: true } }, subject: { select: { name: true } } },
+    });
+    if (classData?.teacher?.userId) {
+      const { notify } = await import("@/lib/notifications");
+      await notify(classData.teacher.userId,
+        "📚 New Enrollment Request",
+        `${session.user.name || "A student"} wants to join your ${classData.subject?.name || "class"}. Please review in your Classes page.`
+      );
+    }
+  } catch (_e) {}
+
   revalidatePath("/student/teachers");
   revalidatePath("/teacher");
   return { success: true, message: "Enrollment request sent! The teacher will review your request." };
@@ -65,6 +80,15 @@ export async function approveEnrollmentRequest(requestId: string) {
     where: { id: requestId },
     data: { status: "APPROVED" },
   });
+
+  // Notify student
+  try {
+    const { notify } = await import("@/lib/notifications");
+    await notify(req.student.userId,
+      "✅ Enrollment Approved!",
+      `You've been enrolled in ${req.class.name}. You can now attend classes and submit assignments.`
+    );
+  } catch (_e) {}
 
   revalidatePath("/teacher");
   revalidatePath("/teacher/classes");
