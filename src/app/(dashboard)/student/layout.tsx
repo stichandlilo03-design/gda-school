@@ -59,12 +59,15 @@ export default async function StudentLayout({ children }: { children: React.Reac
   try {
     const access = await checkStudentAccess(session.user.id);
     if (!access) {
+      // No student record found — show pending
       links = pendingLinks;
+    } else if (access.approvalStatus === "UNKNOWN") {
+      // Error occurred checking access — show awaiting payment links (middle ground)
+      // rather than locking the student out entirely
+      links = awaitingPaymentLinks;
     } else if (!access.isApproved) {
-      // Not yet approved (PENDING / INTERVIEW_SCHEDULED / INTERVIEWED / REJECTED)
       links = pendingLinks;
     } else if (!access.feesMet) {
-      // Approved but hasn't met the school's fee payment threshold
       links = awaitingPaymentLinks;
     } else {
       // Fully enrolled — check if in active class
@@ -83,7 +86,10 @@ export default async function StudentLayout({ children }: { children: React.Reac
         if (activeSession) links = inClassLinks;
       }
     }
-  } catch (_e) {}
+  } catch (_e) {
+    // If ANYTHING fails, don't lock student out — show awaiting payment view
+    links = awaitingPaymentLinks;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50">

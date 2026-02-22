@@ -89,9 +89,23 @@ export default async function StudentDashboard() {
       where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
     });
     if (schoolGrade) {
-      const feeStructures = await db.feeStructure.findMany({
-        where: { schoolGradeId: schoolGrade.id, isActive: true },
+      // Try current term fees first
+      activeTerm = await db.term.findFirst({
+        where: { schoolId: student.schoolId, isActive: true },
       });
+      
+      let feeStructures;
+      if (activeTerm) {
+        feeStructures = await db.feeStructure.findMany({
+          where: { schoolGradeId: schoolGrade.id, isActive: true, term: activeTerm.termNumber },
+        });
+      }
+      // Fall back to all active fees if no term-specific fees
+      if (!feeStructures || feeStructures.length === 0) {
+        feeStructures = await db.feeStructure.findMany({
+          where: { schoolGradeId: schoolGrade.id, isActive: true },
+        });
+      }
       totalFees = feeStructures.reduce(
         (sum: number, fs: any) => sum + fs.tuitionFee + fs.registrationFee + fs.examFee + fs.technologyFee, 0
       );
@@ -112,9 +126,11 @@ export default async function StudentDashboard() {
       : (feePercent >= feeThreshold || student.feePaid);
     balanceDue = Math.max(0, totalFees - approvedPaid);
 
-    activeTerm = await db.term.findFirst({
-      where: { schoolId: student.schoolId, isActive: true },
-    });
+    if (!activeTerm) {
+      activeTerm = await db.term.findFirst({
+        where: { schoolId: student.schoolId, isActive: true },
+      });
+    }
 
     announcements = await db.classAnnouncement.findMany({
       where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
@@ -191,6 +207,16 @@ export default async function StudentDashboard() {
               {!enrollAccess.feesMet && enrollAccess.totalFees > 0 && (
                 <a href="/student/fees" className="block mt-4 text-center py-3 bg-brand-600 text-white rounded-xl font-bold text-sm hover:bg-brand-700">Pay Fees Now →</a>
               )}
+              <details className="mt-3">
+                <summary className="text-[10px] text-gray-400 cursor-pointer">Debug info</summary>
+                <div className="mt-1 text-[9px] text-gray-400 bg-gray-50 p-2 rounded-lg font-mono space-y-0.5">
+                  <p>Status: {enrollAccess.approvalStatus} | Policy: {enrollAccess.feePolicy}</p>
+                  <p>Threshold: {enrollAccess.feeThreshold}% | Fee%: {enrollAccess.feePercent}%</p>
+                  <p>Total: {enrollAccess.totalFees} | Paid: {enrollAccess.paidAmount}</p>
+                  <p>Met: {enrollAccess.feesMet?"Y":"N"} | Access: {enrollAccess.hasFullAccess?"Y":"N"}</p>
+                  {enrollAccess.debug && <p>Note: {enrollAccess.debug}</p>}
+                </div>
+              </details>
             </div>
           </div>
         </>
@@ -338,6 +364,19 @@ export default async function StudentDashboard() {
                 <p className="text-[10px] text-amber-600 mt-3 flex items-center gap-1">
                   <Lock className="w-3 h-3" /> Classroom, subjects, timetable, grades, and other features are locked until enrollment is complete.
                 </p>
+
+                {/* Debug info — helps diagnose access issues */}
+                <details className="mt-2">
+                  <summary className="text-[10px] text-gray-400 cursor-pointer">Debug info</summary>
+                  <div className="mt-1 text-[9px] text-gray-400 bg-gray-50 p-2 rounded-lg font-mono space-y-0.5">
+                    <p>Status: {enrollAccess.approvalStatus}</p>
+                    <p>Policy: {enrollAccess.feePolicy} | Threshold: {enrollAccess.feeThreshold}%</p>
+                    <p>Total fees: {enrollAccess.totalFees} | Paid: {enrollAccess.paidAmount}</p>
+                    <p>Fee %: {enrollAccess.feePercent}% | Met: {enrollAccess.feesMet ? "YES" : "NO"}</p>
+                    <p>Full access: {enrollAccess.hasFullAccess ? "YES" : "NO"}</p>
+                    {enrollAccess.debug && <p>Note: {enrollAccess.debug}</p>}
+                  </div>
+                </details>
               </div>
             </div>
           </div>
