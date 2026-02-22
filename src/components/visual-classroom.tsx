@@ -4,7 +4,7 @@ import {
   Hand, Mic, Video, Pencil, MessageSquare, Users,
   Maximize2, Minimize2, Send, Eraser, Type, X, HelpCircle, Clock,
   CheckCircle, BookOpen, FileText, Calculator, Globe, Palette,
-  BarChart3, Lock, Smile, Settings, Volume2, VolumeX,
+  BarChart3, Lock, Smile, Settings, Volume2, VolumeX, Save,
 } from "lucide-react";
 import StudentDesk from "@/components/student-desk";
 import ClassroomVideo from "@/components/classroom-video";
@@ -313,6 +313,11 @@ export default function VisualClassroom(props: Props) {
   const [isReading, setIsReading] = useState(false);
   const [readAloudText, setReadAloudText] = useState<string | null>(null);
   const [voiceGender, setVoiceGender] = useState<"female" | "male">("female");
+  const [readSpeed, setReadSpeed] = useState(0.85);
+  const [readMusical, setReadMusical] = useState(false);
+  const [boardFontSize, setBoardFontSize] = useState(16);
+  const [savedBoards, setSavedBoards] = useState<{name:string;lines:any[];time:number}[]>([]);
+  const [showSavedBoards, setShowSavedBoards] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
@@ -530,12 +535,16 @@ export default function VisualClassroom(props: Props) {
       if (d.readAloudText && !isTeacher && d.readAloudText !== readAloudText) {
         setReadAloudText(d.readAloudText);
         if (d.readAloudVoice) setVoiceGender(d.readAloudVoice);
+        if (d.readSpeed) setReadSpeed(d.readSpeed);
+        if (d.readMusical != null) setReadMusical(d.readMusical);
         if (typeof window !== "undefined" && window.speechSynthesis) {
           window.speechSynthesis.cancel();
           const utter = new SpeechSynthesisUtterance(d.readAloudText);
           const gender = d.readAloudVoice || voiceGender;
-          utter.rate = isKG ? 0.7 : 0.85;
-          utter.pitch = gender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9);
+          const spd = d.readSpeed || readSpeed;
+          const musical = d.readMusical ?? readMusical;
+          utter.rate = spd;
+          utter.pitch = musical ? (gender === "female" ? 1.5 : 1.3) : (gender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9));
           utter.volume = 1;
           const voice = pickVoice();
           if (voice) utter.voice = voice;
@@ -619,7 +628,9 @@ export default function VisualClassroom(props: Props) {
     };
 
     // Calculate total lines needed
-    const font = isKG ? "bold 17px Comic Sans MS, cursive" : "15px Georgia, serif";
+    const bfs = boardFontSize || 16;
+    const font = isKG ? `bold ${bfs + 1}px Comic Sans MS, cursive` : `${bfs}px Georgia, serif`;
+    const lineH = bfs + 10;
     const maxTextW = c.width - 44;
     let totalLines = 0;
     const wrappedAll: { lines: string[]; color: string }[] = [];
@@ -631,7 +642,7 @@ export default function VisualClassroom(props: Props) {
 
     // Resize canvas height dynamically
     const minH = 200;
-    const neededH = 70 + totalLines * 28 + 20;
+    const neededH = 70 + totalLines * lineH + 20;
     c.height = Math.max(minH, neededH);
 
     // Draw board background
@@ -650,10 +661,10 @@ export default function VisualClassroom(props: Props) {
       ctx.textAlign = "left";
       entry.lines.forEach((line) => {
         ctx.fillText(line, 22, y);
-        y += 28;
+        y += lineH;
       });
     });
-  }, [boardLines, subjectName, topic, isKG, boardTheme, textColorOverride, isTeacher]);
+  }, [boardLines, subjectName, topic, isKG, boardTheme, textColorOverride, isTeacher, boardFontSize]);
 
   // Actions (use the post function defined above)
 
@@ -679,8 +690,10 @@ export default function VisualClassroom(props: Props) {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(content);
-    utter.rate = isKG ? 0.7 : 0.85; // slower for KG
-    utter.pitch = voiceGender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9);
+    utter.rate = readSpeed;
+    utter.pitch = readMusical
+      ? (voiceGender === "female" ? 1.5 : 1.3)
+      : (voiceGender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9));
     utter.volume = 1;
     const voice = pickVoice();
     if (voice) utter.voice = voice;
@@ -689,7 +702,7 @@ export default function VisualClassroom(props: Props) {
     utter.onerror = () => setIsReading(false);
     window.speechSynthesis.speak(utter);
     // Broadcast to students
-    if (isTeacher) post("read_aloud", { text: content, voiceGender });
+    if (isTeacher) post("read_aloud", { text: content, voiceGender, readSpeed, readMusical });
   };
   const stopReading = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
@@ -952,19 +965,44 @@ export default function VisualClassroom(props: Props) {
           </button>}
           {isTeacher && <button onClick={() => setPanel(panel==="poll"?null:"poll")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><BarChart3 className="w-3 h-3" /></button>}
           {isTeacher && <button onClick={() => setPanel(panel==="hw"?null:"hw")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white" title="Assign Homework"><FileText className="w-3 h-3" /></button>}
+          {/* Voice & Read Controls */}
+          <div className="flex items-center gap-0.5 bg-black/20 rounded-lg p-0.5">
+            <button onClick={() => setVoiceGender("female")} className={`text-[7px] px-1 py-0.5 rounded ${voiceGender === "female" ? "bg-pink-400 text-white" : "text-white/40"}`} title="Female voice">♀</button>
+            <button onClick={() => setVoiceGender("male")} className={`text-[7px] px-1 py-0.5 rounded ${voiceGender === "male" ? "bg-blue-400 text-white" : "text-white/40"}`} title="Male voice">♂</button>
+            <button onClick={() => setReadMusical(!readMusical)} className={`text-[7px] px-1 py-0.5 rounded ${readMusical ? "bg-purple-400 text-white" : "text-white/40"}`} title="Musical/sing-song tone">🎵</button>
+          </div>
+          {/* Speed control */}
+          <div className="flex items-center gap-0.5 bg-black/20 rounded-lg px-1 py-0.5" title={`Speed: ${readSpeed.toFixed(1)}x`}>
+            <button onClick={() => setReadSpeed(Math.max(0.3, readSpeed - 0.15))} className="text-[7px] text-white/60 hover:text-white px-0.5">🐢</button>
+            <span className="text-[6px] text-white/50 w-5 text-center">{readSpeed.toFixed(1)}x</span>
+            <button onClick={() => setReadSpeed(Math.min(2.0, readSpeed + 0.15))} className="text-[7px] text-white/60 hover:text-white px-0.5">🐇</button>
+          </div>
+          {/* Font size control */}
+          <div className="flex items-center gap-0.5 bg-black/20 rounded-lg px-1 py-0.5" title={`Board font: ${boardFontSize}px`}>
+            <button onClick={() => setBoardFontSize(Math.max(10, boardFontSize - 2))} className="text-[7px] text-white/60 hover:text-white font-bold">A-</button>
+            <span className="text-[6px] text-white/50 w-4 text-center">{boardFontSize}</span>
+            <button onClick={() => setBoardFontSize(Math.min(32, boardFontSize + 2))} className="text-[8px] text-white/60 hover:text-white font-bold">A+</button>
+          </div>
+          {/* Save & read buttons */}
           {isTeacher && (
-            <div className="flex items-center gap-0.5 bg-black/20 rounded-lg p-0.5">
-              <button onClick={() => setVoiceGender("female")} className={`text-[7px] px-1 py-0.5 rounded ${voiceGender === "female" ? "bg-pink-400 text-white" : "text-white/40"}`} title="Female voice">♀</button>
-              <button onClick={() => setVoiceGender("male")} className={`text-[7px] px-1 py-0.5 rounded ${voiceGender === "male" ? "bg-blue-400 text-white" : "text-white/40"}`} title="Male voice">♂</button>
-            </div>
-          )}
-          {isTeacher && (
-            <button onClick={() => isReading ? stopReading() : readAloud()}
-              className={`p-1 rounded-lg ${isReading ? "bg-emerald-500 text-white animate-pulse" : "bg-gray-600 text-white/60 hover:text-white"}`}
-              title="Read board text aloud to students">
-              {isReading ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+            <button onClick={() => {
+              const name = `Board ${new Date().toLocaleTimeString()}`;
+              setSavedBoards(prev => [...prev, { name, lines: [...boardLines], time: Date.now() }]);
+              alert(`✅ Board saved as "${name}"`);
+            }} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white" title="Save board content">
+              <Save className="w-3 h-3" />
             </button>
           )}
+          {isTeacher && savedBoards.length > 0 && (
+            <button onClick={() => setShowSavedBoards(!showSavedBoards)} className={`p-1 rounded-lg text-[7px] font-bold ${showSavedBoards ? "bg-blue-400 text-white" : "bg-gray-600 text-white/60 hover:text-white"}`} title="Load saved boards">
+              📂{savedBoards.length}
+            </button>
+          )}
+          <button onClick={() => isReading ? stopReading() : readAloud()}
+            className={`p-1 rounded-lg ${isReading ? "bg-emerald-500 text-white animate-pulse" : "bg-gray-600 text-white/60 hover:text-white"}`}
+            title="Read board text aloud">
+            {isReading ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+          </button>
           {isKG && isTeacher && (
             <button onClick={() => setShowKGTools(!showKGTools)}
               className={`p-1 rounded-lg ${showKGTools ? "bg-yellow-400 text-yellow-900" : "bg-gray-600 text-white/60 hover:text-white"}`}
@@ -1154,6 +1192,22 @@ export default function VisualClassroom(props: Props) {
                 {isTeacher && (
                   <div className="flex items-center gap-1">
                     {CHALK.map(c => <button key={c} onClick={() => setDrawColor(c)} className={`w-3 h-3 rounded-full ${drawColor===c?"ring-2 ring-white scale-125":""}`} style={{backgroundColor:c}} />)}
+                    <button onClick={() => {
+                      const txt = prompt("Text to circle/highlight:");
+                      if (txt) {
+                        const circled = `⭕ ${txt} ⭕`;
+                        setBoardLines((prev: any) => [...prev, { text: circled, color: "#FFD700", time: Date.now(), id: Math.random().toString(36).slice(2) }]);
+                        post("board_write", { text: circled, color: "#FFD700" });
+                      }
+                    }} className="text-[7px] bg-amber-900 text-amber-200 px-1.5 py-0.5 rounded ml-0.5" title="Circle/highlight text on board">⭕</button>
+                    <button onClick={() => {
+                      const txt = prompt("Text to underline:");
+                      if (txt) {
+                        const underlined = `▬▬ ${txt} ▬▬`;
+                        setBoardLines((prev: any) => [...prev, { text: underlined, color: "#FF6B6B", time: Date.now(), id: Math.random().toString(36).slice(2) }]);
+                        post("board_write", { text: underlined, color: "#FF6B6B" });
+                      }
+                    }} className="text-[7px] bg-amber-900 text-amber-200 px-1.5 py-0.5 rounded" title="Underline text on board">U̲</button>
                     <button onClick={clearBoard} className="text-[8px] bg-amber-900 text-amber-200 px-1.5 py-0.5 rounded ml-1"><Eraser className="w-2.5 h-2.5 inline" /> Clear</button>
                   </div>
                 )}
@@ -1731,6 +1785,35 @@ export default function VisualClassroom(props: Props) {
           <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg z-50 flex items-center gap-2 animate-pulse">
             <Volume2 className="w-4 h-4" /> 🔊 Reading aloud...
             {!isTeacher ? null : <button onClick={stopReading} className="ml-2 underline text-[10px]">Stop</button>}
+          </div>
+        )}
+
+        {/* Saved Boards Panel */}
+        {showSavedBoards && isTeacher && savedBoards.length > 0 && (
+          <div className="absolute bottom-4 right-80 w-56 max-h-[50%] bg-white rounded-xl shadow-2xl border z-50 overflow-y-auto">
+            <div className="px-3 py-2 bg-blue-500 rounded-t-xl flex items-center justify-between">
+              <span className="text-xs font-bold text-white">📂 Saved Boards</span>
+              <button onClick={() => setShowSavedBoards(false)}><X className="w-3.5 h-3.5 text-white" /></button>
+            </div>
+            <div className="p-2 space-y-1.5">
+              {savedBoards.map((sb, i) => (
+                <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-blue-50 cursor-pointer"
+                  onClick={() => {
+                    setBoardLines(sb.lines);
+                    sb.lines.forEach((l: any) => post("board_write", { text: l.text, color: l.color }));
+                    setShowSavedBoards(false);
+                  }}>
+                  <span className="text-xs">📋</span>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold">{sb.name}</p>
+                    <p className="text-[8px] text-gray-400">{sb.lines.length} lines</p>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setSavedBoards(prev => prev.filter((_, j) => j !== i)); }}
+                    className="text-[8px] text-red-400 hover:text-red-600">✕</button>
+                </div>
+              ))}
+              <p className="text-[8px] text-gray-400 text-center mt-1">⚠️ Saved locally — cleared when you leave</p>
+            </div>
           </div>
         )}
 

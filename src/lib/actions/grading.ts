@@ -445,8 +445,8 @@ export async function generateTermReports(termId: string) {
       }
 
       // Also include graded homework submissions that may not have Assessment records
-      const classAssignments = cls.assignments || [];
-      for (const hw of classAssignments) {
+      const hwList = cls.assignments || [];
+      for (const hw of hwList) {
         const sub = (hw.submissions || []).find((s: any) => s.studentId === student.id);
         if (sub?.gradedAt && sub?.score != null) {
           // Check if there's already an Assessment [HW] for this — avoid double-counting
@@ -478,9 +478,8 @@ export async function generateTermReports(termId: string) {
       const total = Math.round(caAvg + examAvg);
 
       // Assignment tracking
-      const classAssignments = cls.assignments || [];
-      totalAssignments += classAssignments.length;
-      for (const a of classAssignments) {
+      totalAssignments += hwList.length;
+      for (const a of hwList) {
         if (a.submissions.some((s: any) => s.studentId === student.id)) {
           submittedAssignments++;
         }

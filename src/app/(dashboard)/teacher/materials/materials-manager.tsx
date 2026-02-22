@@ -143,6 +143,23 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
 
   return (
     <div className="space-y-6">
+      {/* IMPORTANT WARNING */}
+      <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <h4 className="text-sm font-bold text-amber-800">Important: Students Can See All Materials You Upload</h4>
+            <p className="text-xs text-amber-700 mt-1">
+              Everything you upload here is visible to enrolled students so they can study and prepare for class.
+              <strong> Do NOT upload</strong> exam answer keys, teacher notes with sensitive content, personal documents,
+              or anything that could be a &quot;leak&quot; if students see it. Only upload materials that help students learn and understand the subject better.
+            </p>
+            <p className="text-[10px] text-amber-600 mt-1 italic">✅ Good: Study guides, slides, past questions, reading materials, revision notes</p>
+            <p className="text-[10px] text-amber-600">❌ Avoid: Answer keys, marking schemes, internal teacher memos, upcoming exam papers</p>
+          </div>
+        </div>
+      </div>
+
       {/* Header Actions */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex gap-2 flex-wrap">
