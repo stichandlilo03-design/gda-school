@@ -8,21 +8,28 @@ export default async function AttendancePage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      classes: {
-        where: { isActive: true },
-        include: {
-          enrollments: {
-            where: { status: "ACTIVE" },
-            include: { student: { include: { user: { select: { name: true, email: true } } } } },
+
+    let teacher: any = null;
+try {
+    teacher = await db.teacher.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        classes: {
+          where: { isActive: true },
+          include: {
+            enrollments: {
+              where: { status: "ACTIVE" },
+              include: { student: { include: { user: { select: { name: true, email: true } } } } },
+            },
+            schoolGrade: true,
           },
-          schoolGrade: true,
         },
       },
-    },
-  });
+    });
+
+  } catch (err: any) {
+    console.error("attendance page error:", err?.message || err);
+  }
 
   return (
     <>

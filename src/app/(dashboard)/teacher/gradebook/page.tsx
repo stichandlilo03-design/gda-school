@@ -8,23 +8,30 @@ export default async function GradebookPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      classes: {
-        where: { isActive: true },
-        include: {
-          enrollments: { where: { status: "ACTIVE" }, include: { student: { include: { user: { select: { name: true } } } } } },
-          assessments: { include: { scores: true }, orderBy: { createdAt: "desc" } },
-          schoolGrade: true,
-          assignments: { include: { submissions: true }, orderBy: { createdAt: "desc" } },
+  let classes: any[] = [];
+  let assignments: any[] = [];
+
+  try {
+    const teacher = await db.teacher.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        classes: {
+          where: { isActive: true },
+          include: {
+            enrollments: { where: { status: "ACTIVE" }, include: { student: { include: { user: { select: { name: true } } } } } },
+            assessments: { include: { scores: true }, orderBy: { createdAt: "desc" } },
+            schoolGrade: true,
+            assignments: { include: { submissions: true }, orderBy: { createdAt: "desc" } },
+          },
         },
       },
-    },
-  });
+    });
 
-  const classes = teacher?.classes || [];
-  const assignments = classes.flatMap(c => (c.assignments || []).map(a => ({ ...a, classId: c.id })));
+    classes = teacher?.classes || [];
+    assignments = classes.flatMap((c: any) => (c.assignments || []).map((a: any) => ({ ...a, classId: c.id })));
+  } catch (err: any) {
+    console.error("Gradebook page error:", err?.message || err);
+  }
 
   return (
     <>

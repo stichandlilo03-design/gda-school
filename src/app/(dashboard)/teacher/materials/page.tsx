@@ -8,21 +8,28 @@ export default async function TeacherMaterialsPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      classes: {
-        where: { isActive: true },
-        select: { id: true, name: true, schoolGrade: { select: { gradeLevel: true } } },
-      },
-      materials: {
-        orderBy: { createdAt: "desc" },
-        include: { class: { select: { name: true } } },
-      },
-    },
-  });
 
-  if (!teacher) return null;
+    let teacher: any = null;
+try {
+    teacher = await db.teacher.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        classes: {
+          where: { isActive: true },
+          select: { id: true, name: true, schoolGrade: { select: { gradeLevel: true } } },
+        },
+        materials: {
+          orderBy: { createdAt: "desc" },
+          include: { class: { select: { name: true } } },
+        },
+      },
+    });
+
+    if (!teacher) return null;
+
+  } catch (err: any) {
+    console.error("materials page error:", err?.message || err);
+  }
 
   return (
     <>

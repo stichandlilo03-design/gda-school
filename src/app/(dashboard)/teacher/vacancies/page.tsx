@@ -8,17 +8,25 @@ export default async function TeacherVacanciesPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({ where: { userId: session.user.id } });
 
-  const vacancies = await db.vacancy.findMany({
-    where: { status: "OPEN", isPublic: true },
-    include: {
-      school: { select: { name: true, countryCode: true, motto: true } },
-      _count: { select: { applications: true } },
-      applications: teacher ? { where: { teacherId: teacher.id } } : false,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+    let teacher: any = null;
+  let vacancies: any = null;
+try {
+    teacher = await db.teacher.findUnique({ where: { userId: session.user.id } });
+
+    vacancies = await db.vacancy.findMany({
+      where: { status: "OPEN", isPublic: true },
+      include: {
+        school: { select: { name: true, countryCode: true, motto: true } },
+        _count: { select: { applications: true } },
+        applications: teacher ? { where: { teacherId: teacher.id } } : false,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+  } catch (err: any) {
+    console.error("vacancies page error:", err?.message || err);
+  }
 
   return (
     <>

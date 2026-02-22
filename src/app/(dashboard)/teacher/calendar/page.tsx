@@ -8,25 +8,33 @@ export default async function TeacherCalendarPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({
-    where: { userId: session.user.id },
-    include: { schools: { where: { isActive: true, status: "APPROVED" }, take: 1, select: { schoolId: true } } },
-  });
-  if (!teacher || !teacher.schools[0]) return null;
 
-  const schoolId = teacher.schools[0].schoolId;
+    let events: any = null;
+  let terms: any = null;
+try {
+    const teacher = await db.teacher.findUnique({
+      where: { userId: session.user.id },
+      include: { schools: { where: { isActive: true, status: "APPROVED" }, take: 1, select: { schoolId: true } } },
+    });
+    if (!teacher || !teacher.schools[0]) return null;
 
-  const events = await db.academicEvent.findMany({
-    where: { schoolId },
-    orderBy: { startDate: "asc" },
-  });
+    const schoolId = teacher.schools[0].schoolId;
 
-  const terms = await db.term.findMany({
-    where: { schoolId },
-    orderBy: { startDate: "asc" },
-  });
+    events = await db.academicEvent.findMany({
+      where: { schoolId },
+      orderBy: { startDate: "asc" },
+    });
 
-  const currentTerm = terms.find(t => t.isActive);
+    terms = await db.term.findMany({
+      where: { schoolId },
+      orderBy: { startDate: "asc" },
+    });
+
+    const currentTerm = terms.find(t => t.isActive);
+
+  } catch (err: any) {
+    console.error("calendar page error:", err?.message || err);
+  }
 
   return (
     <>

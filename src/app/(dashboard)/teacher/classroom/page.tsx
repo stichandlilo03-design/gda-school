@@ -8,43 +8,50 @@ export default async function TeacherClassroomPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      schools: {
-        where: { isActive: true, status: "APPROVED" },
-        include: { school: { select: { sessionDurationMin: true, breakDurationMin: true, sessionsPerDay: true } } },
-        take: 1,
-      },
-      classes: {
-        where: { isActive: true },
-        include: {
-          subject: true,
-          schoolGrade: true,
-          schedules: true,
-          enrollments: {
-            where: { status: "ACTIVE" },
-            include: {
-              student: {
-                include: { user: { select: { id: true, name: true, image: true } } },
+
+    let teacher: any = null;
+try {
+    teacher = await db.teacher.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        schools: {
+          where: { isActive: true, status: "APPROVED" },
+          include: { school: { select: { sessionDurationMin: true, breakDurationMin: true, sessionsPerDay: true } } },
+          take: 1,
+        },
+        classes: {
+          where: { isActive: true },
+          include: {
+            subject: true,
+            schoolGrade: true,
+            schedules: true,
+            enrollments: {
+              where: { status: "ACTIVE" },
+              include: {
+                student: {
+                  include: { user: { select: { id: true, name: true, image: true } } },
+                },
               },
             },
+            attendances: {
+              where: { date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+            },
+            announcements: { orderBy: { createdAt: "desc" }, take: 5 },
+            liveSessions: { where: { status: "IN_PROGRESS" }, take: 1 },
+            _count: { select: { materials: true } },
           },
-          attendances: {
-            where: { date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
-          },
-          announcements: { orderBy: { createdAt: "desc" }, take: 5 },
-          liveSessions: { where: { status: "IN_PROGRESS" }, take: 1 },
-          _count: { select: { materials: true } },
         },
       },
-    },
-  });
+    });
 
-  if (!teacher) return null;
+    if (!teacher) return null;
 
-  const schoolSettings = teacher.schools?.[0]?.school;
-  const totalStudents = teacher.classes.reduce((s, c) => s + c.enrollments.length, 0);
+    const schoolSettings = teacher.schools?.[0]?.school;
+    const totalStudents = teacher.classes.reduce((s, c) => s + c.enrollments.length, 0);
+
+  } catch (err: any) {
+    console.error("classroom page error:", err?.message || err);
+  }
 
   return (
     <>

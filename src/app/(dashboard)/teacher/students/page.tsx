@@ -8,32 +8,38 @@ export default async function TeacherStudentsPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  const teacher = await db.teacher.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      classes: {
-        where: { isActive: true },
-        include: {
-          enrollments: {
-            where: { status: "ACTIVE" },
-            include: { student: { include: { user: { select: { name: true, email: true } } } } },
+
+  try {
+    const teacher = await db.teacher.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        classes: {
+          where: { isActive: true },
+          include: {
+            enrollments: {
+              where: { status: "ACTIVE" },
+              include: { student: { include: { user: { select: { name: true, email: true } } } } },
+            },
+            schoolGrade: true,
           },
-          schoolGrade: true,
         },
       },
-    },
-  });
-
-  const allStudents = new Map<string, { student: any; classes: string[] }>();
-  teacher?.classes.forEach((c) => {
-    c.enrollments.forEach((e) => {
-      if (allStudents.has(e.student.id)) {
-        allStudents.get(e.student.id)!.classes.push(c.name);
-      } else {
-        allStudents.set(e.student.id, { student: e.student, classes: [c.name] });
-      }
     });
-  });
+
+    const allStudents = new Map<string, { student: any; classes: string[] }>();
+    teacher?.classes.forEach((c) => {
+      c.enrollments.forEach((e) => {
+        if (allStudents.has(e.student.id)) {
+          allStudents.get(e.student.id)!.classes.push(c.name);
+        } else {
+          allStudents.set(e.student.id, { student: e.student, classes: [c.name] });
+        }
+      });
+    });
+
+  } catch (err: any) {
+    console.error("students page error:", err?.message || err);
+  }
 
   return (
     <>
