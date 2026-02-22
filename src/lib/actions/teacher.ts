@@ -115,6 +115,16 @@ export async function createAssessment(data: {
       maxScore: data.maxScore,
       weight: data.weight,
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      termId: await (async () => {
+        try {
+          const cls = await db.class.findUnique({ where: { id: data.classId }, select: { schoolGrade: { select: { schoolId: true } } } });
+          if (cls?.schoolGrade?.schoolId) {
+            const activeTerm = await db.term.findFirst({ where: { schoolId: cls.schoolGrade.schoolId, isActive: true } });
+            return activeTerm?.id || null;
+          }
+          return null;
+        } catch { return null; }
+      })(),
       isPublished: true,
       gradeStatus: "DRAFT",
     },

@@ -219,7 +219,13 @@ export async function generateTermReports(termId: string) {
               subject: true,
               teacher: { include: { user: { select: { name: true } } } },
               assessments: {
-                where: { termId, gradeStatus: "APPROVED" },
+                where: {
+                  gradeStatus: "APPROVED",
+                  OR: [
+                    { termId },
+                    { termId: null, createdAt: { gte: term.startDate, lte: term.endDate || new Date() } },
+                  ],
+                },
                 include: { scores: true },
               },
               attendances: true,
@@ -243,7 +249,7 @@ export async function generateTermReports(termId: string) {
 
     // Calculate attendance rate
     const totalAttendance = student.attendances.length;
-    const presentCount = student.attendances.filter(a => a.status === "PRESENT" || a.status === "LATE").length;
+    const presentCount = student.attendances.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
     const attendanceRate = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0;
 
     // Calculate assignment completion rate across all classes
@@ -316,8 +322,24 @@ export async function generateTermReports(termId: string) {
     }
 
     const assignmentRate = totalAssignments > 0 ? Math.round((submittedAssignments / totalAssignments) * 100) : 100;
-    const overallAvg = subjectReports.length > 0
-      ? Math.round(subjectReports.reduce((s: number, r: any) => s + r.totalScore, 0) / subjectReports.length)
+
+    // Merge duplicate subjects (e.g. two Mathematics classes → one report line)
+    const mergedReports: typeof subjectReports = [];
+    for (const sr of subjectReports) {
+      const existing = mergedReports.find((r: any) => r.subjectName === sr.subjectName);
+      if (existing) {
+        // Average the scores from both classes
+        existing.caScore = Math.round(((existing.caScore + sr.caScore) / 2) * 100) / 100;
+        existing.examScore = Math.round(((existing.examScore + sr.examScore) / 2) * 100) / 100;
+        existing.totalScore = Math.round(existing.caScore + existing.examScore);
+        existing.grade = getGradeFromScore(existing.totalScore);
+      } else {
+        mergedReports.push({ ...sr });
+      }
+    }
+
+    const overallAvg = mergedReports.length > 0
+      ? Math.round(mergedReports.reduce((s: number, r: any) => s + r.totalScore, 0) / mergedReports.length)
       : 0;
 
     // Participation score (based on attendance + assignment completion)
@@ -349,7 +371,7 @@ export async function generateTermReports(termId: string) {
 
     // Delete old subject reports and create new ones
     await db.subjectReport.deleteMany({ where: { termReportId: report.id } });
-    for (const sr of subjectReports) {
+    for (const sr of mergedReports) {
       await db.subjectReport.create({
         data: {
           termReportId: report.id,
