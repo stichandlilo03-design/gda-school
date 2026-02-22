@@ -108,7 +108,7 @@ export default async function StudentDashboard() {
 
   // Get recent announcements
   const announcements = await db.classAnnouncement.findMany({
-    where: { classId: { in: student.enrollments.map((e) => e.classId) } },
+    where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
     orderBy: { createdAt: "desc" },
     take: 5,
     include: { class: { select: { name: true } } },
@@ -123,13 +123,13 @@ export default async function StudentDashboard() {
   };
 
   // Collect all requirements across classes
-  const allRequirements = student.enrollments.flatMap((e) =>
+  const allRequirements = student.enrollments.flatMap((e: any) =>
     e.class.requirements.map((r: any) => ({ ...r, className: e.class.name }))
   );
 
   // Collect all classmates (unique)
   const classmateMap = new Map<string, any>();
-  student.enrollments.forEach((e) => {
+  student.enrollments.forEach((e: any) => {
     e.class.enrollments.forEach((en: any) => {
       if (en.student.user.name !== session.user.name) {
         classmateMap.set(en.studentId, en.student.user);
@@ -143,8 +143,8 @@ export default async function StudentDashboard() {
   const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const today = DAYS[new Date().getDay()];
   const todaysClasses = student.enrollments
-    .filter((e) => e.class.schedules.some((s: any) => s.dayOfWeek === today))
-    .map((e) => ({
+    .filter((e: any) => e.class.schedules.some((s: any any) => s.dayOfWeek === today))
+    .map((e: any) => ({
       ...e.class,
       todaySchedule: e.class.schedules.find((s: any) => s.dayOfWeek === today),
     }))
@@ -189,7 +189,7 @@ export default async function StudentDashboard() {
     const liveSessions = await db.liveClassSession.findMany({
       where: {
         status: "IN_PROGRESS",
-        classId: { in: student.enrollments.map((e) => e.classId) },
+        classId: { in: student.enrollments.map((e: any) => e.classId) },
       },
       include: {
         class: {
@@ -208,7 +208,7 @@ export default async function StudentDashboard() {
       take: 30,
     });
     let streak = 0;
-    const dates = new Set(recentAtt.map((a) => a.date.toISOString().split("T")[0]));
+    const dates = new Set(recentAtt.map((a: any) => a.date.toISOString().split("T")[0]));
     const d = new Date();
     for (let i = 0; i < 30; i++) {
       const key = d.toISOString().split("T")[0];
@@ -218,7 +218,7 @@ export default async function StudentDashboard() {
     }
 
     const recentGrades = await db.assessment.findMany({
-      where: { classId: { in: student.enrollments.map((e) => e.classId) } },
+      where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
       take: 5,
       orderBy: { createdAt: "desc" },
     });
@@ -534,7 +534,7 @@ export default async function StudentDashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {student.enrollments.map((enrollment) => {
+              {student.enrollments.map((enrollment: any) => {
                 const cls = enrollment.class;
                 const classmates = cls.enrollments.filter((e: any) => e.studentId !== student.id);
                 return (
