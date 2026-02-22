@@ -273,7 +273,7 @@ export default function VisualClassroom(props: Props) {
   const [liveMinutes, setLiveMinutes] = useState(0);
 
   // Local UI state
-  const [panel, setPanel] = useState<"chat"|"qa"|"whisper"|"poll"|null>(null);
+  const [panel, setPanel] = useState<"chat"|"qa"|"whisper"|"poll"|"hw"|null>(null);
   const [activeTool, setActiveTool] = useState<string|null>(null);
   const [chatMsg, setChatMsg] = useState("");
   const [boardText, setBoardText] = useState("");
@@ -315,6 +315,12 @@ export default function VisualClassroom(props: Props) {
   const [examTitle, setExamTitle] = useState("");
   const [examQuestions, setExamQuestions] = useState<{question:string;options:string[];correctOption:number|null;timeLimitSec:number}[]>([]);
   const [examSaving, setExamSaving] = useState(false);
+  const [hwTitle, setHwTitle] = useState("");
+  const [hwDesc, setHwDesc] = useState("");
+  const [hwDue, setHwDue] = useState("");
+  const [hwType, setHwType] = useState("HOMEWORK");
+  const [hwSending, setHwSending] = useState(false);
+  const [hwSent, setHwSent] = useState("");
   const [isSessionPrep, setIsSessionPrep] = useState(false);
   const [prepHidden, setPrepHidden] = useState<Record<string, boolean>>({});
 
@@ -703,6 +709,24 @@ export default function VisualClassroom(props: Props) {
     setExamSaving(false);
   };
 
+  const sendHomework = async () => {
+    if (!hwTitle.trim()) { alert("Enter homework title"); return; }
+    setHwSending(true);
+    try {
+      const res = await fetch("/api/classroom/" + sessionIdRef.current, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign_homework", title: hwTitle, description: hwDesc, dueDate: hwDue, type: hwType, classId }),
+      });
+      const d = await res.json();
+      if (d.ok) {
+        setHwSent(`✅ "${hwTitle}" assigned to all students! They'll get a notification.`);
+        setHwTitle(""); setHwDesc(""); setHwDue(""); setHwType("HOMEWORK");
+        setTimeout(() => setHwSent(""), 5000);
+      } else { alert(d.error || "Failed to assign"); }
+    } catch (_e) { alert("Failed to assign homework"); }
+    setHwSending(false);
+  };
+
   const CHALK = ["#FFFFFF","#FFFF00","#FF6B6B","#4ECDC4","#45B7D1","#FF9F43","#A55EEA"];
   const unanswered = questions.filter((q:any)=>!q.answered).length;
   const myWhispers = whispers.filter((w:any) => w.fromId === studentId || w.toId === studentId);
@@ -820,6 +844,7 @@ export default function VisualClassroom(props: Props) {
             : myWhispers.length>0 && <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-pink-500/60 text-[7px] text-white rounded-full flex items-center justify-center">{myWhispers.length}</span>}
           </button>}
           {isTeacher && <button onClick={() => setPanel(panel==="poll"?null:"poll")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><BarChart3 className="w-3 h-3" /></button>}
+          {isTeacher && <button onClick={() => setPanel(panel==="hw"?null:"hw")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white" title="Assign Homework"><FileText className="w-3 h-3" /></button>}
           {!isTeacher && <button onClick={() => setShowSettings(!showSettings)} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><Settings className="w-3 h-3" /></button>}
           <button onClick={() => setFullscreen(!fullscreen)} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
             {fullscreen?<Minimize2 className="w-3 h-3" />:<Maximize2 className="w-3 h-3" />}
@@ -1519,6 +1544,38 @@ export default function VisualClassroom(props: Props) {
                       );
                     })}
                   </div>}
+                </div>
+              </>)}
+
+              {/* HOMEWORK PANEL */}
+              {panel==="hw" && isTeacher && (<>
+                <div className="px-3 py-2 bg-brand-50 border-b flex items-center justify-between">
+                  <span className="text-xs font-bold text-brand-800">📝 Assign Homework</span>
+                  <button onClick={() => setPanel(null)}><X className="w-3.5 h-3.5 text-gray-400" /></button>
+                </div>
+                <div className="p-3 space-y-3 overflow-y-auto flex-1">
+                  {hwSent && <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700">{hwSent}</div>}
+                  <p className="text-[10px] text-gray-500">Assign homework to all students in this class. They&apos;ll get a notification and see it on their desk.</p>
+                  <input className="input-field text-xs w-full" placeholder="Homework title *" value={hwTitle} onChange={e => setHwTitle(e.target.value)} />
+                  <textarea className="input-field text-xs w-full" rows={3} placeholder="Instructions (optional)" value={hwDesc} onChange={e => setHwDesc(e.target.value)} />
+                  <div>
+                    <label className="text-[10px] text-gray-500 block mb-0.5">Due Date</label>
+                    <input type="date" className="input-field text-xs w-full" value={hwDue} onChange={e => setHwDue(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block mb-0.5">Type</label>
+                    <select className="input-field text-xs w-full" value={hwType} onChange={e => setHwType(e.target.value)}>
+                      <option value="HOMEWORK">Homework</option>
+                      <option value="ASSIGNMENT">Assignment</option>
+                      <option value="QUIZ">Quiz</option>
+                    </select>
+                  </div>
+                  <button onClick={sendHomework} disabled={hwSending || !hwTitle.trim()} className="btn-primary text-xs w-full py-2 flex items-center justify-center gap-1">
+                    {hwSending ? "Assigning..." : <><Send className="w-3 h-3" /> Assign to {students.length} Students</>}
+                  </button>
+                  <div className="text-[9px] text-gray-400 border-t pt-2">
+                    <p>For MCQ/math questions, use <strong>Polls &amp; Exams</strong> or <a href="/teacher/gradebook" className="text-brand-600 underline">Gradebook</a>.</p>
+                  </div>
                 </div>
               </>)}
             </div>

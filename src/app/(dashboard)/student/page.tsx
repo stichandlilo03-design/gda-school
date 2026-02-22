@@ -73,46 +73,58 @@ export default async function StudentDashboard() {
   }
 
   // Calculate fee info
-  const schoolGrade = await db.schoolGrade.findFirst({
-    where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
-  });
   let totalFees = 0;
-  if (schoolGrade) {
-    const feeStructures = await db.feeStructure.findMany({
-      where: { schoolGradeId: schoolGrade.id, isActive: true },
+  let approvedPaid = 0;
+  let pendingAmount = 0;
+  let feePercent = 100;
+  let feeThreshold = 70;
+  let feePolicy = "PERCENTAGE";
+  let hasAccess = true;
+  let balanceDue = 0;
+  let activeTerm: any = null;
+  let announcements: any[] = [];
+
+  try {
+    const schoolGrade = await db.schoolGrade.findFirst({
+      where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
     });
-    totalFees = feeStructures.reduce(
-      (sum, fs) => sum + fs.tuitionFee + fs.registrationFee + fs.examFee + fs.technologyFee, 0
-    );
+    if (schoolGrade) {
+      const feeStructures = await db.feeStructure.findMany({
+        where: { schoolGradeId: schoolGrade.id, isActive: true },
+      });
+      totalFees = feeStructures.reduce(
+        (sum: number, fs: any) => sum + fs.tuitionFee + fs.registrationFee + fs.examFee + fs.technologyFee, 0
+      );
+    }
+
+    approvedPaid = student.payments
+      .filter((p: any) => p.status === "COMPLETED")
+      .reduce((sum: number, p: any) => sum + p.amount, 0);
+    pendingAmount = student.payments
+      .filter((p: any) => p.status === "UNDER_REVIEW")
+      .reduce((sum: number, p: any) => sum + p.amount, 0);
+
+    feePercent = totalFees > 0 ? Math.round((approvedPaid / totalFees) * 100) : 100;
+    feeThreshold = student.school.feePaymentThreshold ?? 70;
+    feePolicy = student.school.feePaymentPolicy || "PERCENTAGE";
+    hasAccess = feePolicy === "FLEXIBLE" ? true
+      : feePolicy === "FULL" ? (feePercent >= 100 || student.feePaid)
+      : (feePercent >= feeThreshold || student.feePaid);
+    balanceDue = Math.max(0, totalFees - approvedPaid);
+
+    activeTerm = await db.term.findFirst({
+      where: { schoolId: student.schoolId, isActive: true },
+    });
+
+    announcements = await db.classAnnouncement.findMany({
+      where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { class: { select: { name: true } } },
+    });
+  } catch (queryErr: any) {
+    console.error("Student dashboard secondary queries error:", queryErr?.message || queryErr);
   }
-
-  const approvedPaid = student.payments
-    .filter((p: any) => p.status === "COMPLETED")
-    .reduce((sum: number, p: any) => sum + p.amount, 0);
-  const pendingAmount = student.payments
-    .filter((p: any) => p.status === "UNDER_REVIEW")
-    .reduce((sum: number, p: any) => sum + p.amount, 0);
-
-  const feePercent = totalFees > 0 ? Math.round((approvedPaid / totalFees) * 100) : 100;
-  const feeThreshold = student.school.feePaymentThreshold ?? 70;
-  const feePolicy = student.school.feePaymentPolicy || "PERCENTAGE";
-  const hasAccess = feePolicy === "FLEXIBLE" ? true
-    : feePolicy === "FULL" ? (feePercent >= 100 || student.feePaid)
-    : (feePercent >= feeThreshold || student.feePaid);
-  const balanceDue = Math.max(0, totalFees - approvedPaid);
-
-  // Get active term
-  const activeTerm = await db.term.findFirst({
-    where: { schoolId: student.schoolId, isActive: true },
-  });
-
-  // Get recent announcements
-  const announcements = await db.classAnnouncement.findMany({
-    where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    include: { class: { select: { name: true } } },
-  });
 
   const enrollmentCount = student.enrollments.length;
   const firstName = session.user.name.split(" ")[0];
@@ -186,42 +198,48 @@ export default async function StudentDashboard() {
     }
 
     // Get live sessions for KG dashboard
-    const liveSessions = await db.liveClassSession.findMany({
-      where: {
-        status: "IN_PROGRESS",
-        classId: { in: student.enrollments.map((e: any) => e.classId) },
-      },
-      include: {
-        class: {
-          include: {
-            subject: true,
-            teacher: { include: { user: { select: { name: true } } } },
+    let liveSessions: any[] = [];
+    let streak = 0;
+    let recentGrades: any[] = [];
+    try {
+      liveSessions = await db.liveClassSession.findMany({
+        where: {
+          status: "IN_PROGRESS",
+          classId: { in: student.enrollments.map((e: any) => e.classId) },
+        },
+        include: {
+          class: {
+            include: {
+              subject: true,
+              teacher: { include: { user: { select: { name: true } } } },
+            },
           },
         },
-      },
-    });
+      });
 
-    // Attendance streak
-    const recentAtt = await db.attendanceRecord.findMany({
-      where: { studentId: student.id, status: "PRESENT" },
-      orderBy: { date: "desc" },
-      take: 30,
-    });
-    let streak = 0;
-    const dates = new Set(recentAtt.map((a: any) => a.date.toISOString().split("T")[0]));
-    const d = new Date();
-    for (let i = 0; i < 30; i++) {
-      const key = d.toISOString().split("T")[0];
-      if (dates.has(key)) streak++;
-      else if (i > 0) break;
-      d.setDate(d.getDate() - 1);
+      // Attendance streak
+      const recentAtt = await db.attendanceRecord.findMany({
+        where: { studentId: student.id, status: "PRESENT" },
+        orderBy: { date: "desc" },
+        take: 30,
+      });
+      const dates = new Set(recentAtt.map((a: any) => a.date.toISOString().split("T")[0]));
+      const d = new Date();
+      for (let i = 0; i < 30; i++) {
+        const key = d.toISOString().split("T")[0];
+        if (dates.has(key)) streak++;
+        else if (i > 0) break;
+        d.setDate(d.getDate() - 1);
+      }
+
+      recentGrades = await db.assessment.findMany({
+        where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
+        take: 5,
+        orderBy: { createdAt: "desc" },
+      });
+    } catch (_e) {
+      console.error("KG dashboard queries error:", _e);
     }
-
-    const recentGrades = await db.assessment.findMany({
-      where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
-      take: 5,
-      orderBy: { createdAt: "desc" },
-    });
 
     const todayScheduleItems = todaysClasses.map((c: any) => ({
       classId: c.id,

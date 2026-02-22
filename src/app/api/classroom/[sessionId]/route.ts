@@ -375,6 +375,24 @@ export async function POST(
       return NextResponse.json({ ok: true });
     }
 
+    // ===== ASSIGN HOMEWORK FROM CLASSROOM =====
+    if (action === "assign_homework") {
+      try {
+        const { createAssignment } = await import("@/lib/actions/grading");
+        const result = await createAssignment({
+          classId: body.classId || ls.classId,
+          title: body.title,
+          description: body.description,
+          dueDate: body.dueDate,
+          type: body.type || "HOMEWORK",
+        });
+        if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
+        return NextResponse.json({ ok: true });
+      } catch (e: any) {
+        return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
+      }
+    }
+
     // ===== WEBRTC SIGNALING =====
     // Join as RTC participant
     if (action === "rtc_join") {
