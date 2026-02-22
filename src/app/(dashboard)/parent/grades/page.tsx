@@ -32,7 +32,7 @@ export default async function ParentGradesPage() {
                   orderBy: { createdAt: "desc" },
                 },
                 assignmentSubmissions: {
-                  include: { assignment: { include: { class: { select: { id: true, name: true } } } } },
+                  include: { assignment: { include: { class: { select: { id: true, name: true, subject: { select: { name: true } } } } } } },
                   orderBy: { submittedAt: "desc" },
                 },
                 enrollments: {

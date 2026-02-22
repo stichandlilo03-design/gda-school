@@ -420,26 +420,57 @@ export default function GradingOversight({ pendingAssessments, approvedAssessmen
                           </div>
                           {isSubOpen && (
                             <div className="p-3 space-y-2">
+                              {/* Show assignment description as the prompt/question */}
+                              {a.description && (
+                                <div className="bg-gray-100 rounded-lg p-2 text-[10px]">
+                                  <p className="font-bold text-gray-600">📋 Assignment Prompt:</p>
+                                  <p className="text-gray-700 mt-0.5">{a.description}</p>
+                                </div>
+                              )}
                               {sub.content && (
                                 <div className="bg-blue-50 rounded-lg p-2 text-xs text-gray-800">
-                                  <p className="font-bold text-blue-700 text-[10px] mb-1">Written Answer:</p>
+                                  <p className="font-bold text-blue-700 text-[10px] mb-1">📝 Student&apos;s Written Answer:</p>
                                   <p className="whitespace-pre-wrap">{sub.content}</p>
                                 </div>
                               )}
-                              {questions.length > 0 && subAnswers.length > 0 && questions.map((q: any, qi: number) => {
+                              {sub.fileUrl && (
+                                <div className="bg-purple-50 rounded-lg p-2 text-[10px]">
+                                  <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="text-purple-700 underline">📎 View Attached File</a>
+                                </div>
+                              )}
+                              {questions.length > 0 && questions.map((q: any, qi: number) => {
                                 const sa = subAnswers.find((ans: any) => ans.questionId === q.id);
                                 return (
-                                  <div key={q.id} className={`rounded-lg p-2 border text-[10px] ${sa?.isCorrect === true ? "bg-emerald-50 border-emerald-200" : sa?.isCorrect === false ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
-                                    <p className="font-medium text-gray-700">Q{qi + 1}. {q.question}</p>
-                                    <p className="mt-0.5">Answer: <span className="font-bold">{sa?.answer || "—"}</span></p>
-                                    {q.correctAnswer && <p className="text-emerald-600">Correct: {q.correctAnswer}</p>}
-                                    {sa?.isCorrect === true && <span className="text-emerald-600 font-bold">✅ +{sa.points} pts</span>}
-                                    {sa?.isCorrect === false && <span className="text-red-600 font-bold">❌ 0 pts</span>}
-                                    {sa?.isCorrect == null && sa && <span className="text-amber-600">⏳ Needs teacher grading</span>}
+                                  <div key={q.id || qi} className={`rounded-lg p-2.5 border text-[10px] ${sa?.isCorrect === true ? "bg-emerald-50 border-emerald-200" : sa?.isCorrect === false ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <span className="w-4 h-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[8px] font-bold">{qi + 1}</span>
+                                      <span className={`text-[8px] px-1 py-0.5 rounded font-bold ${q.type === "mcq" ? "bg-blue-100 text-blue-700" : q.type === "math" ? "bg-green-100 text-green-700" : q.type === "essay" ? "bg-purple-100 text-purple-700" : "bg-gray-200 text-gray-600"}`}>{(q.type || "text").toUpperCase()}</span>
+                                      {sa?.isCorrect === true && <span className="text-emerald-600 font-bold">✅ Correct</span>}
+                                      {sa?.isCorrect === false && <span className="text-red-600 font-bold">❌ Wrong</span>}
+                                      {sa?.isCorrect == null && sa && <span className="text-amber-600">⏳ Manual</span>}
+                                    </div>
+                                    <p className="font-semibold text-gray-800 mb-1">❓ {q.question}</p>
+                                    {q.type === "mcq" && q.options && (
+                                      <div className="space-y-0.5 mb-1 ml-4">
+                                        {q.options.map((opt: string, oi: number) => (
+                                          <div key={oi} className={`px-1.5 py-0.5 rounded ${opt === q.correctAnswer ? "bg-emerald-100 text-emerald-800 font-bold" : opt === sa?.answer && opt !== q.correctAnswer ? "bg-red-100 text-red-700 line-through" : "text-gray-500"}`}>
+                                            {String.fromCharCode(65 + oi)}. {opt}
+                                            {opt === q.correctAnswer && " ✓"}
+                                            {opt === sa?.answer && opt !== q.correctAnswer && " ← student"}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <p>Student answered: <span className="font-bold text-gray-800">{sa?.answer || "— no answer —"}</span></p>
+                                    {q.correctAnswer && <p className="text-emerald-600">Correct answer: <strong>{q.correctAnswer}</strong></p>}
+                                    {sa?.points != null && <p className="font-bold text-brand-600">Points: {sa.points}/{q.points || 1}</p>}
                                   </div>
                                 );
                               })}
-                              {sub.feedback && <p className="text-[10px] text-blue-600 italic">Teacher feedback: &quot;{sub.feedback}&quot;</p>}
+                              {questions.length === 0 && !sub.content && !sub.fileUrl && (
+                                <p className="text-[10px] text-gray-400 text-center py-2">No detailed answer data available</p>
+                              )}
+                              {sub.feedback && <p className="text-[10px] text-blue-600 italic mt-1">💬 Teacher feedback: &quot;{sub.feedback}&quot;</p>}
                             </div>
                           )}
                         </div>

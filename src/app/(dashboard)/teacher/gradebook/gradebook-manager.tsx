@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createAssessment, enterScores, deleteAssessment } from "@/lib/actions/teacher";
 import { submitGradesForApproval, createAssignment, gradeAssignment } from "@/lib/actions/grading";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Loader2, ClipboardList, Save, Send, CheckCircle, Clock, XCircle, FileText, AlertTriangle, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Loader2, ClipboardList, Save, Send, CheckCircle, Clock, XCircle, FileText, AlertTriangle, ChevronDown, Lock } from "lucide-react";
 
 const TYPES = [
   { value: "CONTINUOUS_ASSESSMENT", label: "Continuous Assessment (CA)" },
@@ -476,31 +476,45 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
                                       )}
 
                                       {/* Grading section */}
-                                      <div className="border-t pt-3 space-y-2">
-                                        <div className="flex items-center gap-3">
-                                          <div>
-                                            <label className="text-[10px] font-bold text-gray-500">Score</label>
-                                            <div className="flex items-center gap-1">
-                                              <input type="number" className="input-field w-20 text-sm py-1" min={0} max={a.maxScore || a.totalPoints}
-                                                defaultValue={sub.score ?? sub.autoScore ?? ""}
-                                                onChange={(e) => setScores((p) => ({ ...p, [sub.id]: parseFloat(e.target.value) || 0 }))} />
-                                              <span className="text-xs text-gray-400">/ {a.maxScore || a.totalPoints}</span>
+                                      <div className="border-t pt-3">
+                                        {sub.gradedAt ? (
+                                          <div className="flex items-center gap-3 flex-wrap">
+                                            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                              <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                              <span className="text-sm font-bold text-emerald-700">{sub.score}/{a.maxScore || a.totalPoints}</span>
+                                              <span className="text-[9px] text-emerald-500">Graded {new Date(sub.gradedAt).toLocaleDateString()}</span>
                                             </div>
+                                            {sub.feedback && (
+                                              <div className="text-[10px] text-blue-600 italic flex-1">💬 &quot;{sub.feedback}&quot;</div>
+                                            )}
+                                            <span className="text-[9px] text-gray-400 flex items-center gap-1"><Lock className="w-3 h-3" /> Locked after grading</span>
                                           </div>
-                                          <div className="flex-1">
-                                            <label className="text-[10px] font-bold text-gray-500">Teacher Feedback</label>
-                                            <input className="input-field text-xs py-1" placeholder="Write feedback for this student..."
-                                              defaultValue={sub.feedback || ""}
-                                              onChange={(e) => setFeedbackText((p) => ({ ...p, [sub.id]: e.target.value }))} />
+                                        ) : (
+                                          <div className="space-y-2">
+                                            <div className="flex items-center gap-3">
+                                              <div>
+                                                <label className="text-[10px] font-bold text-gray-500">Score</label>
+                                                <div className="flex items-center gap-1">
+                                                  <input type="number" className="input-field w-20 text-sm py-1" min={0} max={a.maxScore || a.totalPoints}
+                                                    defaultValue={sub.autoScore ?? ""}
+                                                    onChange={(e) => setScores((p) => ({ ...p, [sub.id]: parseFloat(e.target.value) || 0 }))} />
+                                                  <span className="text-xs text-gray-400">/ {a.maxScore || a.totalPoints}</span>
+                                                </div>
+                                              </div>
+                                              <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-gray-500">Teacher Feedback</label>
+                                                <input className="input-field text-xs py-1" placeholder="Write feedback for this student..."
+                                                  onChange={(e) => setFeedbackText((p) => ({ ...p, [sub.id]: e.target.value }))} />
+                                              </div>
+                                            </div>
+                                            <button
+                                              onClick={() => handleGradeAssignment(sub.id, scores[sub.id] ?? sub.autoScore ?? 0, feedbackText[sub.id] || undefined)}
+                                              disabled={loading === sub.id}
+                                              className="text-xs px-4 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium">
+                                              {loading === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save Grade"}
+                                            </button>
                                           </div>
-                                        </div>
-                                        <button
-                                          onClick={() => handleGradeAssignment(sub.id, scores[sub.id] ?? sub.score ?? sub.autoScore ?? 0, feedbackText[sub.id] || sub.feedback || undefined)}
-                                          disabled={loading === sub.id}
-                                          className="text-xs px-4 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium">
-                                          {loading === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : sub.gradedAt ? "Update Grade" : "Save Grade"}
-                                        </button>
-                                        {sub.feedback && <p className="text-[10px] text-blue-600 italic">Current feedback: &quot;{sub.feedback}&quot;</p>}
+                                        )}
                                       </div>
                                     </div>
                                   )}

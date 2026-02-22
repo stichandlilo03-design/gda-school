@@ -375,29 +375,86 @@ export default function StudentGradesClient({ scores, assignments, submissions, 
       )}
 
       {/* ============ GRADES TAB ============ */}
-      {tab === "grades" && (
+      {tab === "grades" && (() => {
+        const gradedSubs = submissions.filter((s: any) => s.gradedAt && s.score != null);
+        const hasAny = scores.length > 0 || gradedSubs.length > 0;
+        return (
         <div className="space-y-3">
-          {scores.length === 0 ? (
+          {!hasAny && (
             <div className="card text-center py-8"><p className="text-gray-400 text-sm">No grades yet</p></div>
-          ) : scores.map((s: any) => (
-            <div key={s.id} className="card flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
-                s.score / (s.assessment?.maxScore || 100) >= 0.7 ? "bg-emerald-100 text-emerald-700" :
-                s.score / (s.assessment?.maxScore || 100) >= 0.5 ? "bg-amber-100 text-amber-700" :
-                "bg-red-100 text-red-700"
-              }`}>
-                {Math.round(s.score / (s.assessment?.maxScore || 100) * 100)}%
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-gray-800 truncate">{s.assessment?.title}</h4>
-                <p className="text-[10px] text-gray-500">{s.assessment?.class?.subject?.name || s.assessment?.class?.name}</p>
-                <p className="text-[10px] text-gray-400">{s.score}/{s.assessment?.maxScore} · {s.assessment?.type?.replace(/_/g, " ")}</p>
-              </div>
-              {s.feedback && <p className="text-[9px] text-gray-500 max-w-[120px] truncate">{s.feedback}</p>}
+          )}
+
+          {/* Assessment Scores (Principal Approved) */}
+          {scores.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">📋 Assessments (Principal Approved)</p>
+              {scores.map((s: any) => (
+                <div key={s.id} className="card flex items-center gap-3 mb-2">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+                    s.score / (s.assessment?.maxScore || 100) >= 0.7 ? "bg-emerald-100 text-emerald-700" :
+                    s.score / (s.assessment?.maxScore || 100) >= 0.5 ? "bg-amber-100 text-amber-700" :
+                    "bg-red-100 text-red-700"
+                  }`}>
+                    {Math.round(s.score / (s.assessment?.maxScore || 100) * 100)}%
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold text-gray-800 truncate">{s.assessment?.title}</h4>
+                    <p className="text-[10px] text-gray-500">{s.assessment?.class?.subject?.name || s.assessment?.class?.name}</p>
+                    <p className="text-[10px] text-gray-400">{s.score}/{s.assessment?.maxScore} · {s.assessment?.type?.replace(/_/g, " ")}</p>
+                  </div>
+                  {s.feedback && <p className="text-[9px] text-gray-500 max-w-[120px] truncate">{s.feedback}</p>}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {/* Graded Homework / Assignments */}
+          {gradedSubs.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">📝 Homework & Assignments (Teacher Graded)</p>
+              {gradedSubs.map((sub: any) => {
+                const a = sub.assignment;
+                const pct = a?.maxScore > 0 ? (sub.score / a.maxScore) * 100 : 0;
+                const questions = (a?.questions || []) as any[];
+                const subAnswers = (sub.answers || []) as any[];
+                return (
+                  <div key={sub.id} className="card mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${pct >= 70 ? "bg-emerald-100 text-emerald-700" : pct >= 50 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                        {Math.round(pct)}%
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-gray-800 truncate">{a?.title || "Homework"}</h4>
+                        <p className="text-[10px] text-gray-500">{a?.class?.subject?.name || a?.class?.name}</p>
+                        <p className="text-[10px] text-gray-400">{sub.score}/{a?.maxScore || a?.totalPoints} · {a?.type || "HOMEWORK"}</p>
+                      </div>
+                      {sub.feedback && <p className="text-[9px] text-blue-500 max-w-[120px] truncate italic">{sub.feedback}</p>}
+                    </div>
+
+                    {/* Show Q&A details */}
+                    {questions.length > 0 && (
+                      <div className="mt-2 pt-2 border-t space-y-1">
+                        {questions.map((q: any, qi: number) => {
+                          const sa = subAnswers.find((ans: any) => ans.questionId === q.id);
+                          return (
+                            <div key={q.id} className={`text-[10px] rounded-lg p-2 ${sa?.isCorrect === true ? "bg-emerald-50" : sa?.isCorrect === false ? "bg-red-50" : "bg-gray-50"}`}>
+                              <span className="font-bold">Q{qi + 1}. {q.question}</span>
+                              <span className="ml-2">Your answer: <strong>{sa?.answer || "—"}</strong></span>
+                              {sa?.isCorrect === true && <span className="text-emerald-600 ml-1">✅</span>}
+                              {sa?.isCorrect === false && <span className="text-red-600 ml-1">❌ (Correct: {q.correctAnswer})</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ============ REPORTS TAB ============ */}
       {tab === "reports" && (

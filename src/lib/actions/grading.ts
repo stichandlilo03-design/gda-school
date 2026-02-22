@@ -120,12 +120,80 @@ export async function gradeAssignment(submissionId: string, score: number, feedb
   const sess = await getServerSession(authOptions);
   if (!sess || sess.user.role !== "TEACHER") return { error: "Unauthorized" };
 
+  // Check if already graded — locked after first grading
+  const existing = await db.assignmentSubmission.findUnique({ where: { id: submissionId } });
+  if (existing?.gradedAt) return { error: "Already graded. Grades are locked after marking." };
+
   await db.assignmentSubmission.update({
     where: { id: submissionId },
     data: { score, feedback, gradedAt: new Date() },
   });
 
+  // Check if ALL submissions for this assignment are now graded
+  // If yes, auto-create an Assessment + Score records for principal approval
+  try {
+    const sub = await db.assignmentSubmission.findUnique({
+      where: { id: submissionId },
+      include: { assignment: { include: { class: { include: { schoolGrade: true } }, submissions: true } } },
+    });
+    if (sub?.assignment) {
+      const allSubs = sub.assignment.submissions;
+      const allGraded = allSubs.length > 0 && allSubs.every((s: any) => s.gradedAt);
+      
+      if (allGraded) {
+        // Check if assessment already created for this assignment
+        const existingAssessment = await db.assessment.findFirst({
+          where: { classId: sub.assignment.classId, title: `[HW] ${sub.assignment.title}` },
+        });
+        
+        if (!existingAssessment) {
+          // Find active term
+          let termId = null;
+          try {
+            const schoolId = sub.assignment.class?.schoolGrade?.schoolId;
+            if (schoolId) {
+              const term = await db.term.findFirst({ where: { schoolId, isActive: true } });
+              termId = term?.id || null;
+            }
+          } catch (_e) {}
+
+          // Create assessment from homework
+          const assessment = await db.assessment.create({
+            data: {
+              classId: sub.assignment.classId,
+              title: `[HW] ${sub.assignment.title}`,
+              type: sub.assignment.type === "QUIZ" ? "MID_TERM_TEST" : "CONTINUOUS_ASSESSMENT",
+              maxScore: sub.assignment.maxScore || sub.assignment.totalPoints || 100,
+              weight: 1,
+              termId,
+              gradeStatus: "SUBMITTED", // Goes to principal for approval
+            },
+          });
+
+          // Create score records for each graded submission
+          for (const s of allSubs) {
+            if (s.score != null) {
+              await db.score.create({
+                data: {
+                  assessmentId: assessment.id,
+                  studentId: s.studentId,
+                  score: s.score,
+                  feedback: s.feedback,
+                  gradedAt: s.gradedAt,
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Auto-assessment from homework error:", err);
+    // Don't fail the grading — just log
+  }
+
   revalidatePath("/teacher/gradebook");
+  revalidatePath("/principal/grading");
   return { success: true };
 }
 
