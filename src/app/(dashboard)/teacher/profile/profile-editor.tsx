@@ -65,7 +65,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
   const [newAch, setNewAch] = useState("");
   const [subjectSearch, setSubjectSearch] = useState("");
 
-  const filteredSubjects = SUBJECTS.filter((s) => s.toLowerCase().includes(subjectSearch.toLowerCase()) && !subjects.includes(s));
+  const filteredSubjects = SUBJECTS.filter((s: any) => s.toLowerCase().includes(subjectSearch.toLowerCase()) && !subjects.includes(s));
 
   // Photo upload
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,7 +137,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
           { key: "share", label: "🔗 Share & Video" },
           { key: "idcard", label: "🪪 ID Card" },
           { key: "preview", label: "👁 Preview" },
-        ].map((t) => (
+        ].map((t: any) => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
             className={`text-xs px-4 py-2.5 rounded-lg font-medium ${tab === t.key ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
             {t.label}
@@ -197,7 +197,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
               <div><label className="label">Teaching Style</label>
                 <select className="input-field" value={style} onChange={(e) => setStyle(e.target.value)}>
                   <option value="">Select style</option>
-                  {STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {STYLES.map((s: any) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div><label className="label">Years of Experience</label><input type="number" className="input-field" min={0} max={50} value={experience} onChange={(e) => setExperience(parseInt(e.target.value) || 0)} /></div>
@@ -267,7 +267,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
                   {filteredSubjects.length === 0 ? (
                     <p className="text-xs text-gray-400 p-3">No matching subjects</p>
                   ) : (
-                    filteredSubjects.map((s) => (
+                    filteredSubjects.map((s: any) => (
                       <button key={s} onClick={() => { setSubjects([...subjects, s]); setSubjectSearch(""); }}
                         className="w-full text-left text-xs px-3 py-2 hover:bg-brand-50 text-gray-700">{s}</button>
                     ))
@@ -280,7 +280,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
           <div className="card space-y-4">
             <h3 className="section-title flex items-center gap-2"><GraduationCap className="w-4 h-4" /> Grade Levels I Teach</h3>
             <div className="flex flex-wrap gap-2">
-              {GRADES.map((g) => (
+              {GRADES.map((g: any) => (
                 <button key={g} onClick={() => setGrades(grades.includes(g) ? grades.filter((x) => x !== g) : [...grades, g])}
                   className={`text-xs px-3 py-2 rounded-lg font-medium transition-all ${grades.includes(g) ? "bg-emerald-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                   {g}
@@ -509,7 +509,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
               {/* Rating */}
               {teacher.rating > 0 && (
                 <div className="flex items-center gap-1 mt-2">
-                  {[1, 2, 3, 4, 5].map((s) => <Star key={s} className={`w-4 h-4 ${s <= teacher.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}`} />)}
+                  {[1, 2, 3, 4, 5].map((s: any) => <Star key={s} className={`w-4 h-4 ${s <= teacher.rating ? "text-amber-400 fill-amber-400" : "text-gray-300"}`} />)}
                   <span className="text-xs text-gray-500 ml-1">{teacher.rating.toFixed(1)}</span>
                 </div>
               )}
@@ -521,7 +521,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
               <div className="py-4 border-b border-gray-100">
                 <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Subjects</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {subjects.map((s) => <span key={s} className="text-xs bg-brand-100 text-brand-700 px-2.5 py-1 rounded-full font-medium">{s}</span>)}
+                  {subjects.map((s: any) => <span key={s} className="text-xs bg-brand-100 text-brand-700 px-2.5 py-1 rounded-full font-medium">{s}</span>)}
                 </div>
               </div>
             )}
@@ -530,7 +530,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
               <div className="py-4 border-b border-gray-100">
                 <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Grades</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {grades.map((g) => <span key={g} className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">{g}</span>)}
+                  {grades.map((g: any) => <span key={g} className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">{g}</span>)}
                 </div>
               </div>
             )}

@@ -100,7 +100,7 @@ export default function PrincipalRegisterPage() {
               <label className="label">Country *</label>
               <select className="input-field" value={form.countryCode} onChange={(e) => update("countryCode", e.target.value)} required>
                 <option value="">Select country</option>
-                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.name} ({c.currency})</option>)}
+                {COUNTRIES.map((c: any) => <option key={c.code} value={c.code}>{c.flag} {c.name} ({c.currency})</option>)}
               </select>
             </div>
 

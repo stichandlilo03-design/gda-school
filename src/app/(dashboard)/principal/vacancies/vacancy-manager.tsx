@@ -70,7 +70,7 @@ export default function VacancyManager({ vacancies, currency }: { vacancies: any
               <label className="label">Grade Level (assigns teacher on approval)</label>
               <select className="input-field" value={form.gradeLevel} onChange={(e) => setForm((p) => ({ ...p, gradeLevel: e.target.value }))}>
                 <option value="">Select grade...</option>
-                {["K1","K2","K3","G1","G2","G3","G4","G5","G6","G7","G8","G9","G10","G11","G12"].map((g) => <option key={g} value={g}>{g}</option>)}
+                {["K1","K2","K3","G1","G2","G3","G4","G5","G6","G7","G8","G9","G10","G11","G12"].map((g: any) => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div>

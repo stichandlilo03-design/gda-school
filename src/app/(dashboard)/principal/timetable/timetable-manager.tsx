@@ -168,7 +168,7 @@ export default function TimetableManager({ school, grades, schoolTeachers }: Pro
   };
   const handleAddSlot = async (day: string, period: number) => {
     if (!slotForm.classId) { setMessage("Select a subject"); return; }
-    const ts = timeSlots.find(t => t.period === period);
+    const ts = timeSlots.find((t: any) => t.period === period);
     setLoading("add");
     const r = await saveTimetableSlot({ classId: slotForm.classId, dayOfWeek: day, periodNumber: period, startTime: slotForm.startTime || ts?.start || "08:00", endTime: slotForm.endTime || ts?.end || "08:40" });
     r.error ? setMessage("Error: " + r.error) : (setShowAdd(null), setSlotForm({ classId: "", startTime: "", endTime: "" }), router.refresh());

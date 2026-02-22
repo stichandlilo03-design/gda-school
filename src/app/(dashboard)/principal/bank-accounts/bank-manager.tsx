@@ -29,14 +29,14 @@ export default function BankAccountManager({ accounts }: { accounts: any[] }) {
 
   const handleUpdate = async (id: string) => {
     setLoading("upd-" + id);
-    const acc = accounts.find((a) => a.id === id);
+    const acc = accounts.find((a: any) => a.id === id);
     await updateBankAccount(id, { ...form, isActive: acc?.isActive ?? true });
     setEditId(null); setForm(EMPTY); router.refresh(); setLoading("");
   };
 
   const handleToggle = async (id: string, isActive: boolean) => {
     setLoading("tog-" + id);
-    const acc = accounts.find((a) => a.id === id)!;
+    const acc = accounts.find((a: any) => a.id === id)!;
     await updateBankAccount(id, { accountName: acc.accountName, bankName: acc.bankName, accountNumber: acc.accountNumber, routingNumber: acc.routingNumber || "", swiftCode: acc.swiftCode || "", currency: acc.currency, country: acc.country, instructions: acc.instructions || "", isActive: !isActive });
     router.refresh(); setLoading("");
   };
@@ -74,12 +74,12 @@ export default function BankAccountManager({ accounts }: { accounts: any[] }) {
             <div><label className="text-[10px] text-gray-500">SWIFT/BIC Code</label><input className="input-field text-xs" placeholder="Optional" value={form.swiftCode} onChange={(e) => setForm({ ...form, swiftCode: e.target.value })} /></div>
             <div><label className="text-[10px] text-gray-500">Currency *</label>
               <select className="input-field text-xs" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {CURRENCIES.map((c: any) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div><label className="text-[10px] text-gray-500">Country *</label>
               <select className="input-field text-xs" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })}>
-                {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                {COUNTRIES.map((c: any) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="col-span-2"><label className="text-[10px] text-gray-500">Payment Instructions</label>
@@ -106,7 +106,7 @@ export default function BankAccountManager({ accounts }: { accounts: any[] }) {
         </div>
       ) : (
         <div className="grid lg:grid-cols-2 gap-4">
-          {accounts.map((acc) => (
+          {accounts.map((acc: any) => (
             <div key={acc.id} className={`card ${!acc.isActive ? "opacity-50 border-dashed" : ""}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">

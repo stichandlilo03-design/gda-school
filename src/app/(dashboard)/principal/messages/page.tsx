@@ -42,7 +42,7 @@ export default async function PrincipalMessagesPage() {
     const partnerId = msg.senderId === session.user.id ? msg.receiverId : msg.senderId;
     const partner = msg.senderId === session.user.id ? msg.receiver : msg.sender;
     if (!convMap.has(partnerId)) {
-      const unread = allMessages.filter((m) => m.senderId === partnerId && m.receiverId === session.user.id && !m.isRead).length;
+      const unread = allMessages.filter((m: any) => m.senderId === partnerId && m.receiverId === session.user.id && !m.isRead).length;
       convMap.set(partnerId, { partner, lastMessage: msg, unread });
     }
   }

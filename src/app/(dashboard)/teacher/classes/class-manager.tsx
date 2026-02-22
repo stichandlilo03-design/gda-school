@@ -115,7 +115,7 @@ export default function ClassManager({ classes, availableGrades }: { classes: an
                   {availableGrades.map((g: any) => <option key={g.id} value={g.id}>{g.gradeLevel}</option>)}
                 </select>
                 <select className="input-field" value={form.session} onChange={(e) => setForm({ ...form, session: e.target.value })}>
-                  {SESSIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  {SESSIONS.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
                 <input type="number" className="input-field" placeholder="Max students" min={5} max={100} value={form.maxStudents} onChange={(e) => setForm({ ...form, maxStudents: parseInt(e.target.value) || 40 })} />
               </div>
@@ -250,7 +250,7 @@ export default function ClassManager({ classes, availableGrades }: { classes: an
                     <div className="grid grid-cols-4 gap-2">
                       <input className="input-field text-xs col-span-2" placeholder="Item name *" value={reqForm.item} onChange={(e) => setReqForm({ ...reqForm, item: e.target.value })} />
                       <select className="input-field text-xs" value={reqForm.category} onChange={(e) => setReqForm({ ...reqForm, category: e.target.value })}>
-                        {REQ_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        {REQ_CATEGORIES.map((c: any) => <option key={c.value} value={c.value}>{c.label}</option>)}
                       </select>
                       <div className="flex items-center gap-1">
                         <label className="text-[10px] flex items-center gap-1">

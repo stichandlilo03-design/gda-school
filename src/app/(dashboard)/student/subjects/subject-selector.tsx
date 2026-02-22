@@ -227,7 +227,7 @@ export default function SubjectSelector({
                       const full = cls.enrollments.length >= cls.maxStudents;
                       const alreadyEnrolledOther = item.status === "enrolled" && !enrolled;
                       const multi = (teacherSubjectMap.get(cls.teacher.id) || new Set()).size > 1;
-                      const otherSubjects = Array.from(teacherSubjectMap.get(cls.teacher.id) || []).filter((s) => s !== item.subject.name);
+                      const otherSubjects = Array.from(teacherSubjectMap.get(cls.teacher.id) || []).filter((s: any) => s !== item.subject.name);
                       const isSel = selectedForBulk[item.subject.id] === cls.id;
 
                       return (

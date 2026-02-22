@@ -108,7 +108,7 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
           { key: "sessions", label: `📊 Sessions (${sessionCredits.length})` },
           { key: "accounts", label: `🏦 Accounts (${bankAccounts.length})` },
           { key: "payslips", label: `📄 Payslips (${payrolls.length})` },
-        ].map((t) => (
+        ].map((t: any) => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
             className={`text-xs px-5 py-2.5 rounded-lg font-medium ${tab === t.key ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
             {t.label}
@@ -422,7 +422,7 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
                     const nc = getCountryConfig(e.target.value);
                     setForm((p) => ({ ...p, countryCode: e.target.value, currency: nc.currency, methodType: nc.popularMethods[0] || "BANK_TRANSFER", bankName: "", mobileProvider: "" }));
                   }}>
-                    {ALL_COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.currency})</option>)}
+                    {ALL_COUNTRIES.map((c: any) => <option key={c.code} value={c.code}>{c.name} ({c.currency})</option>)}
                   </select>
                 </div>
                 <div>
@@ -441,7 +441,7 @@ export default function TeacherPayroll({ schools, bankAccounts, classes, country
                     { key: "PAYPAL", label: "PayPal", icon: Globe },
                     { key: "CRYPTO", label: "Crypto", icon: Bitcoin },
                     { key: "CASH", label: "Cash", icon: Banknote },
-                  ].filter((m) => selectedCountry.methods.includes(m.key)).map((m) => (
+                  ].filter((m: any) => selectedCountry.methods.includes(m.key)).map((m: any) => (
                     <button key={m.key} onClick={() => setForm((p) => ({ ...p, methodType: m.key }))}
                       className={`flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${form.methodType === m.key ? "bg-brand-600 text-white" : "bg-white border border-gray-200 hover:bg-gray-50"}`}>
                       <m.icon className="w-5 h-5" />{m.label}

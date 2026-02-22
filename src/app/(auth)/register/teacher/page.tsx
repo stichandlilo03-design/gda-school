@@ -74,7 +74,7 @@ export default function TeacherRegisterPage() {
           <h1 className="text-2xl font-bold text-gray-900">Teacher Application</h1>
           <p className="text-gray-500 mt-1">Step {step} of 2</p>
           <div className="flex gap-2 mt-4 max-w-xs mx-auto">
-            {[1, 2].map((s) => (
+            {[1, 2].map((s: any) => (
               <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= step ? "bg-emerald-500" : "bg-gray-200"}`} />
             ))}
           </div>
@@ -107,7 +107,7 @@ export default function TeacherRegisterPage() {
                   <label className="label">Country *</label>
                   <select className="input-field" value={form.countryCode} onChange={(e) => update("countryCode", e.target.value)} required>
                     <option value="">Select country</option>
-                    {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
+                    {COUNTRIES.map((c: any) => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
                   </select>
                 </div>
                 <button type="button" onClick={nextStep} className="btn-primary w-full mt-2" style={{ background: "#059669" }}>

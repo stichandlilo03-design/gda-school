@@ -199,7 +199,7 @@ export default function FeeManager({
               <div>
                 <label className="label">Term</label>
                 <select className="input-field" value={selectedTerm} onChange={(e) => { setSelectedTerm(e.target.value); loadExisting(selectedGrade, e.target.value); }}>
-                  {TERMS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {TERMS.map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
             </div>
@@ -209,7 +209,7 @@ export default function FeeManager({
                 { key: "registrationFee", label: "Registration Fee" },
                 { key: "examFee", label: "Exam Fee" },
                 { key: "technologyFee", label: "Technology Fee" },
-              ].map((f) => (
+              ].map((f: any) => (
                 <div key={f.key}>
                   <label className="label">{f.label} ({currency})</label>
                   <input type="number" className="input-field" min={0} value={(form as any)[f.key]}

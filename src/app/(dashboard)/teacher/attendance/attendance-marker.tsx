@@ -99,7 +99,7 @@ export default function AttendanceMarker({ classes }: { classes: any[] }) {
                   <p className="text-sm font-medium text-gray-800">{enrollment.student.user.name}</p>
                 </div>
                 <div className="flex gap-1">
-                  {STATUSES.map((s) => (
+                  {STATUSES.map((s: any) => (
                     <button key={s.value}
                       onClick={() => setRecords((p) => ({ ...p, [enrollment.student.id]: s.value }))}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${

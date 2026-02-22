@@ -124,7 +124,7 @@ export default function StudentRegisterPage() {
           <h1 className="text-2xl font-bold text-gray-900">Student Registration</h1>
           <p className="text-gray-500 mt-1">Step {step} of 4</p>
           <div className="flex gap-2 mt-4 max-w-xs mx-auto">
-            {[1, 2, 3, 4].map((s) => (
+            {[1, 2, 3, 4].map((s: any) => (
               <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= step ? "bg-brand-500" : "bg-gray-200"}`} />
             ))}
           </div>
@@ -199,7 +199,7 @@ export default function StudentRegisterPage() {
                           value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                       </div>
                       <div className="max-h-40 overflow-y-auto mt-2 border rounded-lg divide-y">
-                        {filteredCountries.map((c) => {
+                        {filteredCountries.map((c: any) => {
                           const schoolCount = availableCountries.find(ac => ac.code === c.code)?.schoolCount || 0;
                           const hasS = schoolCount > 0;
                           return (
@@ -230,7 +230,7 @@ export default function StudentRegisterPage() {
                           <div>
                             <label className="label flex items-center gap-1"><School className="w-3.5 h-3.5" /> Select School *</label>
                             <div className="space-y-2">
-                              {countrySchools.map((s) => (
+                              {countrySchools.map((s: any) => (
                                 <button key={s.id} type="button"
                                   onClick={() => update("schoolId", s.id)}
                                   className={`w-full text-left p-3 rounded-xl border-2 transition ${
@@ -342,7 +342,7 @@ export default function StudentRegisterPage() {
                           <option value="">Select your level</option>
                           {sys.levels.map((level) => (
                             <optgroup key={level.section} label={level.section}>
-                              {level.grades.map((g) => (
+                              {level.grades.map((g: any) => (
                                 <option key={g.value} value={g.value}>{g.label} (Ages {g.ageRange})</option>
                               ))}
                             </optgroup>
@@ -360,7 +360,7 @@ export default function StudentRegisterPage() {
                 <div>
                   <label className="label">Preferred Session *</label>
                   <div className="space-y-2">
-                    {SESSIONS.map((s) => (
+                    {SESSIONS.map((s: any) => (
                       <label key={s.value} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${form.preferredSession === s.value ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:border-gray-300"}`}>
                         <input type="radio" name="session" value={s.value} checked={form.preferredSession === s.value} onChange={(e) => update("preferredSession", e.target.value)} className="text-brand-600" />
                         <div>

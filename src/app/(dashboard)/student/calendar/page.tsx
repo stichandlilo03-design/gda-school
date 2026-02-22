@@ -35,7 +35,7 @@ export default async function StudentCalendarPage() {
     orderBy: { startDate: "asc" },
   });
 
-  const currentTerm = terms.find(t => t.isActive);
+  const currentTerm = terms.find((t: any) => t.isActive);
 
   return (
     <>

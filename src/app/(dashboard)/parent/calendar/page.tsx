@@ -27,7 +27,7 @@ export default async function ParentCalendarPage() {
   if (!parent) return <div className="p-8">Not found.</div>;
 
   // Get unique school IDs
-  const schoolIds = [...new Set(parent.children.map((c) => c.student.schoolId))];
+  const schoolIds = [...new Set(parent.children.map((c: any) => c.student.schoolId))];
   const schoolNames: Record<string, string> = {};
   parent.children.forEach((c) => { schoolNames[c.student.schoolId] = c.student.school.name; });
 
@@ -42,7 +42,7 @@ export default async function ParentCalendarPage() {
     orderBy: { startDate: "asc" },
   });
 
-  const currentTerm = terms.find((t) => t.isActive);
+  const currentTerm = terms.find((t: any) => t.isActive);
 
   return (
     <>

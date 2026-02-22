@@ -157,7 +157,7 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
           </select>
           <select className="input-field text-xs w-32" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
             <option value="">All Types</option>
-            {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            {TYPES.map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <button onClick={() => setShowForm(!showForm)} className="btn-primary text-sm flex items-center gap-1.5">
@@ -183,7 +183,7 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
             <div>
               <label className="text-[10px] font-medium text-gray-600">Type</label>
               <select className="input-field mt-1" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {TYPES.map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
           </div>
@@ -208,7 +208,7 @@ export default function MaterialsManager({ classes, materials }: { classes: any[
             <div>
               <label className="text-[10px] font-medium text-gray-600">Upload File * (images, videos, PDFs, docs — max 50MB)</label>
               <input ref={fileRef} type="file"
-                accept={TYPES.find((t) => t.value === form.type)?.accept || "*"}
+                accept={TYPES.find((t: any) => t.value === form.type)?.accept || "*"}
                 onChange={handleFileChange} className="hidden" />
               <button onClick={() => fileRef.current?.click()}
                 className={`mt-1 w-full p-5 border-2 border-dashed rounded-xl text-center transition-colors ${

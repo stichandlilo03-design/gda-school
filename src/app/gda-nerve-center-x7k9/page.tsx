@@ -140,7 +140,7 @@ export default function GdaNerveCenter() {
       {/* CONTENT */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold">{TABS.find(t => t.id === tab)?.icon} {TABS.find(t => t.id === tab)?.label}</h2>
+          <h2 className="text-lg font-bold">{TABS.find((t: any) => t.id === tab)?.icon} {TABS.find((t: any) => t.id === tab)?.label}</h2>
           <div className="flex items-center gap-2">
             {msg && <span className="text-xs text-amber-400 bg-amber-400/10 px-3 py-1 rounded">{msg}</span>}
             <button onClick={loadTab} className="text-xs bg-gray-800 text-gray-400 px-3 py-1.5 rounded-lg hover:bg-gray-700">

@@ -57,7 +57,7 @@ export default function StudentMaterialsClient({
         </div>
         <select className="input-field text-xs w-40" value={filterClass} onChange={(e) => setFilterClass(e.target.value)}>
           <option value="">All Classes</option>
-          {classes.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.materialCount})</option>)}
+          {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.materialCount})</option>)}
         </select>
         <select className="input-field text-xs w-32" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
           <option value="">All Types</option>

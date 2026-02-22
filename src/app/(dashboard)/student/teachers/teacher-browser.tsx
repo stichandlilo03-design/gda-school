@@ -29,7 +29,7 @@ export default function TeacherBrowser({
   const allSubjects = [...new Set(teachers.flatMap((t) => t.subjects))].sort();
 
   // Filter
-  const filtered = teachers.filter((t) => {
+  const filtered = teachers.filter((t: any) => {
     if (search && !t.name.toLowerCase().includes(search.toLowerCase()) &&
       !t.subjects.some((s: string) => s.toLowerCase().includes(search.toLowerCase()))) return false;
     if (filterSubject && !t.subjects.includes(filterSubject)) return false;
@@ -73,7 +73,7 @@ export default function TeacherBrowser({
         </div>
         <select className="input-field text-xs w-44" value={filterSubject} onChange={(e) => setFilterSubject(e.target.value)}>
           <option value="">All Subjects</option>
-          {allSubjects.map((s) => <option key={s} value={s}>{s}</option>)}
+          {allSubjects.map((s: any) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
@@ -85,7 +85,7 @@ export default function TeacherBrowser({
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((t) => {
+          {filtered.map((t: any) => {
             const isExp = expanded === t.id;
             const isMultiSubject = t.subjects.length > 1;
             return (

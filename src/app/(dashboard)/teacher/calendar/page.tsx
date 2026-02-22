@@ -30,7 +30,7 @@ try {
       orderBy: { startDate: "asc" },
     });
 
-    const currentTerm = terms.find(t => t.isActive);
+    const currentTerm = terms.find((t: any) => t.isActive);
 
   } catch (err: any) {
     console.error("calendar page error:", err?.message || err);

@@ -153,7 +153,7 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <select className="input-field" value={assessmentForm.type} onChange={(e) => setAssessmentForm((p) => ({ ...p, type: e.target.value }))}>
-                        {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        {TYPES.map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
                       <input className="input-field" placeholder="Title (e.g. Week 3 CA)" value={assessmentForm.title} onChange={(e) => setAssessmentForm((p) => ({ ...p, title: e.target.value }))} />
                     </div>

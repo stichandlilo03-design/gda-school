@@ -25,21 +25,21 @@ export default async function ReportsPage() {
 
   // Teachers
   const teachers = await db.schoolTeacher.findMany({ where: { schoolId } });
-  const activeTeachers = teachers.filter((t) => t.status === "APPROVED" && t.isActive && !t.isSuspended && !t.terminatedAt);
+  const activeTeachers = teachers.filter((t: any) => t.status === "APPROVED" && t.isActive && !t.isSuspended && !t.terminatedAt);
 
   // Classes
   const classes = await db.class.findMany({
     where: { schoolGrade: { schoolId } },
     include: { enrollments: { where: { status: "ACTIVE" } }, schedules: true, _count: { select: { materials: true, assessments: true } } },
   });
-  const activeClasses = classes.filter((c) => c.isActive);
+  const activeClasses = classes.filter((c: any) => c.isActive);
   const totalEnrollments = activeClasses.reduce((s, c) => s + c.enrollments.length, 0);
 
   // Payments
   const payments = await db.payment.findMany({ where: { student: { schoolId } } });
-  const totalRevenue = payments.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + p.amount, 0);
-  const pendingPayments = payments.filter((p) => p.status === "UNDER_REVIEW");
-  const rejectedPayments = payments.filter((p) => p.status === "REJECTED");
+  const totalRevenue = payments.filter((p: any) => p.status === "COMPLETED").reduce((s: number, p: any) => s + p.amount, 0);
+  const pendingPayments = payments.filter((p: any) => p.status === "UNDER_REVIEW");
+  const rejectedPayments = payments.filter((p: any) => p.status === "REJECTED");
 
   // Attendance this month
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -99,11 +99,11 @@ export default async function ReportsPage() {
               <div className="p-3 bg-amber-50 rounded-xl">
                 <p className="text-[10px] text-amber-600">Pending Review</p>
                 <p className="text-xl font-bold text-amber-700">{pendingPayments.length}</p>
-                <p className="text-[10px] text-amber-500">{pendingPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}</p>
+                <p className="text-[10px] text-amber-500">{pendingPayments.reduce((s: number, p: any) => s + p.amount, 0).toLocaleString()}</p>
               </div>
             </div>
             <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500" /> {payments.filter((p) => p.status === "COMPLETED").length} approved</span>
+              <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500" /> {payments.filter((p: any) => p.status === "COMPLETED").length} approved</span>
               <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" /> {rejectedPayments.length} rejected</span>
               <span className="flex items-center gap-1"><CreditCard className="w-3 h-3 text-gray-400" /> {payments.length} total</span>
             </div>
@@ -206,7 +206,7 @@ export default async function ReportsPage() {
             <p className="text-xs text-gray-400 text-center py-6">No active classes.</p>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-              {activeClasses.map((cls) => (
+              {activeClasses.map((cls: any) => (
                 <div key={cls.id} className="p-3 bg-gray-50 rounded-xl">
                   <p className="text-xs font-semibold text-gray-800 truncate">{cls.name}</p>
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">

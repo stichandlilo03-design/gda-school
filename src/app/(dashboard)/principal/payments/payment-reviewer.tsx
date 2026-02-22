@@ -110,7 +110,7 @@ export default function PaymentReviewer({
             { key: "pending", label: `Pending (${pending.length})`, alert: pending.length > 0 },
             { key: "approved", label: `Approved (${approved.length})` },
             { key: "rejected", label: `Rejected (${rejected.length})` },
-          ].map((t) => (
+          ].map((t: any) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`text-xs px-3.5 py-2 rounded-lg font-medium ${tab === t.key
                 ? "bg-brand-600 text-white"

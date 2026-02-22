@@ -28,8 +28,8 @@ export default async function PrincipalDashboard() {
   const school = principal.school;
   const pendingStudents = school.students.filter((s: any) => s.approvalStatus === "PENDING" || s.approvalStatus === "INTERVIEW_SCHEDULED" || s.approvalStatus === "INTERVIEWED").length;
   const approvedStudents = school.students.filter((s: any) => s.approvalStatus === "APPROVED").length;
-  const pendingTeachers = school.teachers.filter((t) => t.status === "PENDING" || t.status === "INTERVIEW_SCHEDULED" || t.status === "INTERVIEWED").length;
-  const activeTeachers = school.teachers.filter((t) => t.status === "APPROVED" && t.isActive).length;
+  const pendingTeachers = school.teachers.filter((t: any) => t.status === "PENDING" || t.status === "INTERVIEW_SCHEDULED" || t.status === "INTERVIEWED").length;
+  const activeTeachers = school.teachers.filter((t: any) => t.status === "APPROVED" && t.isActive).length;
   const openVacancies = school.vacancies.length;
   const totalApplications = school.vacancies.reduce((sum, v) => sum + v._count.applications, 0);
 
@@ -51,7 +51,7 @@ export default async function PrincipalDashboard() {
     include: { schoolGrade: true },
   });
   const feeByGrade = new Map<string, number>();
-  fees.forEach((f) => {
+  fees.forEach((f: any) => {
     const k = f.schoolGrade.gradeLevel;
     feeByGrade.set(k, (feeByGrade.get(k) || 0) + f.tuitionFee + f.registrationFee + f.examFee + f.technologyFee);
   });
@@ -63,7 +63,7 @@ export default async function PrincipalDashboard() {
 
   let totalOutstanding = 0;
   let studentsInDebt = 0;
-  studentsWithPayments.forEach((s) => {
+  studentsWithPayments.forEach((s: any) => {
     const total = feeByGrade.get(s.gradeLevel) || 0;
     const paid = s.payments.reduce((sum, p) => sum + p.amount, 0);
     const balance = total - paid;

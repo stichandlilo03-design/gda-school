@@ -32,11 +32,11 @@ export default async function PaymentsPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const pending = payments.filter((p) => p.status === "UNDER_REVIEW");
-  const approved = payments.filter((p) => p.status === "COMPLETED");
-  const rejected = payments.filter((p) => p.status === "REJECTED");
-  const totalCollected = approved.reduce((s, p) => s + p.amount, 0);
-  const totalPending = pending.reduce((s, p) => s + p.amount, 0);
+  const pending = payments.filter((p: any) => p.status === "UNDER_REVIEW");
+  const approved = payments.filter((p: any) => p.status === "COMPLETED");
+  const rejected = payments.filter((p: any) => p.status === "REJECTED");
+  const totalCollected = approved.reduce((s: number, p: any) => s + p.amount, 0);
+  const totalPending = pending.reduce((s: number, p: any) => s + p.amount, 0);
 
   return (
     <>

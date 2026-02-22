@@ -188,7 +188,7 @@ export default function CurriculumManager({ grades, countryCode }: { grades: any
                         {addingSubject === grade.id ? (
                           <div className="p-4 bg-blue-50 rounded-lg space-y-3">
                             <div className="flex flex-wrap gap-1 mb-2">
-                              {COMMON_SUBJECTS.map((s) => (
+                              {COMMON_SUBJECTS.map((s: any) => (
                                 <button key={s.code} type="button" onClick={() => setSubjectForm(p => ({ ...p, name: s.name, code: s.code }))}
                                   className="text-[10px] px-2 py-1 rounded-full bg-white border border-gray-200 hover:bg-brand-50 hover:border-brand-300 transition-colors">
                                   {s.name}

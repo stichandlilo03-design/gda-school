@@ -51,7 +51,7 @@ export default function ParentGradesClient({ children: childrenData }: { childre
       {/* Child selector */}
       {childrenData.length > 1 && (
         <div className="flex gap-2 flex-wrap">
-          {childrenData.map((c) => (
+          {childrenData.map((c: any) => (
             <button key={c.id} onClick={() => { setSelectedChild(c.id); setTab("grades"); }}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition ${
                 selectedChild === c.id ? "bg-brand-600 text-white" : "bg-white border text-gray-600 hover:bg-gray-50"
@@ -108,7 +108,7 @@ export default function ParentGradesClient({ children: childrenData }: { childre
               { key: "grades", label: `📊 Verified Grades (${totalScores})`, count: totalScores },
               { key: "assignments", label: `📝 Assignments (${child.assignments?.length || 0})`, count: child.assignments?.length || 0 },
               { key: "reports", label: `📋 Report Cards (${child.termReports?.length || 0})`, count: child.termReports?.length || 0 },
-            ].map((t) => (
+            ].map((t: any) => (
               <button key={t.key} onClick={() => setTab(t.key as any)}
                 className={`px-4 py-2 text-xs font-medium ${tab === t.key ? "border-b-2 border-brand-600 text-brand-700" : "text-gray-500"}`}>
                 {t.label}

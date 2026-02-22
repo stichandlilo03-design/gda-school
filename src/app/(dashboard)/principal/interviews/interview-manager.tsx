@@ -26,8 +26,8 @@ export default function InterviewManager({ interviews }: { interviews: any[] }) 
   const [tab, setTab] = useState<"scheduled" | "completed" | "all">("scheduled");
   const [scoreForm, setScoreForm] = useState<Record<string, any>>({});
 
-  const scheduled = interviews.filter((i) => i.status === "SCHEDULED");
-  const completed = interviews.filter((i) => i.status === "COMPLETED");
+  const scheduled = interviews.filter((i: any) => i.status === "SCHEDULED");
+  const completed = interviews.filter((i: any) => i.status === "COMPLETED");
   const current = tab === "scheduled" ? scheduled : tab === "completed" ? completed : interviews;
 
   const getCandidateName = (i: any) => {
@@ -93,7 +93,7 @@ export default function InterviewManager({ interviews }: { interviews: any[] }) 
           { key: "scheduled", label: `Scheduled (${scheduled.length})` },
           { key: "completed", label: `Completed (${completed.length})` },
           { key: "all", label: `All (${interviews.length})` },
-        ].map((t) => (
+        ].map((t: any) => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
             className={`text-xs px-4 py-2 rounded-lg font-medium ${tab === t.key ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
             {t.label}
@@ -162,7 +162,7 @@ export default function InterviewManager({ interviews }: { interviews: any[] }) 
                       { key: "scoreAttitude", label: "Attitude" },
                       { key: "scoreExperience", label: "Experience" },
                       { key: "scoreOverall", label: "Overall (/100)" },
-                    ].map((s) => (
+                    ].map((s: any) => (
                       <div key={s.key}>
                         <label className="text-[10px] font-medium text-gray-500 uppercase">{s.label}</label>
                         <input type="number" className="input-field" min={0} max={s.key === "scoreOverall" ? 100 : 10}
@@ -212,7 +212,7 @@ export default function InterviewManager({ interviews }: { interviews: any[] }) 
                       { label: "Attitude", value: interview.scoreAttitude },
                       { label: "Experience", value: interview.scoreExperience },
                       { label: "Overall", value: interview.scoreOverall },
-                    ].map((s) => (
+                    ].map((s: any) => (
                       <div key={s.label} className="text-center p-2 bg-gray-50 rounded-lg">
                         <div className="text-lg font-bold text-gray-900">{s.value ?? "—"}{s.label !== "Overall" ? "/10" : "/100"}</div>
                         <div className="text-[10px] text-gray-500 uppercase">{s.label}</div>
