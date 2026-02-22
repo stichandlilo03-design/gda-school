@@ -388,7 +388,16 @@ export async function generateTermReports(termId: string) {
                 include: { scores: true },
               },
               attendances: true,
-              assignments: { include: { submissions: true } },
+              assignments: {
+                where: {
+                  isActive: true,
+                  OR: [
+                    { dueDate: { gte: term.startDate, lte: term.endDate || new Date() } },
+                    { createdAt: { gte: term.startDate, lte: term.endDate || new Date() } },
+                  ],
+                },
+                include: { submissions: true },
+              },
             },
           },
         },

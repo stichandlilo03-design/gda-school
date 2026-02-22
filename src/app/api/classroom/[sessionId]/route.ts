@@ -96,6 +96,19 @@ export async function POST(
       return NextResponse.json({ ok: true });
     }
 
+    // BOARD ANNOTATIONS (circle, underline, freehand drawn by teacher)
+    if (action === "board_annotate") {
+      let reactions = arr(ls.reactions);
+      if (body.type === "clear_all") {
+        reactions = reactions.filter((r: any) => r.type !== "annotation");
+      } else {
+        reactions.push({ ...body, type: "annotation", time: Date.now() });
+      }
+      if (reactions.length > 200) reactions = reactions.slice(-200);
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { reactions } });
+      return NextResponse.json({ ok: true });
+    }
+
     // READ ALOUD — teacher broadcasts text for students to hear
     if (action === "read_aloud") {
       const reactions = arr(ls.reactions);

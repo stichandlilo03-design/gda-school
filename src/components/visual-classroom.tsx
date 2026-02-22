@@ -318,6 +318,10 @@ export default function VisualClassroom(props: Props) {
   const [boardFontSize, setBoardFontSize] = useState(16);
   const [savedBoards, setSavedBoards] = useState<{name:string;lines:any[];time:number}[]>([]);
   const [showSavedBoards, setShowSavedBoards] = useState(false);
+  const [boardDrawMode, setBoardDrawMode] = useState<"off"|"circle"|"underline"|"freehand">("off");
+  const [boardAnnotations, setBoardAnnotations] = useState<any[]>([]);
+  const boardOverlayRef = useRef<HTMLCanvasElement>(null);
+  const drawStartRef = useRef<{x:number;y:number}|null>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
@@ -512,7 +516,12 @@ export default function VisualClassroom(props: Props) {
 
       // REACTION notifications
       const serverReactions = Array.isArray(d.reactions) ? d.reactions : [];
-      setReactions(serverReactions);
+      setReactions(serverReactions.filter((r: any) => r.type !== "annotation"));
+      // Sync board annotations from teacher
+      if (!isTeacher) {
+        const anns = serverReactions.filter((r: any) => r.type === "annotation");
+        setBoardAnnotations(anns);
+      }
       setPolls(Array.isArray(d.polls) ? d.polls : []);
 
       // MODE CHANGE notification — teacher switched board/voice/video
@@ -539,19 +548,39 @@ export default function VisualClassroom(props: Props) {
         if (d.readMusical != null) setReadMusical(d.readMusical);
         if (typeof window !== "undefined" && window.speechSynthesis) {
           window.speechSynthesis.cancel();
-          const utter = new SpeechSynthesisUtterance(d.readAloudText);
           const gender = d.readAloudVoice || voiceGender;
           const spd = d.readSpeed || readSpeed;
           const musical = d.readMusical ?? readMusical;
-          utter.rate = spd;
-          utter.pitch = musical ? (gender === "female" ? 1.5 : 1.3) : (gender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9));
-          utter.volume = 1;
-          const voice = pickVoice();
-          if (voice) utter.voice = voice;
-          setIsReading(true);
-          utter.onend = () => setIsReading(false);
-          utter.onerror = () => setIsReading(false);
-          window.speechSynthesis.speak(utter);
+          if (musical) {
+            const phrases = d.readAloudText.split(/[.,!?\n]+/).filter((p: string) => p.trim());
+            const melody = [1.0, 1.15, 1.3, 1.2, 1.05, 1.25, 1.35, 1.1];
+            let idx = 0;
+            const speakN = () => {
+              if (idx >= phrases.length) { setIsReading(false); return; }
+              const p = phrases[idx].trim();
+              if (!p) { idx++; speakN(); return; }
+              const u = new SpeechSynthesisUtterance(p);
+              u.rate = Math.max(0.1, spd * 0.7);
+              u.pitch = (gender === "female" ? 1.4 : 1.15) * melody[idx % melody.length];
+              u.volume = 1;
+              const v = pickVoice(); if (v) u.voice = v;
+              u.onend = () => { idx++; speakN(); };
+              u.onerror = () => { idx++; speakN(); };
+              window.speechSynthesis.speak(u);
+            };
+            setIsReading(true);
+            speakN();
+          } else {
+            const utter = new SpeechSynthesisUtterance(d.readAloudText);
+            utter.rate = spd;
+            utter.pitch = gender === "female" ? (isKG ? 1.15 : 1.0) : (isKG ? 0.9 : 0.85);
+            utter.volume = 1;
+            const voice = pickVoice(); if (voice) utter.voice = voice;
+            setIsReading(true);
+            utter.onend = () => setIsReading(false);
+            utter.onerror = () => setIsReading(false);
+            window.speechSynthesis.speak(utter);
+          }
         }
       }
       setLastPoll(Date.now());
@@ -666,6 +695,76 @@ export default function VisualClassroom(props: Props) {
     });
   }, [boardLines, subjectName, topic, isKG, boardTheme, textColorOverride, isTeacher, boardFontSize]);
 
+  // Draw annotations overlay (circles, underlines, freehand)
+  useEffect(() => {
+    const oc = boardOverlayRef.current; if (!oc) return;
+    const ctx = oc.getContext("2d"); if (!ctx) return;
+    // Match main canvas size
+    const mc = canvasRef.current;
+    if (mc) { oc.width = mc.width; oc.height = mc.height; }
+    ctx.clearRect(0, 0, oc.width, oc.height);
+    for (const a of boardAnnotations) {
+      ctx.strokeStyle = a.color || "#FF0000";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([]);
+      if (a.type === "circle") {
+        const cx = (a.x1 + a.x2) / 2, cy = (a.y1 + a.y2) / 2;
+        const rx = Math.abs(a.x2 - a.x1) / 2, ry = Math.abs(a.y2 - a.y1) / 2;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      } else if (a.type === "underline") {
+        ctx.beginPath(); ctx.moveTo(a.x1, a.y2); ctx.lineTo(a.x2, a.y2);
+        ctx.lineWidth = 4; ctx.stroke();
+      } else if (a.type === "freehand" && a.points) {
+        ctx.beginPath();
+        a.points.forEach((p: any, i: number) => { i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
+        ctx.stroke();
+      }
+    }
+  }, [boardAnnotations]);
+
+  // Board overlay mouse handlers
+  const boardOverlayDown = (e: React.MouseEvent) => {
+    if (boardDrawMode === "off" || !isTeacher) return;
+    const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 800;
+    const y = ((e.clientY - r.top) / r.height) * (canvasRef.current?.height || 260);
+    if (boardDrawMode === "freehand") {
+      drawStartRef.current = { x, y };
+      setBoardAnnotations(prev => [...prev, { type: "freehand", color: "#FF4444", points: [{ x, y }], id: Date.now() }]);
+    } else {
+      drawStartRef.current = { x, y };
+    }
+  };
+  const boardOverlayMove = (e: React.MouseEvent) => {
+    if (!drawStartRef.current || boardDrawMode === "off" || !isTeacher) return;
+    if (boardDrawMode === "freehand") {
+      const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * 800;
+      const y = ((e.clientY - r.top) / r.height) * (canvasRef.current?.height || 260);
+      setBoardAnnotations(prev => {
+        const cp = [...prev];
+        const last = cp[cp.length - 1];
+        if (last && last.type === "freehand") last.points = [...(last.points || []), { x, y }];
+        return cp;
+      });
+    }
+  };
+  const boardOverlayUp = (e: React.MouseEvent) => {
+    if (!drawStartRef.current || boardDrawMode === "off" || !isTeacher) return;
+    const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
+    const x2 = ((e.clientX - r.left) / r.width) * 800;
+    const y2 = ((e.clientY - r.top) / r.height) * (canvasRef.current?.height || 260);
+    if (boardDrawMode === "circle" || boardDrawMode === "underline") {
+      const ann = { type: boardDrawMode, x1: drawStartRef.current.x, y1: drawStartRef.current.y, x2, y2, color: "#FF4444", id: Date.now() };
+      setBoardAnnotations(prev => [...prev, ann]);
+      post("board_annotate", ann);
+    } else if (boardDrawMode === "freehand") {
+      const last = boardAnnotations[boardAnnotations.length - 1];
+      if (last) post("board_annotate", last);
+    }
+    drawStartRef.current = null;
+  };
+
   // Actions (use the post function defined above)
 
   const writeBoard = () => {
@@ -689,18 +788,37 @@ export default function VisualClassroom(props: Props) {
     if (!content.trim()) return;
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(content);
-    utter.rate = readSpeed;
-    utter.pitch = readMusical
-      ? (voiceGender === "female" ? 1.5 : 1.3)
-      : (voiceGender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9));
-    utter.volume = 1;
-    const voice = pickVoice();
-    if (voice) utter.voice = voice;
-    setIsReading(true);
-    utter.onend = () => setIsReading(false);
-    utter.onerror = () => setIsReading(false);
-    window.speechSynthesis.speak(utter);
+    if (readMusical) {
+      // SINGING MODE — phrase-by-phrase with melodic pitch variation
+      const phrases = content.split(/[.,!?\n]+/).filter((p: string) => p.trim());
+      const melody = [1.0, 1.15, 1.3, 1.2, 1.05, 1.25, 1.35, 1.1];
+      let idx = 0;
+      const speakNext = () => {
+        if (idx >= phrases.length) { setIsReading(false); return; }
+        const p = phrases[idx].trim();
+        if (!p) { idx++; speakNext(); return; }
+        const u = new SpeechSynthesisUtterance(p);
+        u.rate = Math.max(0.1, readSpeed * 0.7);
+        u.pitch = (voiceGender === "female" ? 1.4 : 1.15) * melody[idx % melody.length];
+        u.volume = 1;
+        const v = pickVoice(); if (v) u.voice = v;
+        u.onend = () => { idx++; speakNext(); };
+        u.onerror = () => { idx++; speakNext(); };
+        window.speechSynthesis.speak(u);
+      };
+      setIsReading(true);
+      speakNext();
+    } else {
+      const utter = new SpeechSynthesisUtterance(content);
+      utter.rate = readSpeed;
+      utter.pitch = voiceGender === "female" ? (isKG ? 1.15 : 1.0) : (isKG ? 0.9 : 0.85);
+      utter.volume = 1;
+      const voice = pickVoice(); if (voice) utter.voice = voice;
+      setIsReading(true);
+      utter.onend = () => setIsReading(false);
+      utter.onerror = () => setIsReading(false);
+      window.speechSynthesis.speak(utter);
+    }
     // Broadcast to students
     if (isTeacher) post("read_aloud", { text: content, voiceGender, readSpeed, readMusical });
   };
@@ -973,9 +1091,9 @@ export default function VisualClassroom(props: Props) {
           </div>
           {/* Speed control */}
           <div className="flex items-center gap-0.5 bg-black/20 rounded-lg px-1 py-0.5" title={`Speed: ${readSpeed.toFixed(1)}x`}>
-            <button onClick={() => setReadSpeed(Math.max(0.3, readSpeed - 0.15))} className="text-[7px] text-white/60 hover:text-white px-0.5">🐢</button>
+            <button onClick={() => setReadSpeed(Math.max(0.1, readSpeed - 0.1))} className="text-[7px] text-white/60 hover:text-white px-0.5">🐢</button>
             <span className="text-[6px] text-white/50 w-5 text-center">{readSpeed.toFixed(1)}x</span>
-            <button onClick={() => setReadSpeed(Math.min(2.0, readSpeed + 0.15))} className="text-[7px] text-white/60 hover:text-white px-0.5">🐇</button>
+            <button onClick={() => setReadSpeed(Math.min(2.0, readSpeed + 0.1))} className="text-[7px] text-white/60 hover:text-white px-0.5">🐇</button>
           </div>
           {/* Font size control */}
           <div className="flex items-center gap-0.5 bg-black/20 rounded-lg px-1 py-0.5" title={`Board font: ${boardFontSize}px`}>
@@ -1213,8 +1331,39 @@ export default function VisualClassroom(props: Props) {
                 )}
               </div>
               <div className="overflow-y-auto rounded-b-lg" style={{maxHeight: fullscreen ? "50vh" : "300px"}}>
-                <canvas ref={canvasRef} width={800} height={260} className="w-full shadow-inner" />
+                <div className="relative">
+                  <canvas ref={canvasRef} width={800} height={260} className="w-full shadow-inner" />
+                  {/* Drawing overlay — teacher can circle/underline/freehand */}
+                  <canvas ref={boardOverlayRef} width={800} height={260}
+                    className={`absolute inset-0 w-full h-full ${boardDrawMode !== "off" && isTeacher ? "cursor-crosshair z-10" : "pointer-events-none"}`}
+                    onMouseDown={boardOverlayDown} onMouseMove={boardOverlayMove}
+                    onMouseUp={boardOverlayUp} onMouseLeave={() => { drawStartRef.current = null; }} />
+                </div>
               </div>
+              {/* Draw mode toolbar */}
+              {isTeacher && (
+                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                  <span className="text-[8px] text-gray-400 mr-1">Draw:</span>
+                  {([
+                    { mode: "off" as const, label: "Off", icon: "✏️" },
+                    { mode: "circle" as const, label: "Circle", icon: "⭕" },
+                    { mode: "underline" as const, label: "Underline", icon: "▬" },
+                    { mode: "freehand" as const, label: "Free", icon: "✍️" },
+                  ]).map(d => (
+                    <button key={d.mode} onClick={() => setBoardDrawMode(d.mode)}
+                      className={`text-[8px] px-2 py-1 rounded-lg font-medium transition ${boardDrawMode === d.mode ? "bg-red-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                      {d.icon} {d.label}
+                    </button>
+                  ))}
+                  {boardAnnotations.length > 0 && (
+                    <button onClick={() => { setBoardAnnotations([]); post("board_annotate", { type: "clear_all" }); }}
+                      className="text-[8px] px-2 py-1 rounded-lg bg-gray-100 text-red-500 hover:bg-red-50 font-medium ml-1">
+                      🗑️ Clear marks
+                    </button>
+                  )}
+                  {boardDrawMode !== "off" && <span className="text-[8px] text-red-500 font-bold animate-pulse ml-1">Drawing mode ON — drag on board</span>}
+                </div>
+              )}
               {isTeacher && (<>
                 <div className="flex gap-2 mt-1.5">
                   <input className="flex-1 input-field text-sm" placeholder="Write on board..."

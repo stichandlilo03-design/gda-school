@@ -30,6 +30,13 @@ const limitedLinks = [
   { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
 
+const inClassLinks = [
+  { href: "/student/classroom", icon: "Play", label: "My Classroom" },
+  { href: "/student/grades", icon: "ClipboardList", label: "My Desk / Homework" },
+  { href: "/student/materials", icon: "FolderOpen", label: "Class Materials" },
+  { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
+];
+
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -40,10 +47,22 @@ export default async function StudentLayout({ children }: { children: React.Reac
   try {
     const student = await db.student.findUnique({
       where: { userId: session.user.id },
-      select: { approvalStatus: true, feePaid: true },
+      select: { id: true, approvalStatus: true, feePaid: true },
     });
     if (student && student.approvalStatus !== "APPROVED") {
       links = limitedLinks;
+    } else if (student) {
+      // Check if student is currently in an active class session
+      const activeSession = await db.liveClassSession.findFirst({
+        where: {
+          status: "IN_PROGRESS",
+          class: { enrollments: { some: { studentId: student.id, status: "ACTIVE" } } },
+        },
+        select: { id: true },
+      });
+      if (activeSession) {
+        links = inClassLinks;
+      }
     }
   } catch (_e) {
     // On any error, default to full links
