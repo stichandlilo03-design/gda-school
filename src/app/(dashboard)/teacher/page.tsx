@@ -77,21 +77,21 @@ export default async function TeacherDashboard() {
   if (!teacher) return <div className="p-8">Teacher profile not found.</div>;
 
   // Get all school memberships
-  const activeSchool = teacher.schools.find((s) => s.status === "APPROVED" && s.isActive);
-  const pendingSchools = teacher.schools.filter((s) => s.status === "PENDING");
-  const interviewScheduled = teacher.schools.filter((s) => s.status === "INTERVIEW_SCHEDULED");
-  const interviewed = teacher.schools.filter((s) => s.status === "INTERVIEWED");
-  const rejectedSchools = teacher.schools.filter((s) => s.status === "REJECTED");
+  const activeSchool = teacher.schools.find((s: any) => s.status === "APPROVED" && s.isActive);
+  const pendingSchools = teacher.schools.filter((s: any) => s.status === "PENDING");
+  const interviewScheduled = teacher.schools.filter((s: any) => s.status === "INTERVIEW_SCHEDULED");
+  const interviewed = teacher.schools.filter((s: any) => s.status === "INTERVIEWED");
+  const rejectedSchools = teacher.schools.filter((s: any) => s.status === "REJECTED");
 
   // Stats
-  const totalStudents = teacher.classes.reduce((sum, c) => sum + c.enrollments.length, 0);
+  const totalStudents = teacher.classes.reduce((sum: number, c: any) => sum + c.enrollments.length, 0);
   const totalClasses = teacher.classes.length;
-  const totalMaterials = teacher.classes.reduce((sum, c) => sum + c.materials.length, 0);
+  const totalMaterials = teacher.classes.reduce((sum: number, c: any) => sum + c.materials.length, 0);
 
   // Unique students across all classes
   const uniqueStudentMap = new Map<string, any>();
-  teacher.classes.forEach((c) => {
-    c.enrollments.forEach((e) => {
+  teacher.classes.forEach((c: any) => {
+    c.enrollments.forEach((e: any) => {
       if (!uniqueStudentMap.has(e.student.userId)) {
         uniqueStudentMap.set(e.student.userId, {
           ...e.student,
@@ -125,7 +125,7 @@ export default async function TeacherDashboard() {
       },
     });
   } catch (_e) {}
-  const creditTotal = sessionCredits.reduce((s, c) => s + c.creditAmount, 0);
+  const creditTotal = sessionCredits.reduce((s: number, c: any) => s + c.creditAmount, 0);
   const combinedEarned = monthlyEarned + creditTotal;
 
   // Tasks based on scheme of work
@@ -164,7 +164,7 @@ export default async function TeacherDashboard() {
         {/* ============================================================ */}
 
         {/* Interview Scheduled */}
-        {interviewScheduled.map((st) => (
+        {interviewScheduled.map((st: any) => (
           <div key={st.id} className="p-5 bg-purple-50 border border-purple-200 rounded-xl">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-purple-200 text-purple-700 flex items-center justify-center">
@@ -198,7 +198,7 @@ export default async function TeacherDashboard() {
         ))}
 
         {/* Interviewed — waiting for result */}
-        {interviewed.map((st) => (
+        {interviewed.map((st: any) => (
           <div key={st.id} className="p-5 bg-cyan-50 border border-cyan-200 rounded-xl">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-cyan-200 text-cyan-700 flex items-center justify-center">
@@ -228,7 +228,7 @@ export default async function TeacherDashboard() {
         ))}
 
         {/* Pending approval (no interview yet) */}
-        {pendingSchools.map((st) => (
+        {pendingSchools.map((st: any) => (
           <div key={st.id} className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center">
@@ -243,7 +243,7 @@ export default async function TeacherDashboard() {
         ))}
 
         {/* Rejected */}
-        {rejectedSchools.map((st) => (
+        {rejectedSchools.map((st: any) => (
           <div key={st.id} className="p-4 bg-red-50 border border-red-200 rounded-xl">
             <div className="flex items-center gap-4">
               <XCircle className="w-6 h-6 text-red-500" />
@@ -366,10 +366,10 @@ export default async function TeacherDashboard() {
               As a teacher, your tasks each week include:
             </p>
             <div className="space-y-3">
-              {teacher.classes.map((cls) => {
+              {teacher.classes.map((cls: any) => {
                 const latestAttendance = cls.attendances[0];
                 const attendanceToday = latestAttendance && new Date(latestAttendance.date).toDateString() === today.toDateString();
-                const ungradedAssessments = cls.assessments.filter((a) => !a.isPublished).length;
+                const ungradedAssessments = cls.assessments.filter((a: any) => !a.isPublished).length;
 
                 return (
                   <div key={cls.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
@@ -472,7 +472,7 @@ export default async function TeacherDashboard() {
               <Link href="/teacher/classes" className="text-xs text-brand-600 hover:underline">Manage <ArrowRight className="w-3 h-3 inline" /></Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {teacher.classes.map((cls) => (
+              {teacher.classes.map((cls: any) => (
                 <div key={cls.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-bold text-gray-800">{cls.name}</h4>
