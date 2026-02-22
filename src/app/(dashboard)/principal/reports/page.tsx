@@ -186,7 +186,7 @@ export default async function ReportsPage() {
                   <span className="text-xs font-medium text-gray-600 w-12">{grade}</span>
                   <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-brand-400 to-brand-600 rounded-full flex items-center justify-end pr-2"
-                      style={{ width: `${Math.max(15, (count / Math.max(...Object.values(gradeDistribution))) * 100)}%` }}>
+                      style={{ width: `${Math.max(15, (Number(count) / Math.max(...(Object.values(gradeDistribution) as number[]))) * 100)}%` }}>
                       <span className="text-[9px] text-white font-bold">{count}</span>
                     </div>
                   </div>
