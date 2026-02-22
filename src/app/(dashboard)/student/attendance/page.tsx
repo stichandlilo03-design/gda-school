@@ -53,7 +53,7 @@ export default async function AttendancePage() {
 
   // Per-class stats
   const classStats: Record<string, { name: string; teacher: string; total: number; present: number; late: number; absent: number; excused: number }> = {};
-  attendances.forEach((a) => {
+  attendances.forEach((a: any) => {
     if (!classStats[a.classId]) {
       classStats[a.classId] = {
         name: a.class.name, teacher: a.class.teacher?.user?.name || "—",
@@ -69,16 +69,16 @@ export default async function AttendancePage() {
 
   // Overall
   const totalRecords = attendances.length;
-  const totalPresent = attendances.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
+  const totalPresent = attendances.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
   const overallPct = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 100;
 
   // This month
   const now = new Date();
-  const thisMonth = attendances.filter((a) => {
+  const thisMonth = attendances.filter((a: any) => {
     const d = new Date(a.date);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const monthPresent = thisMonth.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
+  const monthPresent = thisMonth.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
   const monthPct = thisMonth.length > 0 ? Math.round((monthPresent / thisMonth.length) * 100) : 100;
 
   return (
@@ -112,7 +112,7 @@ export default async function AttendancePage() {
           </div>
           <div className="stat-card text-center">
             <XCircle className="w-6 h-6 text-red-500 mx-auto mb-1" />
-            <div className="text-2xl font-bold">{attendances.filter((a) => a.status === "ABSENT").length}</div>
+            <div className="text-2xl font-bold">{attendances.filter((a: any) => a.status === "ABSENT").length}</div>
             <div className="text-[10px] text-gray-500">Days Absent</div>
           </div>
         </div>
@@ -168,7 +168,7 @@ export default async function AttendancePage() {
             </div>
           ) : (
             <div className="space-y-1">
-              {attendances.slice(0, 30).map((a) => {
+              {attendances.slice(0, 30).map((a: any) => {
                 const st = STATUS_ICON[a.status] || STATUS_ICON.ABSENT;
                 const Icon = st.icon;
                 return (

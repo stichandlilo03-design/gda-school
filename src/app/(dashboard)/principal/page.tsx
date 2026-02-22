@@ -26,8 +26,8 @@ export default async function PrincipalDashboard() {
   if (!principal) return <div className="p-8">Principal profile not found.</div>;
 
   const school = principal.school;
-  const pendingStudents = school.students.filter((s) => s.approvalStatus === "PENDING" || s.approvalStatus === "INTERVIEW_SCHEDULED" || s.approvalStatus === "INTERVIEWED").length;
-  const approvedStudents = school.students.filter((s) => s.approvalStatus === "APPROVED").length;
+  const pendingStudents = school.students.filter((s: any) => s.approvalStatus === "PENDING" || s.approvalStatus === "INTERVIEW_SCHEDULED" || s.approvalStatus === "INTERVIEWED").length;
+  const approvedStudents = school.students.filter((s: any) => s.approvalStatus === "APPROVED").length;
   const pendingTeachers = school.teachers.filter((t) => t.status === "PENDING" || t.status === "INTERVIEW_SCHEDULED" || t.status === "INTERVIEWED").length;
   const activeTeachers = school.teachers.filter((t) => t.status === "APPROVED" && t.isActive).length;
   const openVacancies = school.vacancies.length;
@@ -96,7 +96,7 @@ export default async function PrincipalDashboard() {
     _count: true,
   });
   const attendanceStats = { present: 0, late: 0, absent: 0 };
-  todayAttendance.forEach((a) => {
+  todayAttendance.forEach((a: any) => {
     if (a.status === "PRESENT") attendanceStats.present = a._count;
     if (a.status === "LATE") attendanceStats.late = a._count;
     if (a.status === "ABSENT") attendanceStats.absent = a._count;
@@ -298,7 +298,7 @@ export default async function PrincipalDashboard() {
               { href: "/principal/fees", label: "Fees & Debts", icon: DollarSign, badge: studentsInDebt },
               { href: "/principal/payments", label: "Payments", icon: CreditCard, badge: pendingPayments },
               { href: "/principal/reports", label: "Reports", icon: Activity },
-            ].map((a) => (
+            ].map((a: any) => (
               <Link key={a.href} href={a.href} className="relative flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
                 <a.icon className="w-6 h-6 text-brand-500" />
                 <span className="text-xs font-medium text-gray-700 text-center">{a.label}</span>

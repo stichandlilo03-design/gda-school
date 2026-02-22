@@ -55,7 +55,7 @@ export default async function CertificatesPage() {
 
         {student?.certificates && student.certificates.length > 0 ? (
           <div className="grid md:grid-cols-2 gap-6">
-            {student.certificates.map((cert) => (
+            {student.certificates.map((cert: any) => (
               <div key={cert.id} className="card overflow-hidden">
                 <div className={`h-2 bg-gradient-to-r ${typeColors[cert.type] || "from-gray-400 to-gray-500"}`} />
                 <div className="p-6">

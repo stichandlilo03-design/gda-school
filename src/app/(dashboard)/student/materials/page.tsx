@@ -48,15 +48,15 @@ export default async function StudentMaterialsPage({
 
   if (!student) return null;
 
-  const allClasses = student.enrollments.map((e) => ({
+  const allClasses = student.enrollments.map((e: any) => ({
     id: e.class.id,
     name: e.class.name,
     materialCount: e.class.materials.length,
   }));
 
-  const allMaterials = student.enrollments.flatMap((e) =>
-    e.class.materials.map((m) => ({ ...m, className: e.class.name }))
-  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const allMaterials = student.enrollments.flatMap((e: any) =>
+    e.class.materials.map((m: any) => ({ ...m, className: e.class.name }))
+  ).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
     <>

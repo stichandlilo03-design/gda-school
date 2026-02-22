@@ -18,51 +18,60 @@ export default async function GradesPage() {
     }
   } catch (_e) {}
 
-  const student = await db.student.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      scores: {
-        where: { assessment: { gradeStatus: "APPROVED" } },
-        include: {
-          assessment: {
-            include: { class: { include: { subject: true, teacher: { include: { user: { select: { name: true } } } } } } },
+  let student: any = null;
+  let allAssignments: any[] = [];
+
+  try {
+    student = await db.student.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        scores: {
+          where: { assessment: { gradeStatus: "APPROVED" } },
+          include: {
+            assessment: {
+              include: { class: { include: { subject: true, teacher: { include: { user: { select: { name: true } } } } } } },
+            },
           },
+          orderBy: { gradedAt: "desc" },
         },
-        orderBy: { gradedAt: "desc" },
-      },
-      assignmentSubmissions: {
-        include: {
-          assignment: { include: { class: { include: { subject: true } } } },
+        assignmentSubmissions: {
+          include: {
+            assignment: { include: { class: { include: { subject: true } } } },
+          },
+          orderBy: { submittedAt: "desc" },
         },
-        orderBy: { submittedAt: "desc" },
-      },
-      termReports: {
-        where: { status: "APPROVED" },
-        include: { term: true, subjectReports: true },
-        orderBy: { createdAt: "desc" },
-      },
-      enrollments: {
-        where: { status: "ACTIVE" },
-        include: {
-          class: {
-            include: {
-              subject: true,
-              assignments: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
+        termReports: {
+          where: { status: "APPROVED" },
+          include: { term: true, subjectReports: true },
+          orderBy: { createdAt: "desc" },
+        },
+        enrollments: {
+          where: { status: "ACTIVE" },
+          include: {
+            class: {
+              include: {
+                subject: true,
+                assignments: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  const allAssignments = student?.enrollments.flatMap(e =>
-    (e.class.assignments || []).map((a: any) => ({
-      ...a,
-      classId: e.class.id,
-      className: e.class.name,
-      submitted: student.assignmentSubmissions.some(s => s.assignmentId === a.id),
-    }))
-  ) || [];
+    if (student) {
+      allAssignments = student.enrollments.flatMap((e: any) =>
+        (e.class.assignments || []).map((a: any) => ({
+          ...a,
+          classId: e.class.id,
+          className: e.class.name,
+          submitted: student.assignmentSubmissions.some((s: any) => s.assignmentId === a.id),
+        }))
+      );
+    }
+  } catch (err: any) {
+    console.error("Grades page error:", err?.message || err);
+  }
 
   return (
     <>

@@ -41,7 +41,7 @@ export default async function FeesPage() {
     feeMap.set(key, (feeMap.get(key) || 0) + f.tuitionFee + f.registrationFee + f.examFee + f.technologyFee);
   });
 
-  const studentDebts = students.map((s) => {
+  const studentDebts = students.map((s: any) => {
     const totalFees = feeMap.get(s.gradeLevel) || 0;
     const totalPaid = s.payments.reduce((sum: number, p: any) => sum + p.amount, 0);
     const balance = totalFees - totalPaid;
@@ -50,7 +50,7 @@ export default async function FeesPage() {
       id: s.id, name: s.user.name, email: s.user.email, image: s.user.image,
       grade: s.gradeLevel, totalFees, totalPaid, balance, percent, feePaid: s.feePaid,
     };
-  }).filter((s) => s.balance > 0 && !s.feePaid).sort((a, b) => b.balance - a.balance);
+  }).filter((s: any) => s.balance > 0 && !s.feePaid).sort((a, b) => b.balance - a.balance);
 
   // Pending payments
   const pendingPayments = await db.payment.findMany({

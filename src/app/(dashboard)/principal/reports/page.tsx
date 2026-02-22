@@ -18,10 +18,10 @@ export default async function ReportsPage() {
 
   // Students
   const students = await db.student.findMany({ where: { schoolId } });
-  const approvedStudents = students.filter((s) => s.approvalStatus === "APPROVED" && !s.isSuspended && !s.isExpelled);
-  const pendingStudents = students.filter((s) => ["PENDING", "INTERVIEW_SCHEDULED", "INTERVIEWED"].includes(s.approvalStatus));
-  const suspendedStudents = students.filter((s) => s.isSuspended);
-  const feesPaidStudents = students.filter((s) => s.feePaid);
+  const approvedStudents = students.filter((s: any) => s.approvalStatus === "APPROVED" && !s.isSuspended && !s.isExpelled);
+  const pendingStudents = students.filter((s: any) => ["PENDING", "INTERVIEW_SCHEDULED", "INTERVIEWED"].includes(s.approvalStatus));
+  const suspendedStudents = students.filter((s: any) => s.isSuspended);
+  const feesPaidStudents = students.filter((s: any) => s.feePaid);
 
   // Teachers
   const teachers = await db.schoolTeacher.findMany({ where: { schoolId } });
@@ -46,7 +46,7 @@ export default async function ReportsPage() {
   const attendances = await db.attendanceRecord.findMany({
     where: { date: { gte: monthStart }, class: { schoolGrade: { schoolId } } },
   });
-  const presentCount = attendances.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
+  const presentCount = attendances.filter((a: any) => a.status === "PRESENT" || a.status === "LATE").length;
   const attendanceRate = attendances.length > 0 ? Math.round((presentCount / attendances.length) * 100) : 0;
 
   // Live sessions right now
@@ -136,10 +136,10 @@ export default async function ReportsPage() {
                 <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-gray-800">{attendanceRate}%</span>
               </div>
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500" /><span className="text-xs text-gray-600">Present: {attendances.filter((a) => a.status === "PRESENT").length}</span></div>
-                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-amber-500" /><span className="text-xs text-gray-600">Late: {attendances.filter((a) => a.status === "LATE").length}</span></div>
-                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-xs text-gray-600">Absent: {attendances.filter((a) => a.status === "ABSENT").length}</span></div>
-                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-blue-500" /><span className="text-xs text-gray-600">Excused: {attendances.filter((a) => a.status === "EXCUSED").length}</span></div>
+                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500" /><span className="text-xs text-gray-600">Present: {attendances.filter((a: any) => a.status === "PRESENT").length}</span></div>
+                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-amber-500" /><span className="text-xs text-gray-600">Late: {attendances.filter((a: any) => a.status === "LATE").length}</span></div>
+                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-xs text-gray-600">Absent: {attendances.filter((a: any) => a.status === "ABSENT").length}</span></div>
+                <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-blue-500" /><span className="text-xs text-gray-600">Excused: {attendances.filter((a: any) => a.status === "EXCUSED").length}</span></div>
               </div>
             </div>
             <p className="text-[10px] text-gray-400">{attendances.length} total records this month</p>
@@ -162,7 +162,7 @@ export default async function ReportsPage() {
                 { label: "Pending Approval", count: pendingStudents.length, color: "bg-amber-500", icon: Clock },
                 { label: "Active Students", count: approvedStudents.length, color: "bg-emerald-500", icon: CheckCircle },
                 { label: "Suspended", count: suspendedStudents.length, color: "bg-orange-500", icon: AlertTriangle },
-                { label: "Expelled", count: students.filter((s) => s.isExpelled).length, color: "bg-red-500", icon: XCircle },
+                { label: "Expelled", count: students.filter((s: any) => s.isExpelled).length, color: "bg-red-500", icon: XCircle },
                 { label: "Fees Paid", count: feesPaidStudents.length, color: "bg-blue-500", icon: CreditCard },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">

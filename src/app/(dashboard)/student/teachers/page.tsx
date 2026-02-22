@@ -50,7 +50,7 @@ export default async function StudentTeachersPage() {
 
   // Build teacher profiles with all their subjects
   const teacherMap = new Map<string, any>();
-  availableClasses.forEach((cls) => {
+  availableClasses.forEach((cls: any) => {
     if (!teacherMap.has(cls.teacherId)) {
       teacherMap.set(cls.teacherId, {
         id: cls.teacherId,
@@ -86,8 +86,8 @@ export default async function StudentTeachersPage() {
     });
   });
 
-  const enrolledClassIds = new Set(student.enrollments.map((e) => e.classId));
-  const enrolledSubjectIds = new Set(student.enrollments.map((e) => e.class.subjectId));
+  const enrolledClassIds = new Set(student.enrollments.map((e: any) => e.classId));
+  const enrolledSubjectIds = new Set(student.enrollments.map((e: any) => e.class.subjectId));
 
   return (
     <>

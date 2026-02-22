@@ -60,7 +60,7 @@ export default async function StudentTimetablePage() {
 
   const todayDay = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || "MONDAY";
   const maxPeriod = Math.max(...allSchedules.map(s => s.periodNumber), school?.sessionsPerDay || 4);
-  const todayClasses = allSchedules.filter(s => s.dayOfWeek === todayDay).sort((a, b) => a.periodNumber - b.periodNumber);
+  const todayClasses = allSchedules.filter(s => s.dayOfWeek === todayDay).sort((a: any, b: any) => a.periodNumber - b.periodNumber);
 
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
