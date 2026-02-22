@@ -181,7 +181,7 @@ export default async function ReportsPage() {
           <div className="card">
             <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-purple-600" /> Students by Grade</h3>
             <div className="space-y-2">
-              {Object.entries(gradeDistribution).sort(([a], [b]) => a.localeCompare(b)).map(([grade, count]) => (
+              {Object.entries(gradeDistribution).sort(([a], [b]) => a.localeCompare(b)).map(([grade, count]: [string, any]) => (
                 <div key={grade} className="flex items-center gap-3">
                   <span className="text-xs font-medium text-gray-600 w-12">{grade}</span>
                   <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
