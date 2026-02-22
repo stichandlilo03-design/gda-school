@@ -18,7 +18,13 @@ export default async function StudentGamesPage() {
   return (
     <div className="p-4 md:p-6 space-y-4">
       <DashboardHeader title="🎮 School Games & Competitions" subtitle="Play, learn, and compete with classmates!" />
-      <SchoolGames studentId={student.id} studentName={session.user.name || "Student"} schoolName={student.school.name} gradeLevel={student.gradeLevel} />
+      <SchoolGames
+        studentId={student.id}
+        userId={session.user.id}
+        studentName={session.user.name || "Student"}
+        schoolName={student.school.name}
+        gradeLevel={student.gradeLevel}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkStudentAccess } from "@/lib/student-access";
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 
 // Stage 1: Not approved yet (PENDING, INTERVIEW_SCHEDULED, INTERVIEWED, REJECTED)
@@ -56,28 +57,30 @@ export default async function StudentLayout({ children }: { children: React.Reac
 
   let links = fullLinks;
   try {
-    const student = await db.student.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true, approvalStatus: true, feePaid: true },
-    });
-    if (!student) { links = pendingLinks; }
-    else if (student.approvalStatus !== "APPROVED") {
-      // Not yet approved — very limited access
+    const access = await checkStudentAccess(session.user.id);
+    if (!access) {
       links = pendingLinks;
-    } else if (!student.feePaid) {
-      // Approved but needs to pay fees
+    } else if (!access.isApproved) {
+      // Not yet approved (PENDING / INTERVIEW_SCHEDULED / INTERVIEWED / REJECTED)
+      links = pendingLinks;
+    } else if (!access.feesMet) {
+      // Approved but hasn't met the school's fee payment threshold
       links = awaitingPaymentLinks;
     } else {
       // Fully enrolled — check if in active class
-      const activeSession = await db.liveClassSession.findFirst({
-        where: {
-          status: "IN_PROGRESS",
-          class: { enrollments: { some: { studentId: student.id, status: "ACTIVE" } } },
-        },
+      const student = await db.student.findUnique({
+        where: { userId: session.user.id },
         select: { id: true },
       });
-      if (activeSession) {
-        links = inClassLinks;
+      if (student) {
+        const activeSession = await db.liveClassSession.findFirst({
+          where: {
+            status: "IN_PROGRESS",
+            class: { enrollments: { some: { studentId: student.id, status: "ACTIVE" } } },
+          },
+          select: { id: true },
+        });
+        if (activeSession) links = inClassLinks;
       }
     }
   } catch (_e) {}
