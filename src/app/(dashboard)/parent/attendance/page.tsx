@@ -25,9 +25,9 @@ export default async function ParentAttendancePage() {
         {parent.children.map((link) => {
           const child = link.student;
           const att = child.attendances || [];
-          const present = att.filter(a => a.status === "PRESENT").length;
-          const absent = att.filter(a => a.status === "ABSENT").length;
-          const late = att.filter(a => a.status === "LATE").length;
+          const present = att.filter((a: any) => a.status === "PRESENT").length;
+          const absent = att.filter((a: any) => a.status === "ABSENT").length;
+          const late = att.filter((a: any) => a.status === "LATE").length;
           const pct = att.length > 0 ? Math.round((present / att.length) * 100) : 0;
           return (
             <div key={link.id} className="card">

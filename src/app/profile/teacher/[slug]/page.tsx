@@ -94,7 +94,7 @@ export default async function PublicTeacherProfile({ params }: { params: Promise
           <div className="card">
             <h2 className="text-sm font-bold mb-3">📚 Subjects I Teach</h2>
             <div className="flex flex-wrap gap-2">
-              {teacher.classes.map(c => (
+              {teacher.classes.map((c: any) => (
                 <span key={c.id} className="text-xs px-3 py-1.5 rounded-full bg-brand-100 text-brand-700 font-medium">
                   {c.subject?.name || c.name} ({c.enrollments.length} students)
                 </span>

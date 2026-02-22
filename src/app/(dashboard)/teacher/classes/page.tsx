@@ -49,7 +49,7 @@ try {
 
   return (
     <>
-      <DashboardHeader title="My Classes" subtitle={`${teacher?.classes.filter(c => c.isActive).length || 0} active classes`} />
+      <DashboardHeader title="My Classes" subtitle={`${teacher?.classes.filter((c: any) => c.isActive).length || 0} active classes`} />
       <div className="p-6 lg:p-8">
         <ClassManager
           classes={JSON.parse(JSON.stringify(teacher?.classes || []))}

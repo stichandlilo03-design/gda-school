@@ -49,7 +49,7 @@ export default async function ParentTeachersPage() {
       <div className="p-6 lg:p-8 space-y-4">
         {teachers.length === 0 ? (
           <div className="card text-center py-12"><p className="text-sm text-gray-500">No teachers found. Link children and enroll them in classes first.</p></div>
-        ) : teachers.map(t => (
+        ) : teachers.map((t: any) => (
           <div key={t.id} className="card">
             <div className="flex items-center gap-4">
               {t.profilePicture || t.user?.image ? (
