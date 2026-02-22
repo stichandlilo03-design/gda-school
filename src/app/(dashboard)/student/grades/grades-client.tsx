@@ -14,7 +14,7 @@ export default function StudentGradesClient({ scores, assignments, submissions, 
   scores: any[]; assignments: any[]; submissions: any[]; termReports: any[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"grades" | "homework" | "reports">("homework");
+  const [tab, setTab] = useState<"grades" | "homework" | "reports">(scores.length > 0 ? "grades" : "homework");
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [expandedAssignment, setExpandedAssignment] = useState<string | null>(null);

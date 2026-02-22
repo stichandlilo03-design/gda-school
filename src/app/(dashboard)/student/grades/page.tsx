@@ -20,6 +20,7 @@ export default async function GradesPage() {
 
   let student: any = null;
   let allAssignments: any[] = [];
+  let queryError = "";
 
   try {
     student = await db.student.findUnique({
@@ -70,13 +71,21 @@ export default async function GradesPage() {
       );
     }
   } catch (err: any) {
-    console.error("Grades page error:", err?.message || err);
+    queryError = err?.message || "Unknown error loading grades";
+    console.error("Grades page error:", queryError);
   }
 
   return (
     <>
       <DashboardHeader title="My Grades & Assignments" subtitle="Only principal-approved grades are shown" />
       <div className="p-6 lg:p-8">
+        {queryError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            <p className="font-bold">⚠️ Error loading grades</p>
+            <p className="text-xs mt-1 text-red-500">{queryError}</p>
+            <a href="/student/grades" className="text-xs underline mt-2 inline-block">Try Again</a>
+          </div>
+        )}
         <StudentGradesClient
           scores={JSON.parse(JSON.stringify(student?.scores || []))}
           assignments={JSON.parse(JSON.stringify(allAssignments))}

@@ -10,13 +10,13 @@ export default async function GradebookPage() {
 
   let classes: any[] = [];
   let assignments: any[] = [];
+  let queryError = "";
 
   try {
     const teacher = await db.teacher.findUnique({
       where: { userId: session.user.id },
       include: {
         classes: {
-          where: { isActive: true },
           include: {
             enrollments: { where: { status: "ACTIVE" }, include: { student: { include: { user: { select: { name: true } } } } } },
             assessments: { include: { scores: true }, orderBy: { createdAt: "desc" } },
@@ -30,13 +30,21 @@ export default async function GradebookPage() {
     classes = teacher?.classes || [];
     assignments = classes.flatMap((c: any) => (c.assignments || []).map((a: any) => ({ ...a, classId: c.id })));
   } catch (err: any) {
-    console.error("Gradebook page error:", err?.message || err);
+    queryError = err?.message || "Unknown error loading gradebook";
+    console.error("Gradebook page error:", queryError);
   }
 
   return (
     <>
       <DashboardHeader title="Gradebook" subtitle="Create assessments, enter grades, and manage assignments" />
       <div className="p-6 lg:p-8">
+        {queryError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            <p className="font-bold">⚠️ Error loading gradebook data</p>
+            <p className="text-xs mt-1 text-red-500">{queryError}</p>
+            <a href="/teacher/gradebook" className="text-xs underline mt-2 inline-block">Try Again</a>
+          </div>
+        )}
         <GradebookManager classes={JSON.parse(JSON.stringify(classes))} assignments={JSON.parse(JSON.stringify(assignments))} />
       </div>
     </>
