@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 import { getServerSession } from "next-auth";
+import { checkStudentAccess } from "@/lib/student-access";
+import StudentAccessGate from "@/components/student-access-gate";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
@@ -8,6 +10,14 @@ import SchoolInfoView from "@/components/school-info-view";
 export default async function StudentSchoolInfoPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
+
+  // Access gate: block unenrolled students
+  try {
+    const access = await checkStudentAccess(session.user.id);
+    if (access && !access.hasFullAccess) {
+      return <StudentAccessGate access={access} pageName="School Info" />;
+    }
+  } catch (_e) {}
 
   const student = await db.student.findUnique({
     where: { userId: session.user.id },

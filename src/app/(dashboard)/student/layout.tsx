@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -5,18 +8,12 @@ import { db } from "@/lib/db";
 import { checkStudentAccess } from "@/lib/student-access";
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 
-// CRITICAL: Force dynamic rendering — sidebar must reflect current payment/approval status
-export const dynamic = "force-dynamic";
-
-// Stage 1: Not approved yet (PENDING, INTERVIEW_SCHEDULED, INTERVIEWED, REJECTED)
 const pendingLinks = [
   { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
   { href: "/student/profile", icon: "User", label: "My Profile" },
   { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
   { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
-
-// Stage 2: Approved but fees not paid
 const awaitingPaymentLinks = [
   { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
   { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
@@ -24,8 +21,6 @@ const awaitingPaymentLinks = [
   { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
   { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
-
-// Stage 3: Fully enrolled — approved + fees paid
 const fullLinks = [
   { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
   { href: "/student/classroom", icon: "Play", label: "My Classroom" },
@@ -44,8 +39,6 @@ const fullLinks = [
   { href: "/student/certificates", icon: "Award", label: "Certificates" },
   { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
-
-// Stage 4: During live class — locked to classroom
 const inClassLinks = [
   { href: "/student/classroom", icon: "Play", label: "My Classroom" },
   { href: "/student/grades", icon: "ClipboardList", label: "My Desk / Homework" },
@@ -58,22 +51,22 @@ export default async function StudentLayout({ children }: { children: React.Reac
   if (!session) redirect("/login");
   if (session.user.role !== "STUDENT") redirect("/login");
 
+  // Use SINGLE source of truth for access
   let links = fullLinks;
-  try {
-    const access = await checkStudentAccess(session.user.id);
-    if (!access) {
-      // No student record found — show pending
-      links = pendingLinks;
-    } else if (access.approvalStatus === "UNKNOWN") {
-      // Error occurred checking access — show awaiting payment links (middle ground)
-      // rather than locking the student out entirely
-      links = awaitingPaymentLinks;
-    } else if (!access.isApproved) {
-      links = pendingLinks;
-    } else if (!access.feesMet) {
-      links = awaitingPaymentLinks;
-    } else {
-      // Fully enrolled — check if in active class
+  const access = await checkStudentAccess(session.user.id);
+
+  if (!access) {
+    // No student record found
+    links = pendingLinks;
+  } else if (!access.isApproved) {
+    links = pendingLinks;
+  } else if (access.isSuspended) {
+    links = awaitingPaymentLinks;
+  } else if (!access.feesMet) {
+    links = awaitingPaymentLinks;
+  } else {
+    // Fully enrolled — check if in active class for classroom lock
+    try {
       const student = await db.student.findUnique({
         where: { userId: session.user.id },
         select: { id: true },
@@ -88,10 +81,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
         });
         if (activeSession) links = inClassLinks;
       }
-    }
-  } catch (_e) {
-    // If ANYTHING fails, don't lock student out — show awaiting payment view
-    links = awaitingPaymentLinks;
+    } catch (_e) {}
   }
 
   return (

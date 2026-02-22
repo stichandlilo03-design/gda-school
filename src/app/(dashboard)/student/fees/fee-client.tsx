@@ -20,10 +20,13 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
 export default function StudentFeeClient({
   student, feeStructures, bankAccounts, totalFees, totalPaid, pendingReview, payments, currency,
   feeInstructions = "", feePaymentPolicy = "PERCENTAGE", feePaymentThreshold = 70,
+  termBreakdown = [], currentTermName = "",
 }: {
   student: any; feeStructures: any[]; bankAccounts: any[]; totalFees: number;
   totalPaid: number; pendingReview: number; payments: any[]; currency: string;
   feeInstructions?: string; feePaymentPolicy?: string; feePaymentThreshold?: number;
+  termBreakdown?: { term: string; termLabel: string; isCurrent: boolean; total: number; paid: number; owed: number }[];
+  currentTermName?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -233,6 +236,47 @@ export default function StudentFeeClient({
           {balanceDue > 0 && <span className="text-red-600">Remaining: {fmt(balanceDue)}</span>}
         </div>
       </div>
+
+      {/* Per-Term Payment Status */}
+      {termBreakdown.length > 0 && (
+        <div className="card border-2 border-brand-200">
+          <h3 className="text-sm font-semibold text-gray-800 mb-3">📅 Payment by Term</h3>
+          {currentTermName && <p className="text-xs text-brand-600 font-medium mb-3">Current: {currentTermName}</p>}
+          <div className="space-y-3">
+            {termBreakdown.map((t, i) => {
+              const pct = t.total > 0 ? Math.round((t.paid / t.total) * 100) : 100;
+              return (
+                <div key={i} className={`p-3 rounded-xl border-2 ${t.isCurrent ? "border-brand-300 bg-brand-50" : t.owed > 0 ? "border-red-200 bg-red-50/50" : "border-emerald-200 bg-emerald-50/50"}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold">{t.termLabel}</span>
+                      {t.isCurrent && <span className="text-[9px] bg-brand-600 text-white px-1.5 py-0.5 rounded-full font-bold">CURRENT</span>}
+                    </div>
+                    <span className={`text-sm font-bold ${t.owed > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                      {t.owed > 0 ? `Owe: ${fmt(t.owed)}` : "✅ Paid"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-gray-500">
+                    <span>Fees: {fmt(t.total)}</span>
+                    <span>Paid: {fmt(t.paid)} ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1.5">
+                    <div className={`h-1.5 rounded-full ${t.owed > 0 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Total summary */}
+          <div className="mt-3 p-3 bg-gray-50 rounded-xl flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-600">Total All Terms</span>
+            <div className="text-right">
+              <span className="text-sm font-bold text-gray-800">{fmt(totalFees)}</span>
+              <span className="text-xs text-gray-500 ml-2">Paid: {fmt(totalPaid)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fee Breakdown */}
       {feeStructures.length > 0 && (

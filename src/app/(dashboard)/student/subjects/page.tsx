@@ -11,13 +11,14 @@ export default async function SubjectsPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  // Access gate: block unapproved / unpaid students
+  // Access gate: block unenrolled students
   try {
     const access = await checkStudentAccess(session.user.id);
     if (access && !access.hasFullAccess) {
-      return <StudentAccessGate access={access} pageName="My Subjects" />;
+      return <StudentAccessGate access={access} pageName="Subjects" />;
     }
   } catch (_e) {}
+
 
 
   const student = await db.student.findUnique({

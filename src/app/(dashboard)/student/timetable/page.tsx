@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { checkStudentAccess } from "@/lib/student-access";
 import StudentAccessGate from "@/components/student-access-gate";
+import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import { to12h, formatRange, sessionLabel, sessionBadgeColor } from "@/lib/time-utils";
 
@@ -16,13 +16,14 @@ export default async function StudentTimetablePage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  // Access gate: block unapproved / unpaid students
+  // Access gate: block unenrolled students
   try {
     const access = await checkStudentAccess(session.user.id);
     if (access && !access.hasFullAccess) {
       return <StudentAccessGate access={access} pageName="Timetable" />;
     }
   } catch (_e) {}
+
 
   const student = await db.student.findUnique({
     where: { userId: session.user.id },

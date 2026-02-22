@@ -15,13 +15,14 @@ export default async function StudentMaterialsPage({
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  // Access gate: block unapproved / unpaid students
+  // Access gate: block unenrolled students
   try {
     const access = await checkStudentAccess(session.user.id);
     if (access && !access.hasFullAccess) {
       return <StudentAccessGate access={access} pageName="Materials" />;
     }
   } catch (_e) {}
+
 
 
   const params = await searchParams;

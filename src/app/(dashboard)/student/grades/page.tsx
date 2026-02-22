@@ -11,13 +11,14 @@ export default async function GradesPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  // Access gate: block unapproved / unpaid students
+  // Access gate: block unenrolled students
   try {
     const access = await checkStudentAccess(session.user.id);
     if (access && !access.hasFullAccess) {
-      return <StudentAccessGate access={access} pageName="Grades & Assignments" />;
+      return <StudentAccessGate access={access} pageName="Grades" />;
     }
   } catch (_e) {}
+
 
   let student: any = null;
   let allAssignments: any[] = [];

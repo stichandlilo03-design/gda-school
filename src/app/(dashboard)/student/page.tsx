@@ -73,66 +73,22 @@ export default async function StudentDashboard() {
     // Access check failed, allow full access
   }
 
-  // Calculate fee info
-  let totalFees = 0;
-  let approvedPaid = 0;
-  let pendingAmount = 0;
-  let feePercent = 100;
-  let feeThreshold = 70;
-  let feePolicy = "PERCENTAGE";
-  let hasAccess = true;
-  let balanceDue = 0;
+  // Derive fee info from enrollAccess (SINGLE source of truth)
+  const totalFees = enrollAccess?.totalFees || 0;
+  const approvedPaid = enrollAccess?.paidAmount || 0;
+  const pendingAmount = enrollAccess?.pendingAmount || 0;
+  const feePercent = enrollAccess?.feePercent || 100;
+  const feeThreshold = enrollAccess?.feeThreshold || 70;
+  const feePolicy = enrollAccess?.feePolicy || "PERCENTAGE";
+  const hasAccess = enrollAccess?.hasFullAccess ?? true;
+  const balanceDue = enrollAccess?.balanceDue || 0;
   let activeTerm: any = null;
   let announcements: any[] = [];
 
   try {
-    const schoolGrade = await db.schoolGrade.findFirst({
-      where: { schoolId: student.schoolId, gradeLevel: student.gradeLevel },
+    activeTerm = await db.term.findFirst({
+      where: { schoolId: student.schoolId, isActive: true },
     });
-    if (schoolGrade) {
-      // Try current term fees first
-      activeTerm = await db.term.findFirst({
-        where: { schoolId: student.schoolId, isActive: true },
-      });
-      
-      let feeStructures;
-      if (activeTerm) {
-        feeStructures = await db.feeStructure.findMany({
-          where: { schoolGradeId: schoolGrade.id, isActive: true, term: activeTerm.termNumber },
-        });
-      }
-      // Fall back to all active fees if no term-specific fees
-      if (!feeStructures || feeStructures.length === 0) {
-        feeStructures = await db.feeStructure.findMany({
-          where: { schoolGradeId: schoolGrade.id, isActive: true },
-        });
-      }
-      totalFees = feeStructures.reduce(
-        (sum: number, fs: any) => sum + fs.tuitionFee + fs.registrationFee + fs.examFee + fs.technologyFee, 0
-      );
-    }
-
-    approvedPaid = student.payments
-      .filter((p: any) => p.status === "COMPLETED")
-      .reduce((sum: number, p: any) => sum + p.amount, 0);
-    pendingAmount = student.payments
-      .filter((p: any) => p.status === "UNDER_REVIEW")
-      .reduce((sum: number, p: any) => sum + p.amount, 0);
-
-    feePercent = totalFees > 0 ? Math.round((approvedPaid / totalFees) * 100) : 100;
-    feeThreshold = student.school.feePaymentThreshold ?? 70;
-    feePolicy = student.school.feePaymentPolicy || "PERCENTAGE";
-    hasAccess = feePolicy === "FLEXIBLE" ? true
-      : feePolicy === "FULL" ? (feePercent >= 100 || student.feePaid)
-      : (feePercent >= feeThreshold || student.feePaid);
-    balanceDue = Math.max(0, totalFees - approvedPaid);
-
-    if (!activeTerm) {
-      activeTerm = await db.term.findFirst({
-        where: { schoolId: student.schoolId, isActive: true },
-      });
-    }
-
     announcements = await db.classAnnouncement.findMany({
       where: { classId: { in: student.enrollments.map((e: any) => e.classId) } },
       orderBy: { createdAt: "desc" },
@@ -189,6 +145,13 @@ export default async function StudentDashboard() {
         <>
           <DashboardHeader title={`Hi ${firstName}! 🎒`} subtitle={student.school.name} />
           <div className="p-6 lg:p-8 space-y-4">
+            {enrollAccess.isSuspended && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-6 text-center">
+                <div className="text-4xl mb-2">⚠️</div>
+                <h3 className="text-lg font-bold text-red-800">Access Suspended</h3>
+                <p className="text-sm text-red-700 mt-1">{enrollAccess.suspendReason || "Your access has been suspended. Contact the school."}</p>
+              </div>
+            )}
             <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6">
               <div className="text-center">
                 <div className="text-5xl mb-3">🏫</div>
@@ -202,22 +165,32 @@ export default async function StudentDashboard() {
                 </div>
                 <div className={`flex items-center gap-3 p-3 rounded-xl ${enrollAccess.feesMet ? "bg-emerald-100" : "bg-white"}`}>
                   <span className="text-xl">{enrollAccess.feesMet ? "✅" : "💰"}</span>
-                  <span className="text-sm font-medium">{enrollAccess.feesMet ? "Fees paid!" : `Pay school fees (${enrollAccess.feePercent}% done)`}</span>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium">{enrollAccess.feesMet ? "Fees paid!" : "Pay school fees"}</span>
+                    {!enrollAccess.feesMet && enrollAccess.totalFees > 0 && (
+                      <p className="text-xs text-amber-600 mt-0.5">
+                        Paid: {enrollAccess.paidAmount.toLocaleString()} / {enrollAccess.totalFees.toLocaleString()} ({enrollAccess.feePercent}%)
+                        {enrollAccess.balanceDue > 0 && <span className="font-bold"> — Balance: {enrollAccess.balanceDue.toLocaleString()}</span>}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
               {!enrollAccess.feesMet && enrollAccess.totalFees > 0 && (
                 <a href="/student/fees" className="block mt-4 text-center py-3 bg-brand-600 text-white rounded-xl font-bold text-sm hover:bg-brand-700">Pay Fees Now →</a>
               )}
-              <details className="mt-3">
-                <summary className="text-[10px] text-gray-400 cursor-pointer">Debug info</summary>
-                <div className="mt-1 text-[9px] text-gray-400 bg-gray-50 p-2 rounded-lg font-mono space-y-0.5">
-                  <p>Status: {enrollAccess.approvalStatus} | Policy: {enrollAccess.feePolicy}</p>
-                  <p>Threshold: {enrollAccess.feeThreshold}% | Fee%: {enrollAccess.feePercent}%</p>
-                  <p>Total: {enrollAccess.totalFees} | Paid: {enrollAccess.paidAmount}</p>
-                  <p>Met: {enrollAccess.feesMet?"Y":"N"} | Access: {enrollAccess.hasFullAccess?"Y":"N"}</p>
-                  {enrollAccess.debug && <p>Note: {enrollAccess.debug}</p>}
+              {enrollAccess.termBreakdown && enrollAccess.termBreakdown.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {enrollAccess.termBreakdown.map((tb: any) => (
+                    <div key={tb.term} className={`flex items-center justify-between text-xs p-2 rounded-lg ${tb.isCurrent ? "bg-blue-50 border border-blue-200 font-bold" : "bg-gray-50"}`}>
+                      <span>{tb.label} {tb.isCurrent && "📌"}</span>
+                      <span className={tb.owed > 0 ? "text-red-600" : "text-emerald-600"}>
+                        {tb.owed > 0 ? `Owes: ${tb.owed.toLocaleString()}` : "✅ Paid"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </details>
+              )}
             </div>
           </div>
         </>
@@ -295,91 +268,115 @@ export default async function StudentDashboard() {
         subtitle={student.school.name}
       />
       <div className="p-6 lg:p-8 space-y-6">
-        {/* ENROLLMENT STATUS — show if not fully enrolled */}
+        {/* ENROLLMENT STATUS — show if not fully enrolled OR suspended */}
         {enrollAccess && !enrollAccess.hasFullAccess && (
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center text-2xl shrink-0">🎓</div>
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-amber-900">Complete Your Enrollment</h3>
-                <p className="text-xs text-amber-700 mt-0.5">You need to complete these steps to access classes, grades, timetable and more.</p>
-
-                <div className="mt-3 grid gap-2">
-                  {/* Step 1: Principal Approval */}
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border ${
-                    enrollAccess.isApproved ? "bg-emerald-50 border-emerald-200" : "bg-white border-amber-200"
-                  }`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      enrollAccess.isApproved ? "bg-emerald-200 text-emerald-700" : "bg-amber-200 text-amber-700"
-                    }`}>
-                      {enrollAccess.isApproved ? "✓" : "1"}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-gray-800">Principal Approval</p>
-                      <p className={`text-[11px] ${enrollAccess.isApproved ? "text-emerald-600" : "text-amber-600"}`}>
-                        {enrollAccess.isApproved ? "Approved ✅" :
-                         enrollAccess.approvalStatus === "PENDING" ? "Pending — the principal will review your application" :
-                         enrollAccess.approvalStatus === "INTERVIEW_SCHEDULED" ? "Interview scheduled — please attend your interview" :
-                         enrollAccess.approvalStatus === "INTERVIEWED" ? "Interview complete — awaiting principal's decision" :
-                         enrollAccess.approvalStatus === "REJECTED" ? "Not approved — contact the school for next steps" :
-                         "In progress..."}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 2: Fee Payment */}
-                  <div className={`flex items-center gap-3 p-3 rounded-xl border ${
-                    enrollAccess.feesMet ? "bg-emerald-50 border-emerald-200" : "bg-white border-amber-200"
-                  }`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      enrollAccess.feesMet ? "bg-emerald-200 text-emerald-700" : "bg-amber-200 text-amber-700"
-                    }`}>
-                      {enrollAccess.feesMet ? "✓" : "2"}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-gray-800">Fee Payment</p>
-                      {enrollAccess.feesMet ? (
-                        <p className="text-[11px] text-emerald-600">Fees met ✅</p>
-                      ) : enrollAccess.totalFees > 0 ? (
-                        <div>
-                          <p className="text-[11px] text-amber-600">
-                            {enrollAccess.feePolicy === "FULL" ? "Full payment required" : `Minimum ${enrollAccess.feeThreshold}% required`}
-                            {" — "}currently at {enrollAccess.feePercent}%
-                          </p>
-                          <div className="w-full bg-amber-200 rounded-full h-1.5 mt-1">
-                            <div className="bg-amber-600 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(enrollAccess.feePercent, 100)}%` }} />
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-gray-500">No fees configured yet</p>
-                      )}
-                    </div>
-                    {!enrollAccess.feesMet && enrollAccess.totalFees > 0 && (
-                      <a href="/student/fees" className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-brand-700 shrink-0">
-                        Pay Now →
-                      </a>
+          <div className="space-y-3">
+            {/* Suspension banner */}
+            {enrollAccess.isSuspended && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center text-2xl shrink-0">⚠️</div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-bold text-red-800">Access Suspended</h3>
+                    <p className="text-sm text-red-700 mt-1">{enrollAccess.suspendReason || "Your school portal access has been suspended."}</p>
+                    {enrollAccess.balanceDue > 0 && (
+                      <div className="mt-3 bg-red-100 rounded-xl p-3">
+                        <p className="text-sm font-bold text-red-800">Amount Owed: {enrollAccess.balanceDue.toLocaleString()}</p>
+                        <p className="text-xs text-red-600 mt-0.5">Pay your outstanding balance to restore access</p>
+                      </div>
                     )}
+                    <a href="/student/fees" className="inline-block mt-3 px-5 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700">
+                      💳 Pay Now to Restore Access →
+                    </a>
                   </div>
                 </div>
-
-                <p className="text-[10px] text-amber-600 mt-3 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Classroom, subjects, timetable, grades, and other features are locked until enrollment is complete.
-                </p>
-
-                {/* Debug info — helps diagnose access issues */}
-                <details className="mt-2">
-                  <summary className="text-[10px] text-gray-400 cursor-pointer">Debug info</summary>
-                  <div className="mt-1 text-[9px] text-gray-400 bg-gray-50 p-2 rounded-lg font-mono space-y-0.5">
-                    <p>Status: {enrollAccess.approvalStatus}</p>
-                    <p>Policy: {enrollAccess.feePolicy} | Threshold: {enrollAccess.feeThreshold}%</p>
-                    <p>Total fees: {enrollAccess.totalFees} | Paid: {enrollAccess.paidAmount}</p>
-                    <p>Fee %: {enrollAccess.feePercent}% | Met: {enrollAccess.feesMet ? "YES" : "NO"}</p>
-                    <p>Full access: {enrollAccess.hasFullAccess ? "YES" : "NO"}</p>
-                    {enrollAccess.debug && <p>Note: {enrollAccess.debug}</p>}
-                  </div>
-                </details>
               </div>
-            </div>
+            )}
+
+            {/* Enrollment steps banner (approval + fees) */}
+            {!enrollAccess.isSuspended && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center text-2xl shrink-0">🎓</div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-bold text-amber-900">Complete Your Enrollment</h3>
+                    <p className="text-xs text-amber-700 mt-0.5">Complete these steps to access classes, grades, timetable and more.</p>
+
+                    <div className="mt-3 grid gap-2">
+                      {/* Step 1: Approval */}
+                      <div className={`flex items-center gap-3 p-3 rounded-xl border ${enrollAccess.isApproved ? "bg-emerald-50 border-emerald-200" : "bg-white border-amber-200"}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${enrollAccess.isApproved ? "bg-emerald-200 text-emerald-700" : "bg-amber-200 text-amber-700"}`}>
+                          {enrollAccess.isApproved ? "✓" : "1"}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-800">Principal Approval</p>
+                          <p className={`text-[11px] ${enrollAccess.isApproved ? "text-emerald-600" : "text-amber-600"}`}>
+                            {enrollAccess.isApproved ? "Approved ✅" :
+                             enrollAccess.approvalStatus === "PENDING" ? "Pending — the principal will review your application" :
+                             enrollAccess.approvalStatus === "INTERVIEW_SCHEDULED" ? "Interview scheduled — please attend" :
+                             enrollAccess.approvalStatus === "INTERVIEWED" ? "Interview complete — awaiting decision" :
+                             enrollAccess.approvalStatus === "REJECTED" ? "Not approved — contact the school" :
+                             "In progress..."}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 2: Fee Payment with what you OWE */}
+                      <div className={`flex items-center gap-3 p-3 rounded-xl border ${enrollAccess.feesMet ? "bg-emerald-50 border-emerald-200" : "bg-white border-amber-200"}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${enrollAccess.feesMet ? "bg-emerald-200 text-emerald-700" : "bg-amber-200 text-amber-700"}`}>
+                          {enrollAccess.feesMet ? "✓" : "2"}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-800">Fee Payment</p>
+                          {enrollAccess.feesMet ? (
+                            <p className="text-[11px] text-emerald-600">Fees met ✅</p>
+                          ) : enrollAccess.totalFees > 0 ? (
+                            <div>
+                              <p className="text-[11px] text-amber-600">
+                                {enrollAccess.feePolicy === "FULL" ? "Full payment required" : `Minimum ${enrollAccess.feeThreshold}% required`}
+                                {" — "}currently at {enrollAccess.feePercent}%
+                              </p>
+                              <div className="w-full bg-amber-200 rounded-full h-1.5 mt-1">
+                                <div className="bg-amber-600 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(enrollAccess.feePercent, 100)}%` }} />
+                              </div>
+                              <p className="text-xs font-bold text-red-600 mt-1.5">
+                                Balance owed: {enrollAccess.balanceDue.toLocaleString()} — Paid: {enrollAccess.paidAmount.toLocaleString()} of {enrollAccess.totalFees.toLocaleString()}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-gray-500">No fees configured yet</p>
+                          )}
+                        </div>
+                        {!enrollAccess.feesMet && enrollAccess.totalFees > 0 && (
+                          <a href="/student/fees" className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-brand-700 shrink-0">Pay Now →</a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Term breakdown */}
+                    {enrollAccess.termBreakdown && enrollAccess.termBreakdown.length > 0 && (
+                      <div className="mt-3 bg-white rounded-xl border p-3">
+                        <p className="text-[11px] font-bold text-gray-600 mb-2">📋 Term Fee Breakdown</p>
+                        <div className="space-y-1">
+                          {enrollAccess.termBreakdown.map((tb: any) => (
+                            <div key={tb.term} className={`flex items-center justify-between text-xs p-2 rounded-lg ${tb.isCurrent ? "bg-blue-50 border border-blue-200" : "bg-gray-50"}`}>
+                              <span className="font-medium">{tb.label} {tb.isCurrent && "📌 Current"}</span>
+                              <span className={`font-bold ${tb.owed > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                                {tb.owed > 0 ? `Owes: ${tb.owed.toLocaleString()}` : "✅ Covered"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-amber-600 mt-3 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Classroom, subjects, timetable, and other features are locked until enrollment is complete.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         {/* Profile Setup Prompt */}

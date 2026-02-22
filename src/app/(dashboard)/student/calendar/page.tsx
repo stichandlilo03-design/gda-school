@@ -11,13 +11,14 @@ export default async function StudentCalendarPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  // Access gate: block unapproved / unpaid students
+  // Access gate: block unenrolled students
   try {
     const access = await checkStudentAccess(session.user.id);
     if (access && !access.hasFullAccess) {
-      return <StudentAccessGate access={access} pageName="Academic Calendar" />;
+      return <StudentAccessGate access={access} pageName="Calendar" />;
     }
   } catch (_e) {}
+
 
 
   const student = await db.student.findUnique({

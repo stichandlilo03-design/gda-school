@@ -6,6 +6,7 @@ import {
   promoteStudent, changeStudentGrade,
 } from "@/lib/actions/student-management";
 import { scheduleStudentInterview, submitInterviewResult } from "@/lib/actions/interview";
+import { checkTermFeeDefaults } from "@/lib/actions/school";
 import { useRouter } from "next/navigation";
 import {
   Search, Loader2, ChevronDown, ChevronUp, ArrowUp, Shield,
@@ -61,8 +62,22 @@ export default function StudentManager({ students, countryCode = "NG", interview
   const interviewed = students.filter((s: any) => s.approvalStatus === "INTERVIEWED");
   const approved = students.filter((s: any) => s.approvalStatus === "APPROVED");
   const awaitPay = approved.filter((s: any) => !s.feePaid);
+  const suspended = students.filter((s: any) => s.isSuspended);
 
   const getIV = (sid: string) => interviews.find((i: any) => i.studentId === sid && i.status !== "CANCELLED");
+
+  const [checkingFees, setCheckingFees] = useState(false);
+  const [feeCheckResult, setFeeCheckResult] = useState("");
+  const runFeeCheck = async () => {
+    setCheckingFees(true); setFeeCheckResult("");
+    try {
+      const r = await checkTermFeeDefaults();
+      if (r.error) setFeeCheckResult("Error: " + r.error);
+      else setFeeCheckResult(`✅ Done! ${r.suspendedCount} student(s) suspended for unpaid fees.`);
+      router.refresh();
+    } catch (_e) { setFeeCheckResult("Error checking fees"); }
+    setCheckingFees(false);
+  };
 
   const wrap = (id: string, fn: () => Promise<any>) => {
     setLoading(id);
@@ -333,8 +348,9 @@ export default function StudentManager({ students, countryCode = "NG", interview
                     <h4 className="text-sm font-bold text-gray-800">{s.user?.name}</h4>
                     <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${statusBadge(s.approvalStatus)}`}>{stepLabel(s.approvalStatus)}</span>
                     <span className="text-[9px] bg-gray-100 px-2 py-0.5 rounded-full">{getGradeLabelForCountry(s.gradeLevel, countryCode)}</span>
-                    {s.approvalStatus==="APPROVED"&&!s.feePaid&&<span className="text-[9px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold">💳 Fees Due</span>}
-                    {s.approvalStatus==="APPROVED"&&s.feePaid&&<span className="text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">✅ Full Access</span>}
+                    {s.isSuspended&&<span className="text-[9px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold animate-pulse">🚫 Suspended</span>}
+                    {s.approvalStatus==="APPROVED"&&!s.feePaid&&!s.isSuspended&&<span className="text-[9px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold">💳 Fees Due</span>}
+                    {s.approvalStatus==="APPROVED"&&s.feePaid&&!s.isSuspended&&<span className="text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">✅ Full Access</span>}
                   </div>
                   <p className="text-[10px] text-gray-500 truncate">{s.user?.email} · {s.enrollments?.length||0} classes</p>
                 </div>
@@ -374,6 +390,7 @@ export default function StudentManager({ students, countryCode = "NG", interview
                     {s.approvalStatus==="INTERVIEWED"&&(<><button onClick={()=>wrap(s.id,()=>approveStudent(s.id))} className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"><UserCheck className="w-3 h-3" /> Approve</button><button onClick={()=>{const r=prompt("Reason:");if(r!==null)wrap(s.id,()=>rejectStudent(s.id,r));}} className="text-xs bg-red-50 text-red-700 px-3 py-1.5 rounded-lg font-bold">Reject</button></>)}
                     {s.approvalStatus==="APPROVED"&&(<div className="flex items-center gap-2 w-full"><input className="input-field text-xs flex-1" placeholder="Suspension reason..." value={suspendReason} onChange={e=>setSuspendReason(e.target.value)} /><button onClick={()=>{if(!suspendReason)return;wrap(s.id,()=>suspendStudent(s.id,suspendReason));setSuspendReason("");}} className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"><Shield className="w-3 h-3" /> Suspend</button></div>)}
                     {(s.approvalStatus==="SUSPENDED"||s.approvalStatus==="REJECTED")&&<button onClick={()=>wrap(s.id,()=>reinstateStudent(s.id))} className="text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"><UserCheck className="w-3 h-3" /> Reinstate</button>}
+                    {s.isSuspended&&s.approvalStatus==="APPROVED"&&<div className="w-full mt-1 p-2 bg-red-50 rounded-lg"><p className="text-[10px] text-red-700 mb-1">⚠️ {s.suspendReason||"Suspended"}</p><button onClick={()=>wrap(s.id,()=>reinstateStudent(s.id))} className="text-xs bg-emerald-600 text-white px-4 py-1.5 rounded-lg font-bold flex items-center gap-1"><UserCheck className="w-3 h-3" /> Restore Access</button></div>}
                     {s.approvalStatus==="APPROVED"&&(<div className="flex items-center gap-2 w-full mt-1"><select className="input-field text-xs flex-1" value={promoteGrade} onChange={e=>setPromoteGrade(e.target.value)}><option value="">Change grade...</option>{allGrades.map((g:any)=>(<option key={g.value} value={g.value}>{g.label}</option>))}</select><button onClick={()=>{if(!promoteGrade)return;wrap(s.id,()=>promoteStudent(s.id,promoteGrade));setPromoteGrade("");}} disabled={!promoteGrade} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 disabled:opacity-50"><ArrowUp className="w-3 h-3" /> Promote</button></div>)}
                   </div>
                   {(s.payments?.length>0)&&(<div><p className="text-[10px] font-bold text-gray-500 mb-1">💰 Payments</p>{s.payments.map((p:any)=>(<div key={p.id} className="flex items-center justify-between py-1 px-2 bg-gray-50 rounded text-[10px]"><span>{p.description}</span><div className="flex items-center gap-2"><span className="font-bold">{p.currency} {p.amount?.toLocaleString()}</span><span className={`px-1 py-0.5 rounded text-[8px] font-medium ${p.status==="COMPLETED"?"bg-emerald-100 text-emerald-700":p.status==="UNDER_REVIEW"?"bg-amber-100 text-amber-700":"bg-gray-100"}`}>{p.status}</span></div></div>))}</div>)}
