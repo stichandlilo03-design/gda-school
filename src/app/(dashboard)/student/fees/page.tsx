@@ -8,8 +8,9 @@ export default async function StudentFeesPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
-  try {
-    const student = await db.student.findUnique({
+    let student: any = null;
+try {
+    student = await db.student.findUnique({
       where: { userId: session.user.id },
       include: {
         school: { include: { bankAccounts: { where: { isActive: true } } } },

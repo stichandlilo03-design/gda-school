@@ -9,7 +9,8 @@ export default async function TeacherStudentsPage() {
   if (!session) return null;
 
 
-  try {
+    let allStudents: any = null;
+try {
     const teacher = await db.teacher.findUnique({
       where: { userId: session.user.id },
       include: {
@@ -26,7 +27,7 @@ export default async function TeacherStudentsPage() {
       },
     });
 
-    const allStudents = new Map<string, { student: any; classes: string[] }>();
+    allStudents = new Map<string, { student: any; classes: string[] }>();
     teacher?.classes.forEach((c) => {
       c.enrollments.forEach((e) => {
         if (allStudents.has(e.student.id)) {

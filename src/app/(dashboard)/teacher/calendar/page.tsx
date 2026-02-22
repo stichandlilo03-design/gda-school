@@ -11,6 +11,7 @@ export default async function TeacherCalendarPage() {
 
     let events: any = null;
   let terms: any = null;
+  let currentTerm: any = null;
 try {
     const teacher = await db.teacher.findUnique({
       where: { userId: session.user.id },
@@ -30,7 +31,7 @@ try {
       orderBy: { startDate: "asc" },
     });
 
-    const currentTerm = terms.find((t: any) => t.isActive);
+    currentTerm = terms.find((t: any) => t.isActive);
 
   } catch (err: any) {
     console.error("calendar page error:", err?.message || err);

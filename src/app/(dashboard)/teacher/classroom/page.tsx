@@ -10,6 +10,8 @@ export default async function TeacherClassroomPage() {
 
 
     let teacher: any = null;
+  let schoolSettings: any = null;
+  let totalStudents: any = null;
 try {
     teacher = await db.teacher.findUnique({
       where: { userId: session.user.id },
@@ -46,8 +48,8 @@ try {
 
     if (!teacher) return null;
 
-    const schoolSettings = teacher.schools?.[0]?.school;
-    const totalStudents = teacher.classes.reduce((s, c) => s + c.enrollments.length, 0);
+    schoolSettings = teacher.schools?.[0]?.school;
+    totalStudents = teacher.classes.reduce((s, c) => s + c.enrollments.length, 0);
 
   } catch (err: any) {
     console.error("classroom page error:", err?.message || err);

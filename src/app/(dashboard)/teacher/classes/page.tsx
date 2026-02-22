@@ -10,6 +10,7 @@ export default async function ClassesPage() {
 
 
     let teacher: any = null;
+  let availableGrades: any = null;
 try {
     teacher = await db.teacher.findUnique({
       where: { userId: session.user.id },
@@ -40,7 +41,7 @@ try {
       },
     });
 
-    const availableGrades = teacher?.schools.flatMap((st) => st.school.grades) || [];
+    availableGrades = teacher?.schools.flatMap((st) => st.school.grades) || [];
 
   } catch (err: any) {
     console.error("classes page error:", err?.message || err);

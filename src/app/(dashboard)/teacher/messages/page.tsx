@@ -9,7 +9,9 @@ export default async function TeacherMessagesPage() {
   if (!session) return null;
 
 
-  try {
+    let conversations: any = null;
+  let contacts: any = null;
+try {
     const teacher = await db.teacher.findUnique({
       where: { userId: session.user.id },
       include: {
@@ -40,10 +42,10 @@ export default async function TeacherMessagesPage() {
         convMap.set(partnerId, { partner, lastMessage: msg, unread });
       }
     }
-    const conversations = Array.from(convMap.values());
+    conversations = Array.from(convMap.values());
 
     // Build contacts list (principals + other teachers in same school)
-    const contacts: { id: string; name: string; role: string }[] = [];
+    contacts = [];
     const seen = new Set<string>();
     for (const st of teacher?.schools || []) {
       if (st.school.principal?.user && !seen.has(st.school.principal.user.id)) {
