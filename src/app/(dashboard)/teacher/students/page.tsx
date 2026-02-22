@@ -53,7 +53,7 @@ try {
           </div>
         ) : (
           <div className="space-y-2">
-            {Array.from(allStudents.values()).map(({ student, classes }) => (
+            {(Array.from(allStudents.values()) as any[]).map(({ student, classes }: any) => (
               <div key={student.id} className="card flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
                   {student.user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
