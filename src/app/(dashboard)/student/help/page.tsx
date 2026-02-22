@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import DashboardHeader from "@/components/layout/dashboard-header";
 import HelpPage from "@/components/help-page";
 

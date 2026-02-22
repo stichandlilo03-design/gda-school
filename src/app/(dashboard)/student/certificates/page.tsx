@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getServerSession } from "next-auth";
 import { checkStudentAccess } from "@/lib/student-access";
 import StudentAccessGate from "@/components/student-access-gate";

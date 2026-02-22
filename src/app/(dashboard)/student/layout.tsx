@@ -5,6 +5,9 @@ import { db } from "@/lib/db";
 import { checkStudentAccess } from "@/lib/student-access";
 import DashboardSidebar from "@/components/layout/dashboard-sidebar";
 
+// CRITICAL: Force dynamic rendering — sidebar must reflect current payment/approval status
+export const dynamic = "force-dynamic";
+
 // Stage 1: Not approved yet (PENDING, INTERVIEW_SCHEDULED, INTERVIEWED, REJECTED)
 const pendingLinks = [
   { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
