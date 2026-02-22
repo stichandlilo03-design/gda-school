@@ -13,6 +13,7 @@ export default async function PrincipalGradingPage() {
   let terms: any[] = [];
   let termReports: any[] = [];
   let countryCode = "NG";
+  let schoolAssignments: any[] = [];
   let queryError = "";
 
   try {
@@ -64,6 +65,16 @@ export default async function PrincipalGradingPage() {
       orderBy: { createdAt: "desc" },
       take: 50,
     });
+
+    schoolAssignments = await db.assignment.findMany({
+      where: { class: { schoolGrade: { schoolId: principal.schoolId } }, isActive: true },
+      include: {
+        class: { include: { subject: true, schoolGrade: true, teacher: { include: { user: { select: { name: true } } } } } },
+        submissions: { include: { student: { include: { user: { select: { name: true } } } } }, orderBy: { submittedAt: "desc" } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
   } catch (err: any) {
     queryError = err?.message || "Unknown error";
     console.error("Grading page error:", queryError);
@@ -85,6 +96,7 @@ export default async function PrincipalGradingPage() {
           approvedAssessments={JSON.parse(JSON.stringify(approvedAssessments))}
           terms={JSON.parse(JSON.stringify(terms))}
           termReports={JSON.parse(JSON.stringify(termReports))}
+          assignments={JSON.parse(JSON.stringify(schoolAssignments))}
           countryCode={countryCode}
         />
       </div>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createAssessment, enterScores, deleteAssessment } from "@/lib/actions/teacher";
 import { submitGradesForApproval, createAssignment, gradeAssignment } from "@/lib/actions/grading";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Loader2, ClipboardList, Save, Send, CheckCircle, Clock, XCircle, FileText, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Loader2, ClipboardList, Save, Send, CheckCircle, Clock, XCircle, FileText, AlertTriangle, ChevronDown } from "lucide-react";
 
 const TYPES = [
   { value: "CONTINUOUS_ASSESSMENT", label: "Continuous Assessment (CA)" },
@@ -33,6 +33,8 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
   const [hwQuestions, setHwQuestions] = useState<any[]>([]);
   const [editingScores, setEditingScores] = useState<string | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
+  const [expandedSub, setExpandedSub] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState<Record<string, string>>({});
 
   const currentClass = classes.find((c: any) => c.id === selectedClass);
   const classAssignments = assignments.filter((a: any) => a.classId === selectedClass);
@@ -93,9 +95,9 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
     setLoading("");
   };
 
-  const handleGradeAssignment = async (subId: string, score: number) => {
+  const handleGradeAssignment = async (subId: string, score: number, feedback?: string) => {
     setLoading(subId);
-    await gradeAssignment(subId, score);
+    await gradeAssignment(subId, score, feedback);
     router.refresh();
     setLoading("");
   };
@@ -379,26 +381,128 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
                         </div>
                         {a.description && <p className="text-[10px] text-gray-500 mt-1">{a.description}</p>}
 
-                        {/* Submissions */}
-                        {submitted > 0 && (
-                          <div className="mt-3 pt-3 border-t space-y-1.5">
+                        {/* Submissions with full Q&A view */}
+                        {submitted > 0 && (\n                          <div className="mt-3 pt-3 border-t space-y-2">
                             {a.submissions.map((sub: any) => {
                               const studentName = currentClass.enrollments?.find((e: any) => e.student.id === sub.studentId)?.student?.user?.name || "Unknown";
+                              const questions = (a.questions || []) as any[];
+                              const subAnswers = (sub.answers || []) as any[];
+                              const isExpanded = expandedSub === sub.id;
                               return (
-                                <div key={sub.id} className="flex items-center justify-between py-1 px-2 bg-gray-50 rounded text-[10px]">
-                                  <span className="font-medium">{studentName}</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</span>
-                                    {sub.gradedAt ? (
-                                      <span className="font-bold text-emerald-600">{sub.score}/{a.maxScore}</span>
-                                    ) : (
-                                      <div className="flex items-center gap-1">
-                                        <input type="number" className="input-field w-16 text-xs py-0.5" min={0} max={a.maxScore} placeholder="Score"
-                                          onBlur={(e) => { const v = parseFloat(e.target.value); if (v >= 0) handleGradeAssignment(sub.id, v); }} />
-                                        <span className="text-gray-400">/{a.maxScore}</span>
-                                      </div>
-                                    )}
+                                <div key={sub.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                                  <div className="flex items-center gap-3 p-3 bg-gray-50 cursor-pointer hover:bg-gray-100" onClick={() => setExpandedSub(isExpanded ? null : sub.id)}>
+                                    <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-[10px] font-bold">
+                                      {studentName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-xs font-semibold">{studentName}</span>
+                                      <span className="text-[9px] text-gray-400 ml-2">{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                                      {sub.autoScore != null && <span className="text-[9px] text-blue-600 ml-2">Auto: {sub.autoScore}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {sub.gradedAt ? (
+                                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{sub.score}/{a.maxScore || a.totalPoints}</span>
+                                      ) : (
+                                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Needs Grading</span>
+                                      )}
+                                      <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition ${isExpanded ? "rotate-180" : ""}`} />
+                                    </div>
                                   </div>
+
+                                  {isExpanded && (
+                                    <div className="p-3 space-y-3 bg-white">
+                                      {/* Free-form content */}
+                                      {sub.content && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                          <p className="text-[10px] font-bold text-blue-700 mb-1">📝 Student&apos;s Written Answer:</p>
+                                          <p className="text-xs text-gray-800 whitespace-pre-wrap">{sub.content}</p>
+                                        </div>
+                                      )}
+
+                                      {/* File attachment */}
+                                      {sub.fileUrl && (
+                                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-2">
+                                          <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-700 underline">📎 View Attached File</a>
+                                        </div>
+                                      )}
+
+                                      {/* Question-by-question answers */}
+                                      {questions.length > 0 && (
+                                        <div className="space-y-2">
+                                          <p className="text-[10px] font-bold text-gray-500 uppercase">Questions & Answers ({questions.length})</p>
+                                          {questions.map((q: any, qi: number) => {
+                                            const sa = subAnswers.find((ans: any) => ans.questionId === q.id);
+                                            return (
+                                              <div key={q.id} className={`rounded-lg p-3 border ${sa?.isCorrect === true ? "bg-emerald-50 border-emerald-200" : sa?.isCorrect === false ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                                                <div className="flex items-start gap-2 mb-1.5">
+                                                  <span className="w-5 h-5 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[9px] font-bold shrink-0">{qi + 1}</span>
+                                                  <div className="flex-1">
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${q.type === "mcq" ? "bg-blue-100 text-blue-700" : q.type === "math" ? "bg-green-100 text-green-700" : q.type === "essay" ? "bg-purple-100 text-purple-700" : "bg-gray-200 text-gray-600"}`}>
+                                                        {q.type?.toUpperCase()}
+                                                      </span>
+                                                      <span className="text-[9px] text-gray-400">{q.points || 1} pt{(q.points || 1) > 1 ? "s" : ""}</span>
+                                                      {sa?.isCorrect === true && <span className="text-[9px] text-emerald-600 font-bold">✅ Correct</span>}
+                                                      {sa?.isCorrect === false && <span className="text-[9px] text-red-600 font-bold">❌ Incorrect</span>}
+                                                      {sa?.isCorrect == null && sa && <span className="text-[9px] text-amber-600 font-bold">⏳ Manual grade needed</span>}
+                                                    </div>
+                                                    <p className="text-xs font-medium text-gray-800">{q.question}</p>
+                                                  </div>
+                                                </div>
+                                                {/* MCQ options with highlighting */}
+                                                {q.type === "mcq" && q.options && (
+                                                  <div className="ml-7 space-y-0.5 mb-1">
+                                                    {q.options.map((opt: string, oi: number) => (
+                                                      <div key={oi} className={`text-[10px] px-2 py-0.5 rounded ${opt === q.correctAnswer ? "bg-emerald-100 text-emerald-800 font-bold" : opt === sa?.answer && opt !== q.correctAnswer ? "bg-red-100 text-red-700 line-through" : "text-gray-500"}`}>
+                                                        {String.fromCharCode(65 + oi)}. {opt}
+                                                        {opt === q.correctAnswer && " ✓"}
+                                                        {opt === sa?.answer && opt !== q.correctAnswer && " ← student chose"}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                                <div className="ml-7 mt-1 space-y-1">
+                                                  <p className="text-[10px]"><span className="text-gray-500">Student answered:</span> <span className="font-medium text-gray-800">{sa?.answer || "— no answer —"}</span></p>
+                                                  {q.correctAnswer && (q.type === "math" || q.type === "short") && (
+                                                    <p className="text-[10px]"><span className="text-gray-500">Correct answer:</span> <span className="font-bold text-emerald-700">{q.correctAnswer}</span></p>
+                                                  )}
+                                                  {sa?.points != null && <p className="text-[10px] font-bold text-brand-600">Points earned: {sa.points}/{q.points || 1}</p>}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+
+                                      {/* Grading section */}
+                                      <div className="border-t pt-3 space-y-2">
+                                        <div className="flex items-center gap-3">
+                                          <div>
+                                            <label className="text-[10px] font-bold text-gray-500">Score</label>
+                                            <div className="flex items-center gap-1">
+                                              <input type="number" className="input-field w-20 text-sm py-1" min={0} max={a.maxScore || a.totalPoints}
+                                                defaultValue={sub.score ?? sub.autoScore ?? ""}
+                                                onChange={(e) => setScores((p) => ({ ...p, [sub.id]: parseFloat(e.target.value) || 0 }))} />
+                                              <span className="text-xs text-gray-400">/ {a.maxScore || a.totalPoints}</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex-1">
+                                            <label className="text-[10px] font-bold text-gray-500">Teacher Feedback</label>
+                                            <input className="input-field text-xs py-1" placeholder="Write feedback for this student..."
+                                              defaultValue={sub.feedback || ""}
+                                              onChange={(e) => setFeedbackText((p) => ({ ...p, [sub.id]: e.target.value }))} />
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={() => handleGradeAssignment(sub.id, scores[sub.id] ?? sub.score ?? sub.autoScore ?? 0, feedbackText[sub.id] || sub.feedback || undefined)}
+                                          disabled={loading === sub.id}
+                                          className="text-xs px-4 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-medium">
+                                          {loading === sub.id ? <Loader2 className="w-3 h-3 animate-spin" /> : sub.gradedAt ? "Update Grade" : "Save Grade"}
+                                        </button>
+                                        {sub.feedback && <p className="text-[10px] text-blue-600 italic">Current feedback: &quot;{sub.feedback}&quot;</p>}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}

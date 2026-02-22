@@ -6,14 +6,15 @@ import { approveGrades, rejectGrades, generateTermReports, approveTermReport, re
 import { getGradeLabelForCountry, getEducationSystem } from "@/lib/education-systems";
 import { CheckCircle, XCircle, Loader2, FileText, Award, AlertTriangle, Send, ChevronDown, ChevronUp, GraduationCap } from "lucide-react";
 
-export default function GradingOversight({ pendingAssessments, approvedAssessments, terms, termReports, countryCode }: {
-  pendingAssessments: any[]; approvedAssessments: any[]; terms: any[]; termReports: any[]; countryCode: string;
+export default function GradingOversight({ pendingAssessments, approvedAssessments, terms, termReports, assignments = [], countryCode }: {
+  pendingAssessments: any[]; approvedAssessments: any[]; terms: any[]; termReports: any[]; assignments?: any[]; countryCode: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
-  const [tab, setTab] = useState<"pending" | "approved" | "reports">("pending");
+  const [tab, setTab] = useState<"pending" | "approved" | "reports" | "assignments">("pending");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedSub, setExpandedSub] = useState<string | null>(null);
   const [selectedTerm, setSelectedTerm] = useState(terms.find((t: any) => t.isActive)?.id || terms[0]?.id || "");
   const [rejectReason, setRejectReason] = useState("");
   const [reportExpanded, setReportExpanded] = useState<string | null>(null);
@@ -100,6 +101,7 @@ export default function GradingOversight({ pendingAssessments, approvedAssessmen
         {[
           { key: "pending", label: `⏳ Pending Grades (${pendingAssessments.length})` },
           { key: "approved", label: "✅ Approved Grades" },
+          { key: "assignments", label: `📝 Assignments (${assignments.length})` },
           { key: "reports", label: "📋 Term Reports & Promotions" },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as any)}
@@ -346,6 +348,108 @@ export default function GradingOversight({ pendingAssessments, approvedAssessmen
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ===== ASSIGNMENTS TAB ===== */}
+      {tab === "assignments" && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">View all assignments, student submissions, and answers across the school.</p>
+          {assignments.length === 0 ? (
+            <div className="card text-center py-12"><p className="text-gray-400 text-sm">No assignments yet</p></div>
+          ) : assignments.map((a: any) => {
+            const questions = (a.questions || []) as any[];
+            const isOpen = expanded === `a-${a.id}`;
+            return (
+              <div key={a.id} className="card">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpanded(isOpen ? null : `a-${a.id}`)}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${a.type === "QUIZ" ? "bg-purple-100" : a.type === "ASSIGNMENT" ? "bg-blue-100" : "bg-amber-100"}`}>
+                    {a.type === "QUIZ" ? "🧪" : a.type === "ASSIGNMENT" ? "📋" : "📝"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold">{a.title}</h4>
+                    <p className="text-[10px] text-gray-500">
+                      {a.class?.subject?.name || a.class?.name} • {a.class?.schoolGrade?.gradeLevel} •
+                      Teacher: {a.class?.teacher?.user?.name || "—"} •
+                      {questions.length} questions • {a.submissions?.length || 0} submissions
+                    </p>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 transition ${isOpen ? "rotate-180" : ""}`} />
+                </div>
+
+                {isOpen && (
+                  <div className="mt-3 pt-3 border-t space-y-3">
+                    {/* Questions overview */}
+                    {questions.length > 0 && (
+                      <div className="bg-gray-50 rounded-xl p-3">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Questions Set by Teacher</p>
+                        {questions.map((q: any, qi: number) => (
+                          <div key={q.id} className="flex items-start gap-2 py-1.5 border-b border-gray-100 last:border-0">
+                            <span className="w-5 h-5 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[9px] font-bold shrink-0">{qi + 1}</span>
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-800">{q.question}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${q.type === "mcq" ? "bg-blue-100 text-blue-700" : q.type === "math" ? "bg-green-100 text-green-700" : q.type === "essay" ? "bg-purple-100 text-purple-700" : "bg-gray-200 text-gray-600"}`}>{q.type?.toUpperCase()}</span>
+                                <span className="text-[9px] text-gray-400">{q.points || 1} pts</span>
+                                {q.correctAnswer && <span className="text-[9px] text-emerald-600">Answer: {q.correctAnswer}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Student submissions */}
+                    {(!a.submissions || a.submissions.length === 0) ? (
+                      <p className="text-xs text-gray-400 text-center py-3">No submissions yet</p>
+                    ) : a.submissions.map((sub: any) => {
+                      const subAnswers = (sub.answers || []) as any[];
+                      const isSubOpen = expandedSub === sub.id;
+                      return (
+                        <div key={sub.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="flex items-center gap-3 p-2.5 bg-gray-50 cursor-pointer hover:bg-gray-100" onClick={() => setExpandedSub(isSubOpen ? null : sub.id)}>
+                            <span className="text-xs font-semibold">{sub.student?.user?.name || "Unknown"}</span>
+                            <span className="text-[9px] text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                            {sub.autoScore != null && <span className="text-[9px] text-blue-600">Auto: {sub.autoScore}</span>}
+                            {sub.gradedAt ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 ml-auto">{sub.score}/{a.maxScore || a.totalPoints}</span>
+                            ) : (
+                              <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 ml-auto">Ungraded</span>
+                            )}
+                            <ChevronDown className={`w-3 h-3 text-gray-400 transition ${isSubOpen ? "rotate-180" : ""}`} />
+                          </div>
+                          {isSubOpen && (
+                            <div className="p-3 space-y-2">
+                              {sub.content && (
+                                <div className="bg-blue-50 rounded-lg p-2 text-xs text-gray-800">
+                                  <p className="font-bold text-blue-700 text-[10px] mb-1">Written Answer:</p>
+                                  <p className="whitespace-pre-wrap">{sub.content}</p>
+                                </div>
+                              )}
+                              {questions.length > 0 && subAnswers.length > 0 && questions.map((q: any, qi: number) => {
+                                const sa = subAnswers.find((ans: any) => ans.questionId === q.id);
+                                return (
+                                  <div key={q.id} className={`rounded-lg p-2 border text-[10px] ${sa?.isCorrect === true ? "bg-emerald-50 border-emerald-200" : sa?.isCorrect === false ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                                    <p className="font-medium text-gray-700">Q{qi + 1}. {q.question}</p>
+                                    <p className="mt-0.5">Answer: <span className="font-bold">{sa?.answer || "—"}</span></p>
+                                    {q.correctAnswer && <p className="text-emerald-600">Correct: {q.correctAnswer}</p>}
+                                    {sa?.isCorrect === true && <span className="text-emerald-600 font-bold">✅ +{sa.points} pts</span>}
+                                    {sa?.isCorrect === false && <span className="text-red-600 font-bold">❌ 0 pts</span>}
+                                    {sa?.isCorrect == null && sa && <span className="text-amber-600">⏳ Needs teacher grading</span>}
+                                  </div>
+                                );
+                              })}
+                              {sub.feedback && <p className="text-[10px] text-blue-600 italic">Teacher feedback: &quot;{sub.feedback}&quot;</p>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

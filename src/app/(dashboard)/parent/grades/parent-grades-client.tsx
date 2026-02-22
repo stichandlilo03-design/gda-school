@@ -7,6 +7,7 @@ export default function ParentGradesClient({ children: childrenData }: { childre
   const [selectedChild, setSelectedChild] = useState(childrenData[0]?.id || "");
   const [tab, setTab] = useState<"grades" | "assignments" | "reports">("grades");
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const [expandedAssignment, setExpandedAssignment] = useState<string | null>(null);
 
   const child = childrenData.find((c) => c.id === selectedChild);
 
@@ -180,28 +181,68 @@ export default function ParentGradesClient({ children: childrenData }: { childre
               {completedAssignments.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Submitted ({completedAssignments.length})</h4>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {completedAssignments.map((a: any) => {
                       const sub = a.submission;
                       const graded = sub?.gradedAt;
+                      const questions = (a.questions || []) as any[];
+                      const subAnswers = (sub?.answers || []) as any[];
+                      const isOpen = expandedAssignment === a.id;
                       return (
-                        <div key={a.id} className="card flex items-center justify-between border-l-4 border-l-emerald-300">
-                          <div>
-                            <p className="text-xs font-medium">{a.title}</p>
-                            <p className="text-[10px] text-gray-500">{a.className} · Submitted {sub ? new Date(sub.submittedAt).toLocaleDateString() : ""}</p>
-                          </div>
-                          <div className="text-right">
-                            {graded ? (
-                              <div>
+                        <div key={a.id} className="card border-l-4 border-l-emerald-300 overflow-hidden">
+                          <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpandedAssignment(isOpen ? null : a.id)}>
+                            <div>
+                              <p className="text-xs font-medium">{a.title}</p>
+                              <p className="text-[10px] text-gray-500">{a.className} · Submitted {sub ? new Date(sub.submittedAt).toLocaleDateString() : ""}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {graded ? (
                                 <span className={`text-xs font-bold ${pctColor(a.maxScore > 0 ? (sub.score / a.maxScore) * 100 : 0)}`}>
                                   {sub.score}/{a.maxScore}
                                 </span>
-                                <p className="text-[9px] text-gray-400">Graded</p>
-                              </div>
-                            ) : (
-                              <span className="text-[9px] px-2 py-0.5 rounded bg-blue-100 text-blue-700">Awaiting grade</span>
-                            )}
+                              ) : (
+                                <span className="text-[9px] px-2 py-0.5 rounded bg-blue-100 text-blue-700">Awaiting grade</span>
+                              )}
+                              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition ${isOpen ? "rotate-180" : ""}`} />
+                            </div>
                           </div>
+
+                          {isOpen && (
+                            <div className="mt-3 pt-3 border-t space-y-2">
+                              {sub?.content && (
+                                <div className="bg-blue-50 rounded-lg p-2 text-xs">
+                                  <p className="font-bold text-blue-700 text-[10px] mb-1">Written Answer:</p>
+                                  <p className="text-gray-800 whitespace-pre-wrap">{sub.content}</p>
+                                </div>
+                              )}
+                              {questions.length > 0 && questions.map((q: any, qi: number) => {
+                                const sa = subAnswers.find((ans: any) => ans.questionId === q.id);
+                                return (
+                                  <div key={q.id} className={`rounded-lg p-2.5 border text-[10px] ${sa?.isCorrect === true ? "bg-emerald-50 border-emerald-200" : sa?.isCorrect === false ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <span className="w-4 h-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[8px] font-bold">{qi + 1}</span>
+                                      <span className={`text-[8px] px-1 py-0.5 rounded font-bold ${q.type === "mcq" ? "bg-blue-100 text-blue-700" : q.type === "math" ? "bg-green-100 text-green-700" : q.type === "essay" ? "bg-purple-100 text-purple-700" : "bg-gray-200 text-gray-600"}`}>{q.type?.toUpperCase()}</span>
+                                      {sa?.isCorrect === true && <span className="text-emerald-600 font-bold">✅ Correct</span>}
+                                      {sa?.isCorrect === false && <span className="text-red-600 font-bold">❌ Wrong</span>}
+                                    </div>
+                                    <p className="text-xs font-medium text-gray-800 mb-1">{q.question}</p>
+                                    <p>Your child answered: <span className="font-bold">{sa?.answer || "—"}</span></p>
+                                    {q.correctAnswer && sa?.isCorrect === false && <p className="text-emerald-600">Correct answer: {q.correctAnswer}</p>}
+                                    {sa?.points != null && <p className="font-bold text-brand-600">Points: {sa.points}/{q.points || 1}</p>}
+                                  </div>
+                                );
+                              })}
+                              {sub?.feedback && (
+                                <div className="bg-blue-50 rounded-lg p-2 text-[10px]">
+                                  <p className="font-bold text-blue-700">Teacher Feedback:</p>
+                                  <p className="text-blue-800">{sub.feedback}</p>
+                                </div>
+                              )}
+                              {sub?.autoScore != null && (
+                                <p className="text-[10px] text-blue-600 font-medium">Auto-graded score: {sub.autoScore}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
