@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, Clock, BarChart3, DollarSign,
   ClipboardList, UserCheck, FolderOpen, Award, Calendar, Menu, X, LogOut, Briefcase,
@@ -16,15 +16,72 @@ const iconMap: Record<string, any> = {
   MessageSquare, Building2, Play, User, Shield, HelpCircle, Headphones, Flag, Gamepad2,
 };
 
+// Full student links — used as fallback when API says full access
+const FULL_STUDENT_LINKS = [
+  { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
+  { href: "/student/classroom", icon: "Play", label: "My Classroom" },
+  { href: "/student/subjects", icon: "BookOpen", label: "My Subjects" },
+  { href: "/student/teachers", icon: "Users", label: "Browse Teachers" },
+  { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
+  { href: "/student/timetable", icon: "Calendar", label: "Timetable" },
+  { href: "/student/calendar", icon: "Calendar", label: "Academic Calendar" },
+  { href: "/student/grades", icon: "ClipboardList", label: "Grades & Assignments" },
+  { href: "/student/attendance", icon: "UserCheck", label: "Attendance" },
+  { href: "/student/materials", icon: "FolderOpen", label: "Materials" },
+  { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
+  { href: "/student/profile", icon: "User", label: "Profile & ID Card" },
+  { href: "/student/school-info", icon: "Flag", label: "School Info" },
+  { href: "/student/games", icon: "Gamepad2", label: "Games & Fun" },
+  { href: "/student/certificates", icon: "Award", label: "Certificates" },
+  { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
+];
+
+const PENDING_STUDENT_LINKS = [
+  { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
+  { href: "/student/profile", icon: "User", label: "My Profile" },
+  { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
+  { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
+];
+
+const PAYMENT_STUDENT_LINKS = [
+  { href: "/student", icon: "LayoutDashboard", label: "Dashboard" },
+  { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
+  { href: "/student/profile", icon: "User", label: "My Profile" },
+  { href: "/student/messages", icon: "MessageSquare", label: "Messages" },
+  { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
+];
+
 interface SidebarProps {
   user: { name: string; email: string; role: string; image?: string };
   links: { href: string; icon: string; label: string }[];
   schoolName?: string;
 }
 
-export default function DashboardSidebar({ user, links, schoolName }: SidebarProps) {
+export default function DashboardSidebar({ user, links: serverLinks, schoolName }: SidebarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [links, setLinks] = useState(serverLinks);
+
+  // CLIENT-SIDE ACCESS CHECK for students — overrides stale server links
+  useEffect(() => {
+    if (user.role !== "STUDENT") return;
+
+    fetch("/api/student-access")
+      .then(r => r.json())
+      .then(data => {
+        if (data.level === "full" && serverLinks.length < 10) {
+          // Server gave restricted links but API says full access — FIX IT
+          setLinks(FULL_STUDENT_LINKS);
+        } else if (data.level === "pending" && serverLinks.length > 5) {
+          setLinks(PENDING_STUDENT_LINKS);
+        } else if ((data.level === "awaiting_payment" || data.level === "suspended") && serverLinks.length > 6) {
+          setLinks(PAYMENT_STUDENT_LINKS);
+        } else if (data.level === "full") {
+          setLinks(FULL_STUDENT_LINKS);
+        }
+      })
+      .catch(() => {});
+  }, [user.role, serverLinks.length]);
 
   const isActive = (href: string) => {
     if (href.split("/").length === 2) return pathname === href;
