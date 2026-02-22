@@ -382,7 +382,8 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
                         {a.description && <p className="text-[10px] text-gray-500 mt-1">{a.description}</p>}
 
                         {/* Submissions with full Q&A view */}
-                        {submitted > 0 && (\n                          <div className="mt-3 pt-3 border-t space-y-2">
+                        {submitted > 0 && (
+                          <div className="mt-3 pt-3 border-t space-y-2">
                             {a.submissions.map((sub: any) => {
                               const studentName = currentClass.enrollments?.find((e: any) => e.student.id === sub.studentId)?.student?.user?.name || "Unknown";
                               const questions = (a.questions || []) as any[];

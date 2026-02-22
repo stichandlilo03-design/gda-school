@@ -44,6 +44,45 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
 
   const today = DAYS[new Date().getDay()];
 
+  // Helper: check if a class is currently scheduled
+  const isClassTimeNow = (cls: any) => {
+    const scheds = cls.schedules?.filter((s: any) => s.dayOfWeek === today) || [];
+    if (scheds.length === 0) return false;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    return scheds.some((s: any) => {
+      const [sh, sm] = s.startTime.split(":").map(Number);
+      const [eh, em] = s.endTime.split(":").map(Number);
+      const start = sh * 60 + sm - 5; // 5 min early allowed
+      const end = eh * 60 + em + 5;   // 5 min grace
+      return nowMin >= start && nowMin <= end;
+    });
+  };
+
+  // Get next scheduled class for a subject
+  const getNextClassInfo = (cls: any) => {
+    const allScheds = cls.schedules || [];
+    if (allScheds.length === 0) return null;
+    const now = new Date();
+    const nowDay = now.getDay(); // 0=Sun
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const dayOrder = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+
+    // Check today first, then next days
+    for (let d = 0; d < 7; d++) {
+      const checkDay = (nowDay + d) % 7;
+      const dayName = dayOrder[checkDay];
+      const dayScheds = allScheds.filter((s: any) => s.dayOfWeek === dayName);
+      for (const s of dayScheds) {
+        const [sh, sm] = s.startTime.split(":").map(Number);
+        const schedMin = sh * 60 + sm;
+        if (d === 0 && schedMin <= nowMin) continue; // already passed today
+        return { day: dayName, time: s.startTime, endTime: s.endTime, daysAway: d };
+      }
+    }
+    return null;
+  };
+
   // Build alarm schedules
   const alarmSchedules = classes.flatMap((cls: any) =>
     (cls.schedules || []).map((s: any) => ({
@@ -309,24 +348,50 @@ export default function TeacherClassroomClient({ classes, teacherId, sessionDura
                 <p className="text-[10px] text-gray-500">{cls.enrollments.length} students • {cls._count?.materials || 0} materials</p>
               </div>
               <div className="flex items-center gap-2">
-                {!isLive ? (
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <input className="input-field text-[10px] w-24 py-1" placeholder="Topic..." value={topicInput} onChange={(e) => setTopicInput(e.target.value)} />
-                    <button onClick={() => handleStartClass(cls.id)} disabled={loading === "start-" + cls.id}
-                      className="text-[10px] px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1">
-                      {loading === "start-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Start
-                    </button>
-                    <div className="flex items-center gap-0.5">
-                      <select className="input-field text-[10px] py-1 w-14" value={prepDuration} onChange={e => setPrepDuration(+e.target.value)}>
-                        {[5,10,15,20,30,45,60].map(m => <option key={m} value={m}>{m}m</option>)}
-                      </select>
-                      <button onClick={() => handleStartPrep(cls.id)} disabled={loading === "prep-" + cls.id}
-                        className="text-[10px] px-2 py-1.5 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 flex items-center gap-1" title="Open a prep session — set up board, polls, materials. No payment.">
-                        {loading === "prep-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Settings className="w-3 h-3" />} Prep
-                      </button>
+                {!isLive ? (() => {
+                  const canStart = isClassTimeNow(cls);
+                  const nextInfo = !canStart ? getNextClassInfo(cls) : null;
+                  return (
+                    <div className="flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1">
+                        <input className="input-field text-[10px] w-24 py-1" placeholder="Topic..." value={topicInput} onChange={(e) => setTopicInput(e.target.value)} />
+                        {canStart ? (
+                          <button onClick={() => handleStartClass(cls.id)} disabled={loading === "start-" + cls.id}
+                            className="text-[10px] px-2.5 py-1.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center gap-1">
+                            {loading === "start-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Start
+                          </button>
+                        ) : (
+                          <button disabled className="text-[10px] px-2.5 py-1.5 bg-gray-300 text-gray-500 rounded-lg font-bold cursor-not-allowed flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Not Yet
+                          </button>
+                        )}
+                        <div className="flex items-center gap-0.5">
+                          <select className="input-field text-[10px] py-1 w-14" value={prepDuration} onChange={e => setPrepDuration(+e.target.value)}>
+                            {[5,10,15,20,30,45,60].map(m => <option key={m} value={m}>{m}m</option>)}
+                          </select>
+                          <button onClick={() => handleStartPrep(cls.id)} disabled={loading === "prep-" + cls.id}
+                            className="text-[10px] px-2 py-1.5 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 flex items-center gap-1" title="Open a prep session — set up board, polls, materials. No payment.">
+                            {loading === "prep-" + cls.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Settings className="w-3 h-3" />} Prep
+                          </button>
+                        </div>
+                      </div>
+                      {!canStart && (
+                        <div className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 max-w-[280px] text-right">
+                          🔒 Not class time for <strong>{cls.subject?.name || cls.name}</strong>.
+                          {nextInfo ? (
+                            <span> Next: <strong>{nextInfo.day.charAt(0) + nextInfo.day.slice(1).toLowerCase()}</strong> at <strong>{to12h(nextInfo.time)}</strong>
+                              {nextInfo.daysAway === 0 && " (today)"}
+                              {nextInfo.daysAway === 1 && " (tomorrow)"}
+                            </span>
+                          ) : (
+                            <span> No schedule set — ask your principal to add timetable.</span>
+                          )}
+                          <br /><span className="text-gray-500">⚡ Auto-start will begin on time. You can prep anytime.</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
+                  );
+                })() : (
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => { setActiveVisual(cls.id); setActiveSessionId(polled?.sessionId || liveSession?.id || ""); }}
                       className="text-[10px] px-2 py-1 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">

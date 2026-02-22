@@ -4,7 +4,7 @@ import {
   Hand, Mic, Video, Pencil, MessageSquare, Users,
   Maximize2, Minimize2, Send, Eraser, Type, X, HelpCircle, Clock,
   CheckCircle, BookOpen, FileText, Calculator, Globe, Palette,
-  BarChart3, Lock, Smile, Settings,
+  BarChart3, Lock, Smile, Settings, Volume2, VolumeX,
 } from "lucide-react";
 import StudentDesk from "@/components/student-desk";
 import ClassroomVideo from "@/components/classroom-video";
@@ -309,6 +309,9 @@ export default function VisualClassroom(props: Props) {
   const [boardTheme, setBoardTheme] = useState(0);
   const [textColorOverride, setTextColorOverride] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [showKGTools, setShowKGTools] = useState(false);
+  const [isReading, setIsReading] = useState(false);
+  const [readAloudText, setReadAloudText] = useState<string | null>(null);
   const [floatingReactions, setFloatingReactions] = useState<{id:string;emoji:string;x:number}[]>([]);
   const [pollQ, setPollQ] = useState(""); const [pollOpts, setPollOpts] = useState(["","",""]);
   const [examMode, setExamMode] = useState<"poll"|"test"|"exam">("poll");
@@ -505,6 +508,22 @@ export default function VisualClassroom(props: Props) {
       if (d.liveMinutes !== undefined) setLiveMinutes(d.liveMinutes);
       if (d.isPrep !== undefined) setIsSessionPrep(d.isPrep);
       if (d.prepHidden) setPrepHidden(typeof d.prepHidden === "object" ? d.prepHidden : {});
+
+      // Read aloud broadcast — student hears teacher's read-aloud
+      if (d.readAloudText && !isTeacher && d.readAloudText !== readAloudText) {
+        setReadAloudText(d.readAloudText);
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(d.readAloudText);
+          utter.rate = isKG ? 0.7 : 0.85;
+          utter.pitch = isKG ? 1.2 : 1.0;
+          utter.volume = 1;
+          setIsReading(true);
+          utter.onend = () => setIsReading(false);
+          utter.onerror = () => setIsReading(false);
+          window.speechSynthesis.speak(utter);
+        }
+      }
       setLastPoll(Date.now());
       // Detect when teacher acks student's raised hand
       if (!isTeacher && handRaised && !(d.raisedHands||[]).find((h:any) => h.studentId === studentId)) {
@@ -622,6 +641,28 @@ export default function VisualClassroom(props: Props) {
       setBoardLines([]); // Optimistic clear
       post("board_write", {type:"clear"});
     }
+  };
+
+  // Read board text aloud using SpeechSynthesis
+  const readAloud = (text?: string) => {
+    const content = text || boardLines.map((l: any) => l.text).join(". ");
+    if (!content.trim()) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(content);
+    utter.rate = isKG ? 0.7 : 0.85; // slower for KG
+    utter.pitch = isKG ? 1.2 : 1.0;
+    utter.volume = 1;
+    setIsReading(true);
+    utter.onend = () => setIsReading(false);
+    utter.onerror = () => setIsReading(false);
+    window.speechSynthesis.speak(utter);
+    // Broadcast to students
+    if (isTeacher) post("read_aloud", { text: content });
+  };
+  const stopReading = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    setIsReading(false);
   };
   const setMode = (m: string) => { post("set_mode", {mode:m}); setTeachingMode(m); };
   const toggleHand = () => {
@@ -845,6 +886,20 @@ export default function VisualClassroom(props: Props) {
           </button>}
           {isTeacher && <button onClick={() => setPanel(panel==="poll"?null:"poll")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><BarChart3 className="w-3 h-3" /></button>}
           {isTeacher && <button onClick={() => setPanel(panel==="hw"?null:"hw")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white" title="Assign Homework"><FileText className="w-3 h-3" /></button>}
+          {isTeacher && (
+            <button onClick={() => isReading ? stopReading() : readAloud()}
+              className={`p-1 rounded-lg ${isReading ? "bg-emerald-500 text-white animate-pulse" : "bg-gray-600 text-white/60 hover:text-white"}`}
+              title="Read board text aloud to students">
+              {isReading ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+            </button>
+          )}
+          {isKG && isTeacher && (
+            <button onClick={() => setShowKGTools(!showKGTools)}
+              className={`p-1 rounded-lg ${showKGTools ? "bg-yellow-400 text-yellow-900" : "bg-gray-600 text-white/60 hover:text-white"}`}
+              title="KG Learning Tools">
+              <span className="text-[10px] font-bold">🧒</span>
+            </button>
+          )}
           {!isTeacher && <button onClick={() => setShowSettings(!showSettings)} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><Settings className="w-3 h-3" /></button>}
           <button onClick={() => setFullscreen(!fullscreen)} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white">
             {fullscreen?<Minimize2 className="w-3 h-3" />:<Maximize2 className="w-3 h-3" />}
@@ -1581,6 +1636,158 @@ export default function VisualClassroom(props: Props) {
             </div>
           )}
         </div>
+
+        {/* Reading Indicator — shows when teacher or student is hearing read-aloud */}
+        {isReading && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg z-50 flex items-center gap-2 animate-pulse">
+            <Volume2 className="w-4 h-4" /> 🔊 Reading aloud...
+            {!isTeacher ? null : <button onClick={stopReading} className="ml-2 underline text-[10px]">Stop</button>}
+          </div>
+        )}
+
+        {/* KG Tools Panel — floating overlay */}
+        {showKGTools && isKG && isTeacher && (
+          <div className="absolute bottom-4 right-4 w-72 max-h-[60%] bg-white rounded-2xl shadow-2xl border-2 border-yellow-400 z-50 overflow-y-auto">
+            <div className="px-3 py-2 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-t-xl flex items-center justify-between">
+              <span className="text-xs font-bold text-yellow-900">🧒 KG Learning Tools</span>
+              <button onClick={() => setShowKGTools(false)}><X className="w-3.5 h-3.5 text-yellow-900" /></button>
+            </div>
+            <div className="p-3 space-y-3">
+              <p className="text-[10px] text-gray-500">Tap any item to write it on the board. Students will see it!</p>
+
+              {/* Read Board Aloud */}
+              <button onClick={() => readAloud()} className="w-full py-2 bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-200 flex items-center justify-center gap-2">
+                <Volume2 className="w-4 h-4" /> 🔊 Read Board Aloud to Class
+              </button>
+
+              {/* ABC Alphabet */}
+              <div>
+                <p className="text-[10px] font-bold text-yellow-800 mb-1">🔤 Alphabet (tap to write & read)</p>
+                <div className="flex flex-wrap gap-1">
+                  {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
+                    <button key={letter} onClick={() => {
+                      const text = `${letter} — ${letter.toLowerCase()}`;
+                      setBoardLines((prev: any) => [...prev, { text, color: "#FFD700", time: Date.now(), id: Math.random().toString(36).slice(2) }]);
+                      post("board_write", { text, color: "#FFD700" });
+                      readAloud(`${letter}. ${letter} for ${
+                        {A:"Apple",B:"Ball",C:"Cat",D:"Dog",E:"Elephant",F:"Fish",G:"Goat",H:"Hat",I:"Igloo",J:"Jug",K:"Kite",L:"Lion",M:"Mango",N:"Nest",O:"Orange",P:"Pen",Q:"Queen",R:"Rabbit",S:"Sun",T:"Tree",U:"Umbrella",V:"Van",W:"Water",X:"Xylophone",Y:"Yam",Z:"Zebra"}[letter] || letter
+                      }`);
+                    }}
+                    className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-purple-400 text-white font-bold text-sm hover:scale-110 transition flex items-center justify-center">
+                      {letter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Numbers 0-20 */}
+              <div>
+                <p className="text-[10px] font-bold text-yellow-800 mb-1">🔢 Numbers (tap to write & read)</p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({length: 21}, (_, i) => i).map((num) => (
+                    <button key={num} onClick={() => {
+                      const text = `${num}`;
+                      setBoardLines((prev: any) => [...prev, { text, color: "#00BFFF", time: Date.now(), id: Math.random().toString(36).slice(2) }]);
+                      post("board_write", { text, color: "#00BFFF" });
+                      readAloud(`${num}`);
+                    }}
+                    className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-emerald-500 text-white font-bold text-xs hover:scale-110 transition flex items-center justify-center">
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Colors */}
+              <div>
+                <p className="text-[10px] font-bold text-yellow-800 mb-1">🎨 Colors (tap to teach)</p>
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    {name:"Red",hex:"#FF0000"},{name:"Blue",hex:"#0000FF"},{name:"Green",hex:"#008000"},
+                    {name:"Yellow",hex:"#FFD700"},{name:"Orange",hex:"#FFA500"},{name:"Purple",hex:"#800080"},
+                    {name:"Pink",hex:"#FF69B4"},{name:"Brown",hex:"#8B4513"},{name:"Black",hex:"#000000"},
+                    {name:"White",hex:"#FFFFFF"},{name:"Grey",hex:"#808080"},
+                  ].map((c) => (
+                    <button key={c.name} onClick={() => {
+                      setBoardLines((prev: any) => [...prev, { text: `🎨 ${c.name}`, color: c.hex, time: Date.now(), id: Math.random().toString(36).slice(2) }]);
+                      post("board_write", { text: `🎨 ${c.name}`, color: c.hex });
+                      readAloud(`This color is ${c.name}`);
+                    }}
+                    className="px-2 py-1 rounded-lg text-[10px] font-bold hover:scale-105 transition border-2"
+                    style={{ backgroundColor: c.hex, color: ["#FFD700","#FFFFFF","#FF69B4","#FFA500"].includes(c.hex) ? "#333" : "#FFF", borderColor: c.hex === "#FFFFFF" ? "#ccc" : c.hex }}>
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Shapes */}
+              <div>
+                <p className="text-[10px] font-bold text-yellow-800 mb-1">🔷 Shapes (tap to teach)</p>
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    {shape:"⭕",name:"Circle"},{shape:"⬜",name:"Square"},{shape:"🔺",name:"Triangle"},
+                    {shape:"⬟",name:"Pentagon"},{shape:"⭐",name:"Star"},{shape:"💎",name:"Diamond"},
+                    {shape:"🟢",name:"Sphere"},{shape:"📦",name:"Cube"},{shape:"🔻",name:"Cone"},
+                  ].map((s) => (
+                    <button key={s.name} onClick={() => {
+                      setBoardLines((prev: any) => [...prev, { text: `${s.shape} ${s.name}`, color: "#FFD700", time: Date.now(), id: Math.random().toString(36).slice(2) }]);
+                      post("board_write", { text: `${s.shape} ${s.name}`, color: "#FFD700" });
+                      readAloud(`This shape is called a ${s.name}`);
+                    }}
+                    className="px-2 py-1 rounded-lg bg-pink-100 text-pink-800 text-xs font-bold hover:bg-pink-200 transition">
+                      {s.shape} {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Phrases */}
+              <div>
+                <p className="text-[10px] font-bold text-yellow-800 mb-1">🎤 Read Aloud Phrases</p>
+                <div className="space-y-1">
+                  {[
+                    "A B C D E F G, H I J K L M N O P, Q R S T U V, W X Y and Z. Now I know my ABCs, next time won't you sing with me!",
+                    "1, 2, 3, 4, 5. Once I caught a fish alive. 6, 7, 8, 9, 10. Then I let it go again!",
+                    "Good morning class! Are you ready to learn today?",
+                    "Let us read together. Repeat after me.",
+                    "Very good! Well done everyone! You are all very smart!",
+                    "Can anyone tell me what this is?",
+                  ].map((phrase, i) => (
+                    <button key={i} onClick={() => readAloud(phrase)}
+                      className="w-full text-left text-[10px] px-2 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition truncate">
+                      🔊 {phrase.slice(0, 60)}{phrase.length > 60 ? "..." : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Read Aloud */}
+              <div>
+                <p className="text-[10px] font-bold text-yellow-800 mb-1">✏️ Type & Read Aloud</p>
+                <div className="flex gap-1">
+                  <input className="input-field text-xs flex-1 py-1" placeholder="Type anything to read aloud..."
+                    onKeyDown={(e) => { if (e.key === "Enter") { readAloud((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ""; }}} />
+                  <button onClick={(e) => {
+                    const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
+                    if (input?.value) { readAloud(input.value); input.value = ""; }
+                  }} className="px-2 py-1 bg-emerald-500 text-white rounded-lg text-xs font-bold">🔊</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Student KG Read-Aloud button */}
+        {isKG && !isTeacher && (
+          <div className="absolute bottom-4 right-4 z-40">
+            <button onClick={() => readAloud(boardLines.map((l: any) => l.text).join(". "))}
+              className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 text-white shadow-lg hover:scale-110 transition flex items-center justify-center"
+              title="Read what is on the board">
+              <Volume2 className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

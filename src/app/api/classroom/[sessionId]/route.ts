@@ -26,21 +26,27 @@ export async function GET(
     const role = req.nextUrl.searchParams.get("role");
     const hidden = (s.isPrep && s.prepHidden && typeof s.prepHidden === "object") ? s.prepHidden as Record<string, boolean> : {};
 
+    // Extract latest read_aloud text from reactions
+    const reactionsArr = Array.isArray(s.reactions) ? s.reactions as any[] : [];
+    const latestRead = reactionsArr.find((r: any) => r.type === "read_aloud");
+    const readAloudText = latestRead?.text || null;
+
     if (s.isPrep && role !== "teacher") {
       return NextResponse.json({
         ...s,
         liveMinutes,
+        readAloudText,
         boardContent: hidden.board ? [] : s.boardContent,
         boardHistory: hidden.board ? [] : s.boardHistory,
         polls: hidden.polls ? [] : s.polls,
         chatMessages: hidden.chat ? [] : s.chatMessages,
         questions: hidden.qa ? [] : s.questions,
         whispers: hidden.whisper ? [] : s.whispers,
-        prepHidden: hidden, // students see WHICH things are hidden (for UI messaging)
+        prepHidden: hidden,
       });
     }
 
-    return NextResponse.json({ ...s, liveMinutes });
+    return NextResponse.json({ ...s, liveMinutes, readAloudText });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -81,6 +87,16 @@ export async function POST(
     // SET MODE
     if (action === "set_mode") {
       await db.liveClassSession.update({ where: { id: sessionId }, data: { teachingMode: body.mode || "board" } });
+      return NextResponse.json({ ok: true });
+    }
+
+    // READ ALOUD — teacher broadcasts text for students to hear
+    if (action === "read_aloud") {
+      const reactions = arr(ls.reactions);
+      // Remove old read_aloud, add new one
+      const filtered = reactions.filter((r: any) => r.type !== "read_aloud");
+      filtered.push({ type: "read_aloud", text: body.text || "", time: Date.now() });
+      await db.liveClassSession.update({ where: { id: sessionId }, data: { reactions: filtered } });
       return NextResponse.json({ ok: true });
     }
 
