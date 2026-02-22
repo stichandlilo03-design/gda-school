@@ -133,7 +133,7 @@ export async function approvePayment(paymentId: string) {
         where: { schoolGradeId: schoolGrade.id, isActive: true },
       });
       if (feeStructures.length > 0) {
-        const totalFees = feeStructures.reduce((sum, fs) =>
+        const totalFees = feeStructures.reduce((sum: number, fs: any) =>
           sum + fs.tuitionFee + fs.registrationFee + fs.examFee + fs.technologyFee, 0);
         const totalPaid = await db.payment.aggregate({
           where: { studentId: student.id, status: "COMPLETED" },

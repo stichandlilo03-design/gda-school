@@ -249,7 +249,7 @@ export async function rateTeacher(data: {
 
   // Recalculate teacher average rating
   const allRatings = await db.teacherRating.findMany({ where: { teacherId: data.teacherId }, select: { rating: true } });
-  const avg = allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length;
+  const avg = allRatings.reduce((sum: number, r: any) => sum + r.rating, 0) / allRatings.length;
   await db.teacher.update({
     where: { id: data.teacherId },
     data: { rating: Math.round(avg * 10) / 10, totalRatings: allRatings.length },

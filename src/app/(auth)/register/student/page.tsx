@@ -98,7 +98,7 @@ export default function StudentRegisterPage() {
   const countrySchools = form.countryCode ? (schoolsByCountry[form.countryCode] || []) : [];
   const hasSchools = countrySchools.length > 0;
   const selectedSchool = countrySchools.find(s => s.id === form.schoolId);
-  const totalSchools = availableCountries.reduce((sum, c) => sum + c.schoolCount, 0);
+  const totalSchools = availableCountries.reduce((sum: number, c: any) => sum + c.schoolCount, 0);
 
   const countriesWithSchools = availableCountries
     .map(ac => {

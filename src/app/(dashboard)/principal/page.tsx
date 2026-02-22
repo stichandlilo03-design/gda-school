@@ -31,7 +31,7 @@ export default async function PrincipalDashboard() {
   const pendingTeachers = school.teachers.filter((t: any) => t.status === "PENDING" || t.status === "INTERVIEW_SCHEDULED" || t.status === "INTERVIEWED").length;
   const activeTeachers = school.teachers.filter((t: any) => t.status === "APPROVED" && t.isActive).length;
   const openVacancies = school.vacancies.length;
-  const totalApplications = school.vacancies.reduce((sum, v) => sum + v._count.applications, 0);
+  const totalApplications = school.vacancies.reduce((sum: number, v: any) => sum + v._count.applications, 0);
 
   // Scheduled interviews
   const scheduledInterviews = await db.interview.count({
@@ -65,7 +65,7 @@ export default async function PrincipalDashboard() {
   let studentsInDebt = 0;
   studentsWithPayments.forEach((s: any) => {
     const total = feeByGrade.get(s.gradeLevel) || 0;
-    const paid = s.payments.reduce((sum, p) => sum + p.amount, 0);
+    const paid = s.payments.reduce((sum: number, p: any) => sum + p.amount, 0);
     const balance = total - paid;
     if (balance > 0) { totalOutstanding += balance; studentsInDebt++; }
   });
