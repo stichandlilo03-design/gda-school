@@ -312,6 +312,23 @@ export default function VisualClassroom(props: Props) {
   const [showKGTools, setShowKGTools] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const [readAloudText, setReadAloudText] = useState<string | null>(null);
+  const [voiceGender, setVoiceGender] = useState<"female" | "male">("female");
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const load = () => setAvailableVoices(window.speechSynthesis.getVoices());
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+  }, []);
+
+  const pickVoice = () => {
+    if (availableVoices.length === 0) return undefined;
+    const keywords = voiceGender === "female" ? ["female","woman","zira","samantha","karen","fiona","moira","tessa"] : ["male","man","david","daniel","james","thomas","fred","alex"];
+    let v = availableVoices.find(v => keywords.some(k => v.name.toLowerCase().includes(k)) && v.lang.startsWith("en"));
+    if (!v) v = availableVoices.find(v => keywords.some(k => v.name.toLowerCase().includes(k)));
+    return v || availableVoices.find(v => v.lang.startsWith("en")) || availableVoices[0];
+  };
   const [floatingReactions, setFloatingReactions] = useState<{id:string;emoji:string;x:number}[]>([]);
   const [pollQ, setPollQ] = useState(""); const [pollOpts, setPollOpts] = useState(["","",""]);
   const [examMode, setExamMode] = useState<"poll"|"test"|"exam">("poll");
@@ -512,12 +529,16 @@ export default function VisualClassroom(props: Props) {
       // Read aloud broadcast — student hears teacher's read-aloud
       if (d.readAloudText && !isTeacher && d.readAloudText !== readAloudText) {
         setReadAloudText(d.readAloudText);
+        if (d.readAloudVoice) setVoiceGender(d.readAloudVoice);
         if (typeof window !== "undefined" && window.speechSynthesis) {
           window.speechSynthesis.cancel();
           const utter = new SpeechSynthesisUtterance(d.readAloudText);
+          const gender = d.readAloudVoice || voiceGender;
           utter.rate = isKG ? 0.7 : 0.85;
-          utter.pitch = isKG ? 1.2 : 1.0;
+          utter.pitch = gender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9);
           utter.volume = 1;
+          const voice = pickVoice();
+          if (voice) utter.voice = voice;
           setIsReading(true);
           utter.onend = () => setIsReading(false);
           utter.onerror = () => setIsReading(false);
@@ -651,14 +672,16 @@ export default function VisualClassroom(props: Props) {
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(content);
     utter.rate = isKG ? 0.7 : 0.85; // slower for KG
-    utter.pitch = isKG ? 1.2 : 1.0;
+    utter.pitch = voiceGender === "female" ? (isKG ? 1.3 : 1.1) : (isKG ? 1.0 : 0.9);
     utter.volume = 1;
+    const voice = pickVoice();
+    if (voice) utter.voice = voice;
     setIsReading(true);
     utter.onend = () => setIsReading(false);
     utter.onerror = () => setIsReading(false);
     window.speechSynthesis.speak(utter);
     // Broadcast to students
-    if (isTeacher) post("read_aloud", { text: content });
+    if (isTeacher) post("read_aloud", { text: content, voiceGender });
   };
   const stopReading = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
@@ -886,6 +909,12 @@ export default function VisualClassroom(props: Props) {
           </button>}
           {isTeacher && <button onClick={() => setPanel(panel==="poll"?null:"poll")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white"><BarChart3 className="w-3 h-3" /></button>}
           {isTeacher && <button onClick={() => setPanel(panel==="hw"?null:"hw")} className="p-1 rounded-lg bg-gray-600 text-white/60 hover:text-white" title="Assign Homework"><FileText className="w-3 h-3" /></button>}
+          {isTeacher && (
+            <div className="flex items-center gap-0.5 bg-black/20 rounded-lg p-0.5">
+              <button onClick={() => setVoiceGender("female")} className={`text-[7px] px-1 py-0.5 rounded ${voiceGender === "female" ? "bg-pink-400 text-white" : "text-white/40"}`} title="Female voice">♀</button>
+              <button onClick={() => setVoiceGender("male")} className={`text-[7px] px-1 py-0.5 rounded ${voiceGender === "male" ? "bg-blue-400 text-white" : "text-white/40"}`} title="Male voice">♂</button>
+            </div>
+          )}
           {isTeacher && (
             <button onClick={() => isReading ? stopReading() : readAloud()}
               className={`p-1 rounded-lg ${isReading ? "bg-emerald-500 text-white animate-pulse" : "bg-gray-600 text-white/60 hover:text-white"}`}

@@ -15,6 +15,7 @@ export async function updateSchoolSettings(data: {
   secondaryColor: string;
   rulesText?: string;
   anthemLyrics?: string;
+  nationalAnthem?: string;
   sessionDurationMin?: number;
   breakDurationMin?: number;
   sessionsPerDay?: number;
@@ -37,11 +38,14 @@ export async function updateSchoolSettings(data: {
       sessionsPerDay: data.sessionsPerDay || 4,
       rulesText: data.rulesText || null,
       anthemLyrics: data.anthemLyrics || null,
+      nationalAnthem: data.nationalAnthem || null,
     },
   });
 
   revalidatePath("/principal/settings");
   revalidatePath("/principal");
+  revalidatePath("/teacher/school-info");
+  revalidatePath("/student/school-info");
   return { success: true };
 }
 

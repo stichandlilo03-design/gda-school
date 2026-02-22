@@ -17,6 +17,7 @@ const fullLinks = [
   { href: "/student/materials", icon: "FolderOpen", label: "Materials" },
   { href: "/student/fees", icon: "CreditCard", label: "School Fees" },
   { href: "/student/profile", icon: "User", label: "Profile & ID Card" },
+  { href: "/student/school-info", icon: "Flag", label: "School Info" },
   { href: "/student/certificates", icon: "Award", label: "Certificates" },
   { href: "/student/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];

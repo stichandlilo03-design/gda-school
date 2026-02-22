@@ -166,7 +166,8 @@ export async function gradeAssignment(submissionId: string, score: number, feedb
               maxScore: sub.assignment.maxScore || sub.assignment.totalPoints || 100,
               weight: 1,
               termId,
-              gradeStatus: "SUBMITTED", // Goes to principal for approval
+              gradeStatus: "SUBMITTED",
+              submittedAt: new Date(),
             },
           });
 

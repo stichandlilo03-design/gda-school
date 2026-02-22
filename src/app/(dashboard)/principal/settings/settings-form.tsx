@@ -7,7 +7,7 @@ import { Loader2, Save, Clock, Coffee } from "lucide-react";
 interface School {
   id: string; name: string; motto: string | null;
   primaryColor: string; secondaryColor: string;
-  rulesText: string | null; anthemLyrics: string | null;
+  rulesText: string | null; anthemLyrics: string | null; nationalAnthem: string | null;
   countryCode: string; currency: string; slug: string;
   sessionDurationMin?: number; breakDurationMin?: number; sessionsPerDay?: number;
 }
@@ -22,6 +22,7 @@ export default function SchoolSettingsForm({ school }: { school: School }) {
     secondaryColor: school.secondaryColor,
     rulesText: school.rulesText || "",
     anthemLyrics: school.anthemLyrics || "",
+    nationalAnthem: school.nationalAnthem || "",
     sessionDurationMin: school.sessionDurationMin || 40,
     breakDurationMin: school.breakDurationMin || 10,
     sessionsPerDay: school.sessionsPerDay || 4,
@@ -158,6 +159,12 @@ export default function SchoolSettingsForm({ school }: { school: School }) {
       <div className="card">
         <h3 className="section-title mb-4">School Anthem</h3>
         <textarea className="input-field min-h-[120px]" value={form.anthemLyrics} onChange={(e) => update("anthemLyrics", e.target.value)} placeholder="Enter school anthem lyrics..." />
+      </div>
+
+      <div className="card">
+        <h3 className="section-title mb-4">🏳️ National Anthem</h3>
+        <p className="text-xs text-gray-500 mb-2">Enter your country&apos;s national anthem. Teachers and students will see this and can have it read aloud.</p>
+        <textarea className="input-field min-h-[120px]" value={form.nationalAnthem} onChange={(e) => update("nationalAnthem", e.target.value)} placeholder="Enter national anthem lyrics..." />
       </div>
 
       <div className="card bg-gray-50 border-dashed">

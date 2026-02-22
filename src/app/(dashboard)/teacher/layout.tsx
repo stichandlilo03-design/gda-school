@@ -18,6 +18,7 @@ const teacherLinks = [
   { href: "/teacher/payroll", icon: "DollarSign", label: "My Payroll" },
   { href: "/teacher/vacancies", icon: "Briefcase", label: "Job Board" },
   { href: "/teacher/profile", icon: "User", label: "My Profile" },
+  { href: "/teacher/school-info", icon: "Flag", label: "School Info" },
   { href: "/teacher/help", icon: "HelpCircle", label: "Help & FAQ" },
 ];
 

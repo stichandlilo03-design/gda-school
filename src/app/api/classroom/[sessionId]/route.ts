@@ -30,12 +30,14 @@ export async function GET(
     const reactionsArr = Array.isArray(s.reactions) ? s.reactions as any[] : [];
     const latestRead = reactionsArr.find((r: any) => r.type === "read_aloud");
     const readAloudText = latestRead?.text || null;
+    const readAloudVoice = latestRead?.voiceGender || null;
 
     if (s.isPrep && role !== "teacher") {
       return NextResponse.json({
         ...s,
         liveMinutes,
         readAloudText,
+        readAloudVoice,
         boardContent: hidden.board ? [] : s.boardContent,
         boardHistory: hidden.board ? [] : s.boardHistory,
         polls: hidden.polls ? [] : s.polls,
@@ -46,7 +48,7 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ ...s, liveMinutes, readAloudText });
+    return NextResponse.json({ ...s, liveMinutes, readAloudText, readAloudVoice });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -95,7 +97,7 @@ export async function POST(
       const reactions = arr(ls.reactions);
       // Remove old read_aloud, add new one
       const filtered = reactions.filter((r: any) => r.type !== "read_aloud");
-      filtered.push({ type: "read_aloud", text: body.text || "", time: Date.now() });
+      filtered.push({ type: "read_aloud", text: body.text || "", voiceGender: body.voiceGender || "female", time: Date.now() });
       await db.liveClassSession.update({ where: { id: sessionId }, data: { reactions: filtered } });
       return NextResponse.json({ ok: true });
     }
