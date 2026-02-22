@@ -100,9 +100,10 @@ export async function POST(
     if (action === "board_annotate") {
       let reactions = arr(ls.reactions);
       if (body.type === "clear_all") {
-        reactions = reactions.filter((r: any) => r.type !== "annotation");
+        reactions = reactions.filter((r: any) => r.annotationType !== "board_draw");
       } else {
-        reactions.push({ ...body, type: "annotation", time: Date.now() });
+        // Keep original type (circle/underline/freehand) and mark as board_draw
+        reactions.push({ ...body, annotationType: "board_draw", time: Date.now() });
       }
       if (reactions.length > 200) reactions = reactions.slice(-200);
       await db.liveClassSession.update({ where: { id: sessionId }, data: { reactions } });

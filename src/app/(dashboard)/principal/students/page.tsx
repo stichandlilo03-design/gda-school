@@ -25,11 +25,23 @@ export default async function StudentsPage() {
     orderBy: { enrolledAt: "desc" },
   });
 
+  // Fetch admission interviews for all students
+  const interviews = await db.interview.findMany({
+    where: {
+      type: "ADMISSION",
+      student: { schoolId: principal.schoolId },
+    },
+    include: {
+      interviewer: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
   return (
     <>
       <DashboardHeader title="Student Management" subtitle={`${students.length} students enrolled`} />
       <div className="p-6 lg:p-8">
-        <StudentManager students={JSON.parse(JSON.stringify(students))} countryCode={principal.school?.countryCode || "NG"} />
+        <StudentManager students={JSON.parse(JSON.stringify(students))} countryCode={principal.school?.countryCode || "NG"} interviews={JSON.parse(JSON.stringify(interviews))} />
       </div>
     </>
   );

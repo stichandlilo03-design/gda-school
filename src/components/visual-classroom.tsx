@@ -516,12 +516,10 @@ export default function VisualClassroom(props: Props) {
 
       // REACTION notifications
       const serverReactions = Array.isArray(d.reactions) ? d.reactions : [];
-      setReactions(serverReactions.filter((r: any) => r.type !== "annotation"));
-      // Sync board annotations from teacher
-      if (!isTeacher) {
-        const anns = serverReactions.filter((r: any) => r.type === "annotation");
-        setBoardAnnotations(anns);
-      }
+      setReactions(serverReactions.filter((r: any) => r.annotationType !== "board_draw"));
+      // Sync board annotations — ALL users see teacher's circles/underlines
+      const anns = serverReactions.filter((r: any) => r.annotationType === "board_draw");
+      setBoardAnnotations(anns);
       setPolls(Array.isArray(d.polls) ? d.polls : []);
 
       // MODE CHANGE notification — teacher switched board/voice/video
@@ -699,9 +697,12 @@ export default function VisualClassroom(props: Props) {
   useEffect(() => {
     const oc = boardOverlayRef.current; if (!oc) return;
     const ctx = oc.getContext("2d"); if (!ctx) return;
-    // Match main canvas size
+    // Match main canvas size exactly
     const mc = canvasRef.current;
-    if (mc) { oc.width = mc.width; oc.height = mc.height; }
+    if (mc) {
+      if (oc.width !== mc.width) oc.width = mc.width;
+      if (oc.height !== mc.height) oc.height = mc.height;
+    }
     ctx.clearRect(0, 0, oc.width, oc.height);
     for (const a of boardAnnotations) {
       ctx.strokeStyle = a.color || "#FF0000";
@@ -710,17 +711,17 @@ export default function VisualClassroom(props: Props) {
       if (a.type === "circle") {
         const cx = (a.x1 + a.x2) / 2, cy = (a.y1 + a.y2) / 2;
         const rx = Math.abs(a.x2 - a.x1) / 2, ry = Math.abs(a.y2 - a.y1) / 2;
-        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+        if (rx > 0 && ry > 0) { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); }
       } else if (a.type === "underline") {
         ctx.beginPath(); ctx.moveTo(a.x1, a.y2); ctx.lineTo(a.x2, a.y2);
         ctx.lineWidth = 4; ctx.stroke();
-      } else if (a.type === "freehand" && a.points) {
+      } else if (a.type === "freehand" && a.points && a.points.length > 1) {
         ctx.beginPath();
         a.points.forEach((p: any, i: number) => { i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
         ctx.stroke();
       }
     }
-  }, [boardAnnotations]);
+  }, [boardAnnotations, boardLines]); // re-render when board content changes too (canvas may resize)
 
   // Board overlay mouse handlers
   const boardOverlayDown = (e: React.MouseEvent) => {

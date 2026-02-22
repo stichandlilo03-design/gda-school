@@ -34,6 +34,24 @@ export async function scheduleStudentInterview(data: {
     data: { approvalStatus: "INTERVIEW_SCHEDULED" },
   });
 
+  // Notify student about the interview
+  try {
+    const student = await db.student.findUnique({
+      where: { id: data.studentId },
+      select: { userId: true, parentEmail: true, gradeLevel: true },
+    });
+    if (student) {
+      const { notify } = await import("@/lib/notifications");
+      const dt = new Date(data.scheduledAt);
+      const dateStr = dt.toLocaleDateString();
+      const timeStr = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      await notify(student.userId,
+        "📅 Interview Scheduled",
+        `Your admission interview has been scheduled for ${dateStr} at ${timeStr} (${data.duration} minutes).${data.meetingLink ? ` Meeting link: ${data.meetingLink}` : " Please come to the school."} ${data.meetingNotes || ""}`
+      );
+    }
+  } catch (_e) {}
+
   revalidatePath("/principal/students");
   revalidatePath("/principal/interviews");
   return { success: true, interviewId: interview.id };
@@ -143,6 +161,14 @@ export async function submitInterviewResult(data: {
       where: { id: interview.studentId },
       data: { approvalStatus: "INTERVIEWED" },
     });
+    // Notify student
+    try {
+      const { notify } = await import("@/lib/notifications");
+      await notify(interview.student.userId,
+        "✅ Interview Completed",
+        `Your admission interview has been completed. The principal will review your results and make a decision. ${data.result === "PASS" ? "Your interview went well!" : data.result === "CONDITIONAL" ? "There are some conditions to discuss." : "Please contact the school for more details."}`
+      );
+    } catch (_e) {}
   }
 
   if (interview.schoolTeacherId && interview.schoolTeacher) {

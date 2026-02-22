@@ -241,6 +241,10 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
   const remoteArr = Array.from(remotes.entries());
   const others = participants.filter(p => p.odid !== userId);
 
+  // Separate teacher and students for layout
+  const teacherRemote = remoteArr.find(([, rs]) => rs.isTeacher);
+  const studentRemotes = remoteArr.filter(([, rs]) => !rs.isTeacher);
+
   if (!joined) {
     return (
       <div className="p-4 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl text-center space-y-3">
@@ -272,6 +276,7 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
 
   return (
     <div className="space-y-2">
+      {/* Controls bar */}
       <div className="flex items-center gap-1.5 p-2 bg-gray-800 rounded-xl flex-wrap">
         <button onClick={toggleCam} className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium ${camOn?"bg-gray-600 text-white":"bg-red-500/80 text-white"}`}>
           {camOn?<><Video className="w-3 h-3" /> Cam</>:<><VideoOff className="w-3 h-3" /> Off</>}
@@ -290,34 +295,74 @@ export default function ClassroomVideo({ sessionId, userId, userName, isTeacher 
         <span className="text-[9px] text-gray-400 ml-auto"><Users className="w-3 h-3 inline" /> {participants.length} · {stLabel[status] || ""}</span>
       </div>
 
-      <div className={`grid gap-1.5 ${remoteArr.length===0?"grid-cols-1":remoteArr.length<=2?"grid-cols-2":"grid-cols-3"}`}>
-        <div className={`relative rounded-xl overflow-hidden bg-gray-900 aspect-video ${remoteArr.length===0?"max-w-xs mx-auto w-full":""}`}>
-          <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover ${camOn?"":"hidden"}`} style={{transform:"scaleX(-1)"}} />
-          {!camOn&&(
-            <div className="w-full h-full flex items-center justify-center bg-gray-800">
-              <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold">{userName?.[0]||"?"}</div>
-            </div>
-          )}
-          <div className="absolute bottom-1 left-1 flex items-center gap-1">
-            <span className="text-[8px] bg-black/70 text-white px-1.5 py-0.5 rounded">You{isTeacher?" (Teacher)":""}</span>
-            {micOn&&<span className="text-[7px] bg-emerald-500/80 text-white px-1 py-0.5 rounded animate-pulse">🎤</span>}
-            {!micOn&&<span className="text-[7px] bg-red-500/80 text-white px-1 py-0.5 rounded">🔇</span>}
-          </div>
-        </div>
-        {remoteArr.map(([id, rs]) => (
-          <div key={id} className={`relative rounded-xl overflow-hidden bg-gray-900 aspect-video ${rs.isTeacher&&!isTeacher?"col-span-2 row-span-2":""}`}>
-            <video ref={el => { if(el) remoteVidRefs.current.set(id,el); }} autoPlay playsInline className="w-full h-full object-cover" />
-            <div className="absolute bottom-1 left-1">
-              <span className="text-[8px] bg-black/70 text-white px-1.5 py-0.5 rounded">{rs.name}{rs.isTeacher?" 👨‍🏫":""}</span>
+      {/* === VIDEO LAYOUT: Teacher on top, students below === */}
+      <div className="space-y-2">
+        {/* TEACHER ROW — large prominent view */}
+        {isTeacher ? (
+          <div className="max-w-sm mx-auto">
+            <p className="text-[8px] text-gray-400 text-center mb-0.5 font-bold uppercase tracking-wider">👨‍🏫 Teacher (You)</p>
+            <div className="relative rounded-xl overflow-hidden bg-gray-900 aspect-video">
+              <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover ${camOn?"":"hidden"}`} style={{transform:"scaleX(-1)"}} />
+              {!camOn&&<div className="w-full h-full flex items-center justify-center bg-gray-800"><div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-lg">{userName?.[0]||"?"}</div></div>}
+              <div className="absolute bottom-1 left-1 flex items-center gap-1">
+                <span className="text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-medium">👨‍🏫 {userName} (You)</span>
+                {micOn&&<span className="text-[7px] bg-emerald-500/80 text-white px-1 py-0.5 rounded animate-pulse">🎤</span>}
+              </div>
+              <div className="absolute top-1 right-1"><span className="text-[7px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-bold">TEACHER</span></div>
             </div>
           </div>
-        ))}
+        ) : teacherRemote ? (
+          <div className="max-w-md mx-auto">
+            <p className="text-[8px] text-gray-400 text-center mb-0.5 font-bold uppercase tracking-wider">👨‍🏫 Teacher</p>
+            <div className="relative rounded-xl overflow-hidden bg-gray-900 aspect-video ring-2 ring-blue-500">
+              <video ref={el => { if(el) remoteVidRefs.current.set(teacherRemote[0], el); }} autoPlay playsInline className="w-full h-full object-cover" />
+              <div className="absolute bottom-1 left-1"><span className="text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-medium">👨‍🏫 {teacherRemote[1].name}</span></div>
+              <div className="absolute top-1 right-1"><span className="text-[7px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-bold">TEACHER</span></div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* STUDENTS ROW — grid of smaller tiles */}
+        {((isTeacher ? remoteArr : studentRemotes).length > 0 || !isTeacher) && (
+          <div>
+            <p className="text-[8px] text-gray-400 mb-0.5 font-bold uppercase tracking-wider">🎓 Students {isTeacher ? `(${remoteArr.length})` : ""}</p>
+            <div className={`grid gap-1.5 ${
+              (isTeacher ? remoteArr.length : studentRemotes.length + 1) <= 2 ? "grid-cols-2" :
+              (isTeacher ? remoteArr.length : studentRemotes.length + 1) <= 4 ? "grid-cols-3" : "grid-cols-4"
+            }`}>
+              {/* Student self-view (only for students) */}
+              {!isTeacher && (
+                <div className="relative rounded-xl overflow-hidden bg-gray-900 aspect-video ring-1 ring-emerald-500/50">
+                  <video ref={localVideoRef} autoPlay playsInline muted className={`w-full h-full object-cover ${camOn?"":"hidden"}`} style={{transform:"scaleX(-1)"}} />
+                  {!camOn&&<div className="w-full h-full flex items-center justify-center bg-gray-800"><div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold text-sm">{userName?.[0]||"?"}</div></div>}
+                  <div className="absolute bottom-1 left-1 flex items-center gap-1">
+                    <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-medium">{userName} (You)</span>
+                    {micOn&&<span className="text-[7px] bg-emerald-500/80 text-white px-1 py-0.5 rounded animate-pulse">🎤</span>}
+                  </div>
+                </div>
+              )}
+              {/* Other students (for teacher: all remotes; for student: student remotes only) */}
+              {(isTeacher ? remoteArr : studentRemotes).map(([id, rs]) => (
+                <div key={id} className="relative rounded-xl overflow-hidden bg-gray-900 aspect-video">
+                  <video ref={el => { if(el) remoteVidRefs.current.set(id, el); }} autoPlay playsInline className="w-full h-full object-cover" />
+                  <div className="absolute bottom-1 left-1">
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-medium ${rs.isTeacher ? "bg-blue-600 text-white" : "bg-black/70 text-white"}`}>
+                      {rs.isTeacher ? "👨‍🏫 " : "🎓 "}{rs.name}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Peers connecting */}
       {others.length > 0 && remoteArr.length < others.length && (
         <div className="flex flex-wrap gap-1">
           {others.filter(p => !remotes.has(p.odid)).map(p => (
             <span key={p.odid} className="text-[8px] bg-gray-700 text-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />{p.name}
+              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />{p.name} connecting...
             </span>
           ))}
         </div>
