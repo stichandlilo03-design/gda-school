@@ -49,7 +49,7 @@ try {
     if (!teacher) return null;
 
     schoolSettings = teacher.schools?.[0]?.school;
-    totalStudents = teacher.classes.reduce((s, c) => s + c.enrollments.length, 0);
+    totalStudents = teacher.classes.reduce((s: number, c: any) => s + c.enrollments.length, 0);
 
   } catch (err: any) {
     console.error("classroom page error:", err?.message || err);

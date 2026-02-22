@@ -343,7 +343,7 @@ export default function GradebookManager({ classes, assignments = [] }: { classe
 
                       {hwQuestions.length > 0 && (
                         <div className="bg-blue-100 rounded-lg p-2 text-[10px] text-blue-700 font-medium">
-                          Total: {hwQuestions.reduce((s,q) => s + (q.points||1), 0)} points · {hwQuestions.filter(q => q.type==="mcq"||q.type==="math").length} auto-graded · {hwQuestions.filter(q => q.type==="essay"||q.type==="short").length} manual
+                          Total: {hwQuestions.reduce((s: number,q: any) => s + (q.points||1), 0)} points · {hwQuestions.filter(q => q.type==="mcq"||q.type==="math").length} auto-graded · {hwQuestions.filter(q => q.type==="essay"||q.type==="short").length} manual
                         </div>
                       )}
                     </div>

@@ -317,7 +317,7 @@ export async function generateTermReports(termId: string) {
 
     const assignmentRate = totalAssignments > 0 ? Math.round((submittedAssignments / totalAssignments) * 100) : 100;
     const overallAvg = subjectReports.length > 0
-      ? Math.round(subjectReports.reduce((s, r) => s + r.totalScore, 0) / subjectReports.length)
+      ? Math.round(subjectReports.reduce((s: number, r: any) => s + r.totalScore, 0) / subjectReports.length)
       : 0;
 
     // Participation score (based on attendance + assignment completion)

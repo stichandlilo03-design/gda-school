@@ -241,7 +241,7 @@ export function generateEventsForYear(countryCode: string, year: number) {
     events.push({ title: "School Resumes", eventType: "SCHOOL_RESUMPTION", startDate: resumption, endDate: resumption });
   });
 
-  return events.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  return events.sort((a: any, b: any) => a.startDate.getTime() - b.startDate.getTime());
 }
 
 export function getCurrentAcademicPeriod(countryCode: string): {

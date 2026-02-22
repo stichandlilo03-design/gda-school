@@ -47,11 +47,11 @@ export default function PayrollManager({ teachers, creditsByTeacher, weeklyCredi
     return { manualEarned, liveEarned, total: manualEarned + liveEarned, weeklyEarned, full, sessions: credits.length, freq: t.salary?.payFrequency || "MONTHLY" };
   };
 
-  const totalMonthEarned = teachers.reduce((s, t) => s + getTeacherEarnings(t).total, 0);
-  const totalWeekEarned = teachers.reduce((s, t) => s + getTeacherEarnings(t).weeklyEarned, 0);
-  const totalFullSalary = teachersWithSalary.reduce((s, t) => s + (t.salary.baseSalary + t.salary.housingAllowance + t.salary.transportAllowance + t.salary.otherAllowances), 0);
+  const totalMonthEarned = teachers.reduce((s: number, t: any) => s + getTeacherEarnings(t).total, 0);
+  const totalWeekEarned = teachers.reduce((s: number, t: any) => s + getTeacherEarnings(t).weeklyEarned, 0);
+  const totalFullSalary = teachersWithSalary.reduce((s: number, t: any) => s + (t.salary.baseSalary + t.salary.housingAllowance + t.salary.transportAllowance + t.salary.otherAllowances), 0);
   const totalSessions = Object.values(creditsByTeacher).reduce((s, arr) => s + (arr as any[]).length, 0);
-  const totalUnverified = teachers.reduce((s, t) => s + t.sessions.filter((se: any) => !se.verified).length, 0);
+  const totalUnverified = teachers.reduce((s: number, t: any) => s + t.sessions.filter((se: any) => !se.verified).length, 0);
 
   const initSalaryForm = (stId: string, existing?: any) => {
     setSalaryForm({ ...salaryForm, [stId]: {

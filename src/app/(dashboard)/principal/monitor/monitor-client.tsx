@@ -44,8 +44,8 @@ export default function MonitorClient({
     setReviewData(session);
   };
 
-  const totalMinsToday = recentSessions.reduce((s, r) => s + (r.durationMin || 0), 0);
-  const totalStudentsLive = liveSessions.reduce((s, ls) => s + (ls.class?.enrollments?.length || 0), 0);
+  const totalMinsToday = recentSessions.reduce((s: number, r: any) => s + (r.durationMin || 0), 0);
+  const totalStudentsLive = liveSessions.reduce((s: number, ls: any) => s + (ls.class?.enrollments?.length || 0), 0);
 
   return (
     <div className="space-y-6">

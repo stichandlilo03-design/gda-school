@@ -29,7 +29,7 @@ export default async function ParentCalendarPage() {
   // Get unique school IDs
   const schoolIds = [...new Set(parent.children.map((c: any) => c.student.schoolId))];
   const schoolNames: Record<string, string> = {};
-  parent.children.forEach((c) => { schoolNames[c.student.schoolId] = c.student.school.name; });
+  parent.children.forEach((c: any) => { schoolNames[c.student.schoolId] = c.student.school.name; });
 
   // Get events and terms for all schools
   const events = await db.academicEvent.findMany({

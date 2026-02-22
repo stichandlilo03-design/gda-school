@@ -105,7 +105,7 @@ export default function StudentRegisterPage() {
       const info = ALL_COUNTRIES.find(c => c.code === ac.code);
       return { ...ac, name: info?.name || ac.code, flag: info?.flag || "🌍" };
     })
-    .sort((a, b) => b.schoolCount - a.schoolCount);
+    .sort((a: any, b: any) => b.schoolCount - a.schoolCount);
 
   const filteredCountries = searchQuery
     ? ALL_COUNTRIES.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))

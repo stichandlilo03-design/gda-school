@@ -118,10 +118,10 @@ export default function AttendanceMarker({ classes }: { classes: any[] }) {
 
           <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
             <div className="flex gap-4 text-xs text-gray-500">
-              <span>Present: {Object.values(records).filter((v) => v === "PRESENT").length}</span>
-              <span>Late: {Object.values(records).filter((v) => v === "LATE").length}</span>
-              <span>Absent: {Object.values(records).filter((v) => v === "ABSENT").length}</span>
-              <span>Excused: {Object.values(records).filter((v) => v === "EXCUSED").length}</span>
+              <span>Present: {Object.values(records).filter((v: any) => v === "PRESENT").length}</span>
+              <span>Late: {Object.values(records).filter((v: any) => v === "LATE").length}</span>
+              <span>Absent: {Object.values(records).filter((v: any) => v === "ABSENT").length}</span>
+              <span>Excused: {Object.values(records).filter((v: any) => v === "EXCUSED").length}</span>
             </div>
             <button onClick={handleSave} disabled={loading} className="btn-primary">
               {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : <><UserCheck className="w-4 h-4 mr-2" /> Save Attendance</>}

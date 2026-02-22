@@ -27,7 +27,7 @@ export default function PublicVacanciesPage() {
     setLoading(false);
   };
 
-  const filtered = vacancies.filter((v) =>
+  const filtered = vacancies.filter((v: any) =>
     !search || v.title.toLowerCase().includes(search.toLowerCase()) ||
     v.school?.name?.toLowerCase().includes(search.toLowerCase()) ||
     (Array.isArray(v.subjects) && v.subjects.some((s: string) => s.toLowerCase().includes(search.toLowerCase())))

@@ -28,8 +28,8 @@ try {
     });
 
     allStudents = new Map<string, { student: any; classes: string[] }>();
-    teacher?.classes.forEach((c) => {
-      c.enrollments.forEach((e) => {
+    teacher?.classes.forEach((c: any) => {
+      c.enrollments.forEach((e: any) => {
         if (allStudents.has(e.student.id)) {
           allStudents.get(e.student.id)!.classes.push(c.name);
         } else {
@@ -63,7 +63,7 @@ try {
                   <p className="text-xs text-gray-500">{student.user.email} • {student.gradeLevel}</p>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {classes.map((c, i) => (
+                  {classes.map((c: any, i: number) => (
                     <span key={i} className="badge-info text-[10px]">{c}</span>
                   ))}
                 </div>

@@ -50,7 +50,7 @@ export default async function FeesPage() {
       id: s.id, name: s.user.name, email: s.user.email, image: s.user.image,
       grade: s.gradeLevel, totalFees, totalPaid, balance, percent, feePaid: s.feePaid,
     };
-  }).filter((s: any) => s.balance > 0 && !s.feePaid).sort((a, b) => b.balance - a.balance);
+  }).filter((s: any) => s.balance > 0 && !s.feePaid).sort((a: any, b: any) => b.balance - a.balance);
 
   // Pending payments
   const pendingPayments = await db.payment.findMany({

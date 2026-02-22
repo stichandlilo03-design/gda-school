@@ -281,7 +281,7 @@ export default function ProfileEditor({ teacher, user }: { teacher: any; user: a
             <h3 className="section-title flex items-center gap-2"><GraduationCap className="w-4 h-4" /> Grade Levels I Teach</h3>
             <div className="flex flex-wrap gap-2">
               {GRADES.map((g: any) => (
-                <button key={g} onClick={() => setGrades(grades.includes(g) ? grades.filter((x) => x !== g) : [...grades, g])}
+                <button key={g} onClick={() => setGrades(grades.includes(g) ? grades.filter((x: any) => x !== g) : [...grades, g])}
                   className={`text-xs px-3 py-2 rounded-lg font-medium transition-all ${grades.includes(g) ? "bg-emerald-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                   {g}
                 </button>

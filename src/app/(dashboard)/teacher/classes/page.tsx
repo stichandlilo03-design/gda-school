@@ -41,7 +41,7 @@ try {
       },
     });
 
-    availableGrades = teacher?.schools.flatMap((st) => st.school.grades) || [];
+    availableGrades = teacher?.schools.flatMap((st: any) => st.school.grades) || [];
 
   } catch (err: any) {
     console.error("classes page error:", err?.message || err);

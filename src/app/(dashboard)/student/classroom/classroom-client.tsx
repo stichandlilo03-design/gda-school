@@ -78,7 +78,7 @@ export default function StudentClassroomClient({
   });
 
   // Sort: live first
-  const sorted = [...enrollments].sort((a, b) => {
+  const sorted = [...enrollments].sort((a: any, b: any) => {
     const aLive = a.class.liveSessions?.length > 0 ? -1 : 0;
     const bLive = b.class.liveSessions?.length > 0 ? -1 : 0;
     if (aLive !== bLive) return aLive - bLive;
@@ -100,7 +100,7 @@ export default function StudentClassroomClient({
 
   // Auto-open first LIVE class (including prep — students need to see prep too)
   useEffect(() => {
-    const live = sorted.find((e) => e.class.liveSessions?.length > 0);
+    const live = sorted.find((e: any) => e.class.liveSessions?.length > 0);
     if (live && !activeClassroom) setActiveClassroom(live.class.id);
   }, []);
 

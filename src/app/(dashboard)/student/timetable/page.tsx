@@ -221,7 +221,7 @@ export default async function StudentTimetablePage() {
         {/* Subject Legend with session badges */}
         {allSchedules.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {student.enrollments.map((en, i) => {
+            {student.enrollments.map((en: any, i: number) => {
               const slot = (en.class as any).session || "SESSION_A";
               return (
                 <span key={en.id} className={`text-[10px] px-2.5 py-1 rounded-full border font-medium ${COLORS[i % COLORS.length]}`}>

@@ -83,7 +83,7 @@ export default async function PublicTeacherProfile({ params }: { params: Promise
           </div>
           <div className="card text-center py-4">
             <div className="text-2xl font-bold text-purple-600">
-              {teacher.classes.reduce((s, c) => s + c.enrollments.length, 0)}
+              {teacher.classes.reduce((s: number, c: any) => s + c.enrollments.length, 0)}
             </div>
             <div className="text-[10px] text-gray-500">Students</div>
           </div>
@@ -108,7 +108,7 @@ export default async function PublicTeacherProfile({ params }: { params: Promise
           <div className="card">
             <h2 className="text-sm font-bold mb-3">🎓 Qualifications</h2>
             <div className="space-y-1">
-              {(teacher.qualifications as string[]).map((q, i) => (
+              {(teacher.qualifications as string[]).map((q: any, i: number) => (
                 <p key={i} className="text-sm text-gray-600">• {q}</p>
               ))}
             </div>
@@ -128,7 +128,7 @@ export default async function PublicTeacherProfile({ params }: { params: Promise
           <div className="card">
             <h2 className="text-sm font-bold mb-2">🌍 Languages</h2>
             <div className="flex gap-2">
-              {(teacher.languages as string[]).map((l, i) => (
+              {(teacher.languages as string[]).map((l: any, i: number) => (
                 <span key={i} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">{l}</span>
               ))}
             </div>

@@ -34,7 +34,7 @@ export default function TeacherRegisterPage() {
   };
 
   const removeQualification = (q: string) => {
-    update("qualifications", form.qualifications.filter((x) => x !== q));
+    update("qualifications", form.qualifications.filter((x: any) => x !== q));
   };
 
   const nextStep = () => {
@@ -147,7 +147,7 @@ export default function TeacherRegisterPage() {
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {form.qualifications.map((q) => (
+                    {form.qualifications.map((q: any) => (
                       <span key={q} className="badge-info flex items-center gap-1 py-1 px-3">
                         {q}
                         <button type="button" onClick={() => removeQualification(q)}><X className="w-3 h-3" /></button>

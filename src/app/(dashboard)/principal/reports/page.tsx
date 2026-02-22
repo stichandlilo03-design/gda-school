@@ -33,7 +33,7 @@ export default async function ReportsPage() {
     include: { enrollments: { where: { status: "ACTIVE" } }, schedules: true, _count: { select: { materials: true, assessments: true } } },
   });
   const activeClasses = classes.filter((c: any) => c.isActive);
-  const totalEnrollments = activeClasses.reduce((s, c) => s + c.enrollments.length, 0);
+  const totalEnrollments = activeClasses.reduce((s: number, c: any) => s + c.enrollments.length, 0);
 
   // Payments
   const payments = await db.payment.findMany({ where: { student: { schoolId } } });
@@ -55,7 +55,7 @@ export default async function ReportsPage() {
   });
 
   // Grades by grade level
-  const gradeDistribution = students.reduce((acc, s) => {
+  const gradeDistribution = students.reduce((acc: any, s: any) => {
     acc[s.gradeLevel] = (acc[s.gradeLevel] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -71,7 +71,7 @@ export default async function ReportsPage() {
             { label: "Active Teachers", value: activeTeachers.length, sub: `${teachers.length} total`, icon: GraduationCap, color: "text-emerald-600 bg-emerald-100" },
             { label: "Active Classes", value: activeClasses.length, sub: `${totalEnrollments} enrollments`, icon: BookOpen, color: "text-purple-600 bg-purple-100" },
             { label: "Live Now", value: liveSessions, sub: "sessions in progress", icon: Clock, color: liveSessions > 0 ? "text-red-600 bg-red-100" : "text-gray-600 bg-gray-100" },
-          ].map((s, i) => (
+          ].map((s: any, i: number) => (
             <div key={i} className="stat-card">
               <div className={`w-10 h-10 rounded-lg ${s.color} flex items-center justify-center mb-2`}>
                 <s.icon className="w-5 h-5" />
