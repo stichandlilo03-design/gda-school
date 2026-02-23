@@ -79,8 +79,7 @@ export const metadata: Metadata = {
 
   // Verification — add your real codes when you get them
   verification: {
-    // google: "your-google-verification-code",
-    // yandex: "your-yandex-code",
+    google: "6lbw76qSw4MzoOhQI6KdkpvuANr7MEh_CAdSh7uxapo",
   },
 
   // Alternates
