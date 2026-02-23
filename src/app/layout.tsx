@@ -116,7 +116,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="google-site-verification" content="6lbw76qSw4MzoOhQI6KdkpvuANr7MEh_CAdSh7uxapo" />
-        <meta name="google-adsense-account" content="ca-pub-6892230955738208">
+        <meta name="google-adsense-account" content="ca-pub-6892230955738208" />
         {/* Structured Data — JSON-LD for Google */}
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6892230955738208"
      crossOrigin="anonymous"></script>
