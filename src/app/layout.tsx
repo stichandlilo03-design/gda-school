@@ -79,17 +79,7 @@ export const metadata: Metadata = {
 
   // Verification — add your real codes when you get them
   verification: {
-<<<<<<< HEAD
     google: "6lbw76qSw4MzoOhQI6KdkpvuANr7MEh_CAdSh7uxapo",
-=======
-        google: "6lbw76qSw4MzoOhQI6KdkpvuANr7MEh_CAdSh7uxapo",
-    // yandex: "your-yandex-code",
->>>>>>> ef8d0ec2b8d195cfdd8b86df3967bb446e68280a
-  },
-
-  // Alternates
-  alternates: {
-    canonical: SITE_URL,
   },
 
   // Icons
@@ -128,7 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="google-site-verification" content="6lbw76qSw4MzoOhQI6KdkpvuANr7MEh_CAdSh7uxapo" />
         {/* Structured Data — JSON-LD for Google */}
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6892230955738208"
-     crossorigin="anonymous"></script>
+     crossOrigin="anonymous"></script>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
