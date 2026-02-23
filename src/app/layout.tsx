@@ -79,7 +79,7 @@ export const metadata: Metadata = {
 
   // Verification — add your real codes when you get them
   verification: {
-    // google: "your-google-verification-code",
+        google: "6lbw76qSw4MzoOhQI6KdkpvuANr7MEh_CAdSh7uxapo",
     // yandex: "your-yandex-code",
   },
 
@@ -121,6 +121,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="google-site-verification" content="6lbw76qSw4MzoOhQI6KdkpvuANr7MEh_CAdSh7uxapo" />
         {/* Structured Data — JSON-LD for Google */}
         <script
           type="application/ld+json"
