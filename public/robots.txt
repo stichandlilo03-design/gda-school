@@ -1,0 +1,19 @@
+# GDA Schools — https://www.gdaschools.sbs
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /student/
+Disallow: /teacher/
+Disallow: /principal/
+Disallow: /parent/
+Disallow: /admin/
+Disallow: /login
+Disallow: /register
+
+# Allow search engines to crawl public pages
+Allow: /
+Allow: /vacancies
+Allow: /register/student
+Allow: /register/teacher
+
+Sitemap: https://www.gdaschools.sbs/sitemap.xml

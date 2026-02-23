@@ -1,5 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
+
+export const metadata: Metadata = {
+  title: "GDA Schools — Live Virtual Classrooms, Auto Payroll & School Management for Africa",
+  description: "GDA Schools is the #1 digital school platform for Africa. Live virtual classrooms, automatic teacher payroll, real-time fee tracking, student grades, timetables, parent portals — Kindergarten to Senior Secondary. Nigeria, Kenya, Ghana, South Africa & 10 more countries.",
+  keywords: ["GDA Schools", "online school Nigeria", "virtual classroom Africa", "school management system", "teacher payroll", "student portal", "parent portal", "school fees online", "edtech Africa", "digital school Kenya", "digital school Ghana"],
+  openGraph: {
+    title: "GDA Schools — The Smartest Way to Run a School in Africa",
+    description: "Live classrooms. Auto payroll. Fee tracking. Student & parent portals. Built for African schools from K1 to G12.",
+    url: "https://www.gdaschools.sbs",
+    type: "website",
+  },
+};
 import {
   BookOpen,
   Users,

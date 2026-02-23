@@ -1,0 +1,23 @@
+{
+  "name": "GDA Schools — Global Digital Academy",
+  "short_name": "GDA Schools",
+  "description": "The smartest way to run a school. Live classrooms, auto payroll, fee tracking, grades — all in one platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1B3A5C",
+  "orientation": "portrait-primary",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
